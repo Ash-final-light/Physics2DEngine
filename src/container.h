@@ -96,4 +96,11 @@ inline const T* b2Array_Get( const b2DynamicArray<T>& a, int index )
 	return a.data + index;
 }
 
+template <typename T>
+inline T b2Array_Pop( b2DynamicArray<T>& a )
+{
+	B2_ASSERT( a.count > 0 );
+	return a.data[--a.count];
+}
+
 b2DeclareArrayNative( int );

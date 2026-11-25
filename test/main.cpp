@@ -24,6 +24,7 @@ int ArrayCreateTest( void );
 int ArrayReserveTest( void );
 int ArrayPushTest( void );
 int ArrayIndexTest( void );
+int ArrayPopTest( void );
 
 int main( int argc, char** argv )
 {
@@ -142,6 +143,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ArrayIndexTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ArrayPopTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ArrayPopTest );
 	}
 
 	if ( ran == 0 )

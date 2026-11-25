@@ -112,3 +112,18 @@ int ArrayIndexTest( void )
 	b2Array_Destroy( values );
 	return 0;
 }
+
+int ArrayPopTest( void )
+{
+	b2Array( int ) values;
+	b2Array_Create( values );
+	b2Array_Push( values, 10 );
+	b2Array_Push( values, 20 );
+	b2Array_Push( values, 30 );
+	ENSURE( b2Array_Pop( values ) == 30 && values.count == 2 );
+	ENSURE( b2Array_Pop( values ) == 20 && values.count == 1 );
+	ENSURE( b2Array_Pop( values ) == 10 && values.count == 0 );
+	ENSURE( values.data[0] == 10 );
+	b2Array_Destroy( values );
+	return 0;
+}
