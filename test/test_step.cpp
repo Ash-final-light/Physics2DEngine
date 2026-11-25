@@ -314,3 +314,33 @@ int BodyTypeChangeTest( void )
     b2DestroyWorld(worldId);
     ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int BodyMotionLocksTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int bits=0;bits<8;++bits)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={2,3};bd.angularVelocity=1;
+        bd.motionLocks={(bits&1)!=0,(bits&2)!=0,(bits&4)!=0};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Polygon box=b2MakeBox(1,0.5f);b2CreatePolygonShape(body,&sd,&box);
+        b2Body_ApplyForceToCenter(body,{10,10},true);b2Body_ApplyTorque(body,10,true);b2World_Step(id,0.1f,2);
+        b2Pos pos=b2Body_GetPosition(body);b2Rot rot=b2Body_GetRotation(body);
+        ENSURE((bits&1)?pos.x==0:pos.x>0);ENSURE((bits&2)?pos.y==0:pos.y>0);ENSURE((bits&4)?rot.s==0:rot.s>0);
+        b2MotionLocks locks=b2Body_GetMotionLocks(body);ENSURE(locks.linearX==bd.motionLocks.linearX && locks.linearY==bd.motionLocks.linearY && locks.angularZ==bd.motionLocks.angularZ);
+        b2Body_SetMotionLocks(body,{true,true,true});
+        ENSURE(b2Body_GetLinearVelocity(body).x==0 && b2Body_GetLinearVelocity(body).y==0 && b2Body_GetAngularVelocity(body)==0);
+        ENSURE(b2Body_GetRotationalInertia(body)==0);
+        world->locked=true;b2Body_SetMotionLocks(body,{false,false,false});world->locked=false;ENSURE(b2Body_GetMotionLocks(body).angularZ);
+        b2Body_SetMotionLocks(body,{false,false,false});ENSURE(b2Body_GetRotationalInertia(body)>0);
+        b2Body_SetAngularVelocity(body,2);b2World_Step(id,0.1f,1);ENSURE(b2Body_GetAngularVelocity(body)==2);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    // Colliding bodies can generate velocity impulses, but the locked coordinate cannot advance.
+    b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.motionLocks.linearX=true;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+    bd.type=b2_kinematicBody;bd.motionLocks={false,false,false};bd.position={1.8f,0};bd.linearVelocity={-1,0};
+    b2BodyId moving=b2CreateBody(id,&bd);b2CreateCircleShape(moving,&sd,&c);
+    b2World_Step(id,0.1f,4);ENSURE(b2Body_GetPosition(body).x==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

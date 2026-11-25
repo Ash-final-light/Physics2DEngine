@@ -248,6 +248,8 @@ B2_API void b2Shape_SetUserMaterial(b2ShapeId shapeId,uint64_t material);
 B2_API uint64_t b2Shape_GetUserMaterial(b2ShapeId shapeId);
 B2_API void b2Body_EnableContactRecycling(b2BodyId bodyId,bool flag);
 B2_API bool b2Body_IsContactRecyclingEnabled(b2BodyId bodyId);
+B2_API void b2Body_SetMotionLocks(b2BodyId bodyId,b2MotionLocks locks);
+B2_API b2MotionLocks b2Body_GetMotionLocks(b2BodyId bodyId);
 B2_API void b2Shape_SetFriction(b2ShapeId shapeId,float friction);
 B2_API float b2Shape_GetFriction(b2ShapeId shapeId);
 B2_API void b2Shape_SetRestitution(b2ShapeId shapeId,float restitution);

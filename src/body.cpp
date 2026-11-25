@@ -893,3 +893,26 @@ bool b2Body_IsContactRecyclingEnabled(b2BodyId id)
 {
     return b2Body_IsValid(id) && (b2GetBodyFullId(b2_worlds+id.world0,id)->flags&b2_bodyEnableContactRecycling)!=0;
 }
+
+void b2Body_SetMotionLocks(b2BodyId id,b2MotionLocks locks)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    uint32_t newFlags=(locks.linearX?b2_lockLinearX:0)|(locks.linearY?b2_lockLinearY:0)|(locks.angularZ?b2_lockAngularZ:0);
+    if((body->flags&b2_allLocks)==newFlags) { return; }
+    body->flags=(body->flags&~b2_allLocks)|newFlags;b2SyncBodyFlags(world,body);
+    b2BodyState* state=b2GetBodyState(world,body);
+    if(state!=NULL)
+    {
+        if(locks.linearX) { state->linearVelocity.x=0; }
+        if(locks.linearY) { state->linearVelocity.y=0; }
+        if(locks.angularZ) { state->angularVelocity=0; }
+    }
+    b2UpdateBodyMassData(world,body);
+}
+
+b2MotionLocks b2Body_GetMotionLocks(b2BodyId id)
+{
+    B2_ASSERT(b2Body_IsValid(id));uint32_t flags=b2GetBodyFullId(b2_worlds+id.world0,id)->flags;
+    return b2MotionLocks{(flags&b2_lockLinearX)!=0,(flags&b2_lockLinearY)!=0,(flags&b2_lockAngularZ)!=0};
+}

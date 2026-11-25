@@ -33,6 +33,10 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         for(int i=0;i<set->bodySims.count;++i)
         {
             b2BodyState* state=set->bodyStates.data+i;
+            // Motion locks act as the final constraint before position integration.
+            state->linearVelocity.x=(state->flags&b2_lockLinearX)?0.0f:state->linearVelocity.x;
+            state->linearVelocity.y=(state->flags&b2_lockLinearY)?0.0f:state->linearVelocity.y;
+            state->angularVelocity=(state->flags&b2_lockAngularZ)?0.0f:state->angularVelocity;
             state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
         }
