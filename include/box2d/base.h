@@ -137,3 +137,12 @@ B2_API int b2InternalAssert( const char* condition, const char* fileName, int li
 #else
 #define B2_VALIDATE( ... ) ( (void)0 )
 #endif
+
+/// 获取系统时钟的绝对计数值。该值与平台相关。
+B2_API uint64_t b2GetTicks( void );
+
+/// 获取自初始计数值起经过的毫秒数。
+B2_API float b2GetMilliseconds( uint64_t ticks );
+
+/// 获取自初始计数值起经过的毫秒数，并将传入值重置为当前计数值。
+B2_API float b2GetMillisecondsAndReset( uint64_t* ticks );

@@ -52,6 +52,7 @@ if(BUILD_TESTING)
 		test/test_id_pool.cpp
 		test/test_table.cpp
 		test/test_stack.cpp
+		test/test_timer.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE

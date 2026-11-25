@@ -36,6 +36,7 @@ int HashSetInsertTest( void );
 int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
 int StackAllocatorTest( void );
+int TimerTest( void );
 
 int main( int argc, char** argv )
 {
@@ -226,6 +227,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( StackAllocatorTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "TimerTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( TimerTest );
 	}
 
 	if ( ran == 0 )
