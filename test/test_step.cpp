@@ -175,3 +175,23 @@ int BodyTorqueTest( void )
     ENSURE_SMALL( b2Body_GetAngularVelocity( asleep )-1.0f, 0.00001f );
     b2DestroyWorld( world ); return 0;
 }
+
+
+int BodyLinearImpulseTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Body_SetMassData( body, b2MassData{2.0f,{0.0f,0.0f},4.0f} );
+    b2Body_ApplyLinearImpulse( body, {4.0f,0.0f}, {0.0f,1.0f}, true );
+    ENSURE( b2Body_GetLinearVelocity(body).x == 2.0f && b2Body_GetAngularVelocity(body) == -1.0f );
+    ENSURE( b2Body_GetPosition(body).x == 0.0f );
+    b2Body_ApplyLinearImpulseToCenter( body, {2.0f,0.0f}, true );
+    ENSURE( b2Body_GetLinearVelocity(body).x == 3.0f && b2Body_GetAngularVelocity(body) == -1.0f );
+    b2Body_ApplyLinearImpulseToCenter( body, {NAN,0.0f}, true );
+    ENSURE( b2Body_GetLinearVelocity(body).x == 3.0f );
+    b2Body_ApplyLinearImpulseToCenter( body, {1000000.0f,0.0f}, true );
+    ENSURE_SMALL( b2Length(b2Body_GetLinearVelocity(body))-wd.maximumLinearSpeed, 0.001f );
+    b2DestroyWorld(world); return 0;
+}

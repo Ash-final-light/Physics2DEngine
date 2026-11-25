@@ -680,3 +680,42 @@ void b2Body_ApplyTorque( b2BodyId id, float torque, bool wake )
         body->torque += torque;
     }
 }
+
+
+static void b2LimitBodyVelocity( b2Body* body, float maximum )
+{
+    float squared = b2LengthSquared( body->linearVelocity );
+    if ( squared > maximum*maximum )
+    {
+        body->linearVelocity = b2MulSV( maximum/sqrtf(squared), body->linearVelocity );
+    }
+}
+
+void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool wake )
+{
+    if ( b2IsValidVec2( impulse ) == false || b2IsValidVec2( point ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->linearVelocity = b2MulAdd( body->linearVelocity, body->invMass, impulse );
+        body->angularVelocity += body->invInertia*b2Cross( b2Sub(point,body->center), impulse );
+        b2LimitBodyVelocity( body, b2_worlds[id.world0].maxLinearSpeed );
+    }
+}
+
+void b2Body_ApplyLinearImpulseToCenter( b2BodyId id, b2Vec2 impulse, bool wake )
+{
+    if ( b2IsValidVec2( impulse ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->linearVelocity = b2MulAdd( body->linearVelocity, body->invMass, impulse );
+        b2LimitBodyVelocity( body, b2_worlds[id.world0].maxLinearSpeed );
+    }
+}
