@@ -326,3 +326,56 @@ int ChainCircleManifoldTest( void )
 	ENSURE( b2CollideChainSegmentAndCircle( &chain, &circle, far ).pointCount == 0 );
 	return 0;
 }
+
+static float b2MinManifoldSeparation( b2LocalManifold manifold )
+{
+	float separation = manifold.points[0].separation;
+	if ( manifold.pointCount == 2 && manifold.points[1].separation < separation )
+	{
+		separation = manifold.points[1].separation;
+	}
+
+	return separation;
+}
+
+int ChainCapsuleManifoldTest( void )
+{
+	b2ChainSegment chain = {};
+	chain.ghost1 = { -2.0f, 0.0f };
+	chain.segment.point1 = { 0.0f, 0.0f };
+	chain.segment.point2 = { 2.0f, 0.0f };
+	chain.ghost2 = { 4.0f, 0.0f };
+	b2Capsule capsule = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, 0.4f };
+	b2SimplexCache cache = b2_emptySimplexCache;
+
+	b2Transform front = { { 0.5f, -0.3f }, b2Rot_identity };
+	b2LocalManifold hit = b2CollideChainSegmentAndCapsule( &chain, &capsule, front, &cache );
+	ENSURE( hit.pointCount >= 1 );
+	ENSURE( hit.normal.y < -0.5f );
+	ENSURE( b2MinManifoldSeparation( hit ) < 0.0f );
+
+	cache = b2_emptySimplexCache;
+	b2Transform back = { { 0.5f, 0.3f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCapsule( &chain, &capsule, back, &cache ).pointCount == 0 );
+
+	cache = b2_emptySimplexCache;
+	b2Transform away = { { 0.5f, -3.0f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCapsule( &chain, &capsule, away, &cache ).pointCount == 0 );
+
+	b2ChainSegment turn = {};
+	turn.ghost1 = { -1.0f, 0.0f };
+	turn.segment.point1 = { 0.0f, 0.0f };
+	turn.segment.point2 = { 2.0f, 0.0f };
+	turn.ghost2 = { 3.0f, 1.0f };
+	b2Capsule endCap = { { 0.0f, 0.0f }, { 0.6f, 0.0f }, 0.45f };
+	cache = b2_emptySimplexCache;
+	b2Transform ownedEnd = { { 2.1f, -0.15f }, b2Rot_identity };
+	b2LocalManifold endHit = b2CollideChainSegmentAndCapsule( &turn, &endCap, ownedEnd, &cache );
+	ENSURE( endHit.pointCount >= 1 );
+	ENSURE( b2MinManifoldSeparation( endHit ) < 0.05f );
+
+	cache = b2_emptySimplexCache;
+	b2Transform nextEdge = { { 2.7f, 0.55f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCapsule( &turn, &endCap, nextEdge, &cache ).pointCount == 0 );
+	return 0;
+}

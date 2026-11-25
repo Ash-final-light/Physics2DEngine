@@ -784,3 +784,405 @@ b2LocalManifold b2CollideChainSegmentAndCircle( const b2ChainSegment* segmentA, 
 	manifold.pointCount = 1;
 	return manifold;
 }
+
+static b2LocalManifold b2ClipSegments( b2Vec2 a1, b2Vec2 a2, b2Vec2 b1, b2Vec2 b2, b2Vec2 normal, float ra, float rb, uint16_t id1,
+									   uint16_t id2 )
+{
+	b2LocalManifold manifold = {};
+	b2Vec2 tangent = b2LeftPerp( normal );
+	float lower1 = 0.0f;
+	float upper1 = b2Dot( b2Sub( a2, a1 ), tangent );
+	float upper2 = b2Dot( b2Sub( b1, a1 ), tangent );
+	float lower2 = b2Dot( b2Sub( b2, a1 ), tangent );
+	if ( upper2 < lower1 || upper1 < lower2 )
+	{
+		return manifold;
+	}
+
+	b2Vec2 vLower;
+	if ( lower2 < lower1 && upper2 - lower2 > FLT_EPSILON )
+	{
+		vLower = b2Lerp( b2, b1, ( lower1 - lower2 ) / ( upper2 - lower2 ) );
+	}
+	else
+	{
+		vLower = b2;
+	}
+
+	b2Vec2 vUpper;
+	if ( upper2 > upper1 && upper2 - lower2 > FLT_EPSILON )
+	{
+		vUpper = b2Lerp( b2, b1, ( upper1 - lower2 ) / ( upper2 - lower2 ) );
+	}
+	else
+	{
+		vUpper = b1;
+	}
+
+	float separationLower = b2Dot( b2Sub( vLower, a1 ), normal );
+	float separationUpper = b2Dot( b2Sub( vUpper, a1 ), normal );
+	vLower = b2MulAdd( vLower, 0.5f * ( ra - rb - separationLower ), normal );
+	vUpper = b2MulAdd( vUpper, 0.5f * ( ra - rb - separationUpper ), normal );
+	float radius = ra + rb;
+	manifold.normal = normal;
+	manifold.points[0].point = vLower;
+	manifold.points[0].separation = separationLower - radius;
+	manifold.points[0].id = id1;
+	manifold.points[1].point = vUpper;
+	manifold.points[1].separation = separationUpper - radius;
+	manifold.points[1].id = id2;
+	manifold.pointCount = 2;
+	return manifold;
+}
+
+enum b2NormalType
+{
+	b2_normalSkip,
+	b2_normalAdmit,
+	b2_normalSnap
+};
+
+struct b2ChainSegmentParams
+{
+	b2Vec2 edge1;
+	b2Vec2 normal0;
+	b2Vec2 normal2;
+	bool convex1;
+	bool convex2;
+};
+
+static b2NormalType b2ClassifyNormal( b2ChainSegmentParams params, b2Vec2 normal )
+{
+	const float sinTol = 0.01f;
+	if ( b2Dot( normal, params.edge1 ) <= 0.0f )
+	{
+		if ( params.convex1 )
+		{
+			if ( b2Cross( normal, params.normal0 ) > sinTol )
+			{
+				return b2_normalSkip;
+			}
+
+			return b2_normalAdmit;
+		}
+
+		return b2_normalSnap;
+	}
+
+	if ( params.convex2 )
+	{
+		if ( b2Cross( params.normal2, normal ) > sinTol )
+		{
+			return b2_normalSkip;
+		}
+
+		return b2_normalAdmit;
+	}
+
+	return b2_normalSnap;
+}
+
+static b2LocalManifold b2CollideChainSegmentAndPolygon( const b2ChainSegment* segmentA, const b2Polygon* polygonB, b2Transform xf,
+													   b2SimplexCache* cache )
+{
+	b2LocalManifold manifold = {};
+	b2Vec2 centroidB = b2TransformPoint( xf, polygonB->centroid );
+	float radiusB = polygonB->radius;
+	b2Vec2 p1 = segmentA->segment.point1;
+	b2Vec2 p2 = segmentA->segment.point2;
+	b2Vec2 edge1 = b2Normalize( b2Sub( p2, p1 ) );
+	b2ChainSegmentParams smoothParams = {};
+	smoothParams.edge1 = edge1;
+	const float convexTol = 0.01f;
+	b2Vec2 edge0 = b2Normalize( b2Sub( p1, segmentA->ghost1 ) );
+	smoothParams.normal0 = b2RightPerp( edge0 );
+	smoothParams.convex1 = b2Cross( edge0, edge1 ) >= convexTol;
+	b2Vec2 edge2 = b2Normalize( b2Sub( segmentA->ghost2, p2 ) );
+	smoothParams.normal2 = b2RightPerp( edge2 );
+	smoothParams.convex2 = b2Cross( edge1, edge2 ) >= convexTol;
+	b2Vec2 normal1 = b2RightPerp( edge1 );
+	bool behind1 = b2Dot( normal1, b2Sub( centroidB, p1 ) ) < 0.0f;
+	bool behind0 = true;
+	bool behind2 = true;
+	if ( smoothParams.convex1 )
+	{
+		behind0 = b2Dot( smoothParams.normal0, b2Sub( centroidB, p1 ) ) < 0.0f;
+	}
+
+	if ( smoothParams.convex2 )
+	{
+		behind2 = b2Dot( smoothParams.normal2, b2Sub( centroidB, p2 ) ) < 0.0f;
+	}
+
+	if ( behind1 && behind0 && behind2 )
+	{
+		return manifold;
+	}
+
+	int count = polygonB->count;
+	b2Vec2 vertices[B2_MAX_POLYGON_VERTICES];
+	b2Vec2 normals[B2_MAX_POLYGON_VERTICES];
+	for ( int i = 0; i < count; ++i )
+	{
+		vertices[i] = b2TransformPoint( xf, polygonB->vertices[i] );
+		normals[i] = b2RotateVector( xf.q, polygonB->normals[i] );
+	}
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeProxy( &segmentA->segment.point1, 2, 0.0f );
+	input.proxyB = b2MakeProxy( vertices, count, 0.0f );
+	input.transform = b2Transform_identity;
+	input.useRadii = false;
+	b2DistanceOutput output = b2ComputeShapeDistance( &input, cache, NULL, 0 );
+	if ( output.distance > radiusB + B2_SPECULATIVE_DISTANCE )
+	{
+		return manifold;
+	}
+
+	b2Vec2 n0 = smoothParams.convex1 ? smoothParams.normal0 : normal1;
+	b2Vec2 n2 = smoothParams.convex2 ? smoothParams.normal2 : normal1;
+	int incidentIndex = -1;
+	int incidentNormal = -1;
+	if ( behind1 == false && output.distance > 0.1f * B2_LINEAR_SLOP )
+	{
+		if ( cache->count == 1 )
+		{
+			b2Vec2 pA = output.pointA;
+			b2Vec2 pB = output.pointB;
+			b2Vec2 normal = b2Normalize( b2Sub( pB, pA ) );
+			b2NormalType type = b2ClassifyNormal( smoothParams, normal );
+			if ( type == b2_normalSkip )
+			{
+				return manifold;
+			}
+
+			if ( type == b2_normalAdmit )
+			{
+				manifold.normal = normal;
+				manifold.points[0].point = pA;
+				manifold.points[0].separation = output.distance - radiusB;
+				manifold.points[0].id = B2_MAKE_ID( cache->indexA[0], cache->indexB[0] );
+				manifold.pointCount = 1;
+				return manifold;
+			}
+
+			incidentIndex = cache->indexB[0];
+		}
+		else
+		{
+			B2_ASSERT( cache->count == 2 );
+			int ia1 = cache->indexA[0];
+			int ia2 = cache->indexA[1];
+			int ib1 = cache->indexB[0];
+			int ib2 = cache->indexB[1];
+			if ( ia1 == ia2 )
+			{
+				B2_ASSERT( ib1 != ib2 );
+				b2Vec2 normalB = b2Sub( output.pointA, output.pointB );
+				float dot1 = b2Dot( normalB, normals[ib1] );
+				float dot2 = b2Dot( normalB, normals[ib2] );
+				int ib = dot1 > dot2 ? ib1 : ib2;
+				normalB = normals[ib];
+				b2NormalType type = b2ClassifyNormal( smoothParams, b2Neg( normalB ) );
+				if ( type == b2_normalSkip )
+				{
+					return manifold;
+				}
+
+				if ( type == b2_normalAdmit )
+				{
+					ib1 = ib;
+					ib2 = ib < count - 1 ? ib + 1 : 0;
+					b2Vec2 b1 = vertices[ib1];
+					b2Vec2 b2 = vertices[ib2];
+					dot1 = b2Dot( normalB, b2Sub( p1, b1 ) );
+					dot2 = b2Dot( normalB, b2Sub( p2, b1 ) );
+					if ( dot1 < dot2 )
+					{
+						if ( b2Dot( n0, normalB ) < b2Dot( normal1, normalB ) )
+						{
+							return manifold;
+						}
+					}
+					else
+					{
+						if ( b2Dot( n2, normalB ) < b2Dot( normal1, normalB ) )
+						{
+							return manifold;
+						}
+					}
+
+					manifold = b2ClipSegments( b1, b2, p1, p2, normalB, radiusB, 0.0f, B2_MAKE_ID( ib1, 1 ), B2_MAKE_ID( ib2, 0 ) );
+					B2_ASSERT( manifold.pointCount == 0 || manifold.pointCount == 2 );
+					if ( manifold.pointCount == 2 )
+					{
+						manifold.normal = b2Neg( normalB );
+					}
+
+					return manifold;
+				}
+
+				incidentNormal = ib;
+			}
+			else
+			{
+				float dot1 = b2Dot( normal1, b2Sub( vertices[ib1], p1 ) );
+				float dot2 = b2Dot( normal1, b2Sub( vertices[ib2], p2 ) );
+				incidentIndex = dot1 < dot2 ? ib1 : ib2;
+			}
+		}
+	}
+	else
+	{
+		float edgeSeparation = FLT_MAX;
+		for ( int i = 0; i < count; ++i )
+		{
+			float s = b2Dot( normal1, b2Sub( vertices[i], p1 ) );
+			if ( s < edgeSeparation )
+			{
+				edgeSeparation = s;
+				incidentIndex = i;
+			}
+		}
+
+		if ( smoothParams.convex1 )
+		{
+			float s0 = FLT_MAX;
+			for ( int i = 0; i < count; ++i )
+			{
+				float s = b2Dot( smoothParams.normal0, b2Sub( vertices[i], p1 ) );
+				if ( s < s0 )
+				{
+					s0 = s;
+				}
+			}
+
+			if ( s0 > edgeSeparation )
+			{
+				edgeSeparation = s0;
+				incidentIndex = -1;
+			}
+		}
+
+		if ( smoothParams.convex2 )
+		{
+			float s2 = FLT_MAX;
+			for ( int i = 0; i < count; ++i )
+			{
+				float s = b2Dot( smoothParams.normal2, b2Sub( vertices[i], p2 ) );
+				if ( s < s2 )
+				{
+					s2 = s;
+				}
+			}
+
+			if ( s2 > edgeSeparation )
+			{
+				edgeSeparation = s2;
+				incidentIndex = -1;
+			}
+		}
+
+		float polygonSeparation = -FLT_MAX;
+		int referenceIndex = -1;
+		for ( int i = 0; i < count; ++i )
+		{
+			b2Vec2 n = normals[i];
+			b2NormalType type = b2ClassifyNormal( smoothParams, b2Neg( n ) );
+			if ( type != b2_normalAdmit )
+			{
+				continue;
+			}
+
+			b2Vec2 p = vertices[i];
+			float s = b2MinFloat( b2Dot( n, b2Sub( p2, p ) ), b2Dot( n, b2Sub( p1, p ) ) );
+			if ( s > polygonSeparation )
+			{
+				polygonSeparation = s;
+				referenceIndex = i;
+			}
+		}
+
+		if ( polygonSeparation > edgeSeparation )
+		{
+			int ia1 = referenceIndex;
+			int ia2 = ia1 < count - 1 ? ia1 + 1 : 0;
+			b2Vec2 a1 = vertices[ia1];
+			b2Vec2 a2 = vertices[ia2];
+			b2Vec2 n = normals[ia1];
+			float dot1 = b2Dot( n, b2Sub( p1, a1 ) );
+			float dot2 = b2Dot( n, b2Sub( p2, a1 ) );
+			if ( dot1 < dot2 )
+			{
+				if ( b2Dot( n0, n ) < b2Dot( normal1, n ) )
+				{
+					return manifold;
+				}
+			}
+			else
+			{
+				if ( b2Dot( n2, n ) < b2Dot( normal1, n ) )
+				{
+					return manifold;
+				}
+			}
+
+			manifold = b2ClipSegments( a1, a2, p1, p2, normals[ia1], radiusB, 0.0f, B2_MAKE_ID( ia1, 1 ), B2_MAKE_ID( ia2, 0 ) );
+			B2_ASSERT( manifold.pointCount == 0 || manifold.pointCount == 2 );
+			if ( manifold.pointCount == 2 )
+			{
+				manifold.normal = b2Neg( normals[ia1] );
+			}
+
+			return manifold;
+		}
+
+		if ( incidentIndex == -1 )
+		{
+			return manifold;
+		}
+	}
+
+	B2_ASSERT( incidentNormal != -1 || incidentIndex != -1 );
+	b2Vec2 b1, b2;
+	int ib1, ib2;
+	if ( incidentNormal != -1 )
+	{
+		ib1 = incidentNormal;
+		ib2 = ib1 < count - 1 ? ib1 + 1 : 0;
+		b1 = vertices[ib1];
+		b2 = vertices[ib2];
+	}
+	else
+	{
+		int i2 = incidentIndex;
+		int i1 = i2 > 0 ? i2 - 1 : count - 1;
+		float d1 = b2Dot( normal1, normals[i1] );
+		float d2 = b2Dot( normal1, normals[i2] );
+		if ( d1 < d2 )
+		{
+			ib1 = i1;
+			ib2 = i2;
+			b1 = vertices[ib1];
+			b2 = vertices[ib2];
+		}
+		else
+		{
+			ib1 = i2;
+			ib2 = i2 < count - 1 ? i2 + 1 : 0;
+			b1 = vertices[ib1];
+			b2 = vertices[ib2];
+		}
+	}
+
+	manifold = b2ClipSegments( p1, p2, b1, b2, normal1, 0.0f, radiusB, B2_MAKE_ID( 0, ib2 ), B2_MAKE_ID( 1, ib1 ) );
+	B2_ASSERT( manifold.pointCount == 0 || manifold.pointCount == 2 );
+	return manifold;
+}
+
+b2LocalManifold b2CollideChainSegmentAndCapsule( const b2ChainSegment* segmentA, const b2Capsule* capsuleB, b2Transform xf,
+												 b2SimplexCache* cache )
+{
+	b2Polygon polyB = b2MakeCapsule( capsuleB->center1, capsuleB->center2, capsuleB->radius );
+	return b2CollideChainSegmentAndPolygon( segmentA, &polyB, xf, cache );
+}
