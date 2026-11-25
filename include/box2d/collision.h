@@ -103,3 +103,14 @@ B2_API b2CastOutput b2CastRayCircle( const b2Circle* shape, const b2RayCastInput
 B2_API b2CastOutput b2CastRayCapsule( const b2Capsule* shape, const b2RayCastInput* input );
 B2_API b2CastOutput b2CastRaySegment( const b2Segment* shape, const b2RayCastInput* input, bool oneSided );
 B2_API b2CastOutput b2CastRayPolygon( const b2Polygon* shape, const b2RayCastInput* input );
+
+typedef struct b2SegmentDistanceResult
+{
+	b2Vec2 closest1;
+	b2Vec2 closest2;
+	float fraction1;
+	float fraction2;
+	float distanceSquared;
+} b2SegmentDistanceResult;
+
+B2_API b2SegmentDistanceResult b2ComputeSegmentDistance( b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2 );
