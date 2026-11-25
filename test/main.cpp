@@ -68,6 +68,7 @@ int CapsuleManifoldTest( void );
 int SegmentCircleManifoldTest( void );
 int SegmentCapsuleManifoldTest( void );
 int PolygonCapsuleManifoldTest( void );
+int PolygonManifoldTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -451,6 +452,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( PolygonCapsuleManifoldTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "PolygonManifoldTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( PolygonManifoldTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

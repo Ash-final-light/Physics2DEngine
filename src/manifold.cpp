@@ -531,7 +531,7 @@ static float b2FindMaxSeparation( int* edgeIndex, const b2Polygon* poly1, const 
 	return maxSeparation;
 }
 
-static b2LocalManifold b2CollidePolygons( const b2Polygon* polygonA, const b2Polygon* polygonB, b2Transform xf )
+b2LocalManifold b2CollidePolygons( const b2Polygon* polygonA, const b2Polygon* polygonB, b2Transform xf )
 {
 	b2Vec2 origin = polygonA->vertices[0];
 	float linearSlop = B2_LINEAR_SLOP;

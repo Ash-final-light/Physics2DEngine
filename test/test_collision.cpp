@@ -226,3 +226,42 @@ int PolygonCapsuleManifoldTest( void )
 	ENSURE( b2CollidePolygonAndCapsule( &box, &capsule, away ).pointCount == 0 );
 	return 0;
 }
+
+int PolygonManifoldTest( void )
+{
+	b2Polygon boxA = b2MakeBox( 1.0f, 1.0f );
+	b2Polygon boxB = b2MakeBox( 1.0f, 1.0f );
+	b2Transform side = { { 1.5f, 0.0f }, b2Rot_identity };
+	b2LocalManifold face = b2CollidePolygons( &boxA, &boxB, side );
+	ENSURE( face.pointCount == 2 );
+	ENSURE( face.normal.x > 0.9f );
+	ENSURE( face.points[0].separation < 0.0f );
+	ENSURE( face.points[1].separation < 0.0f );
+	ENSURE( face.points[0].id != face.points[1].id );
+	b2LocalManifold again = b2CollidePolygons( &boxA, &boxB, side );
+	ENSURE( again.points[0].id == face.points[0].id );
+	ENSURE( again.points[1].id == face.points[1].id );
+
+	b2Transform overlap = { { 0.5f, 0.5f }, b2Rot_identity };
+	b2LocalManifold corner = b2CollidePolygons( &boxA, &boxB, overlap );
+	ENSURE( corner.pointCount >= 1 );
+	float cornerSeparation = corner.points[0].separation;
+	if ( corner.pointCount == 2 && corner.points[1].separation < cornerSeparation )
+	{
+		cornerSeparation = corner.points[1].separation;
+	}
+	ENSURE( cornerSeparation < 0.0f );
+
+	b2Polygon roundA = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	b2Polygon roundB = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	b2Transform roundSide = { { 2.2f, 0.0f }, b2Rot_identity };
+	b2LocalManifold round = b2CollidePolygons( &roundA, &roundB, roundSide );
+	ENSURE( round.pointCount == 2 );
+	ENSURE( round.normal.x > 0.9f );
+	ENSURE( round.points[0].separation < 0.0f );
+	ENSURE( round.points[1].separation < 0.0f );
+
+	b2Transform apart = { { 3.0f, 0.0f }, b2Rot_identity };
+	ENSURE( b2CollidePolygons( &boxA, &boxB, apart ).pointCount == 0 );
+	return 0;
+}
