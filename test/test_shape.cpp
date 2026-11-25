@@ -409,3 +409,40 @@ int ChainEnumerationTest( void )
     b2DestroyWorld( world );
     return 0;
 }
+
+
+int ChainMaterialTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Vec2 points[] = { { 0.0f, 0.0f }, { 4.0f, 0.0f }, { 4.0f, 3.0f } };
+    b2SurfaceMaterial materials[3] = { b2DefaultSurfaceMaterial(), b2DefaultSurfaceMaterial(), b2DefaultSurfaceMaterial() };
+    materials[1].friction = 0.8f;
+    b2ChainDef def = b2DefaultChainDef();
+    def.points = points; def.pointCount = 3; def.isLoop = true;
+    def.materials = materials; def.materialCount = 3;
+    b2ChainId chain = b2CreateChain( body, &def );
+    materials[1].friction = 0.0f;
+    ENSURE( b2Chain_GetSurfaceMaterial( chain, 1 ).friction == 0.8f );
+    b2SurfaceMaterial changed = b2DefaultSurfaceMaterial();
+    changed.friction = 0.2f;
+    changed.restitution = 0.9f;
+    changed.userMaterialId = 1234;
+    b2Chain_SetSurfaceMaterial( chain, &changed, 1 );
+    ENSURE( b2Chain_GetSurfaceMaterial( chain, 1 ).friction == 0.2f );
+    ENSURE( b2Chain_GetSurfaceMaterial( chain, 0 ).friction == 0.6f );
+    changed.friction = -1.0f;
+    b2Chain_SetAllSurfaceMaterials( chain, &changed );
+    ENSURE( b2Chain_GetSurfaceMaterial( chain, 1 ).friction == 0.2f );
+    changed.friction = 0.3f;
+    b2Chain_SetAllSurfaceMaterials( chain, &changed );
+    for ( int i = 0; i < 3; ++i )
+    {
+        b2SurfaceMaterial actual = b2Chain_GetSurfaceMaterial( chain, i );
+        ENSURE( actual.friction == 0.3f && actual.restitution == 0.9f && actual.userMaterialId == 1234 );
+    }
+    b2DestroyWorld( world );
+    return 0;
+}

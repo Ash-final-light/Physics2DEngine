@@ -647,3 +647,35 @@ b2ChainId b2Shape_GetParentChain( b2ShapeId id )
     int chainId = shape->chainSegment.chainId;
     return b2ChainId{ chainId+1, id.world0, b2_worlds[id.world0].chainShapes.data[chainId].generation };
 }
+
+
+void b2Chain_SetSurfaceMaterial( b2ChainId id, const b2SurfaceMaterial* material, int segmentIndex )
+{
+    b2ChainShape* chain = b2GetChainFromId( id );
+    if ( chain == NULL || material == NULL || b2IsValidMaterial( material ) == false ||
+         segmentIndex < 0 || segmentIndex >= chain->segmentCount || b2_worlds[id.world0].locked )
+    {
+        return;
+    }
+    b2_worlds[id.world0].shapes.data[chain->shapeIndices[segmentIndex]].material = *material;
+}
+
+void b2Chain_SetAllSurfaceMaterials( b2ChainId id, const b2SurfaceMaterial* material )
+{
+    b2ChainShape* chain = b2GetChainFromId( id );
+    if ( chain == NULL || material == NULL || b2IsValidMaterial( material ) == false || b2_worlds[id.world0].locked )
+    {
+        return;
+    }
+    for ( int i = 0; i < chain->segmentCount; ++i )
+    {
+        b2_worlds[id.world0].shapes.data[chain->shapeIndices[i]].material = *material;
+    }
+}
+
+b2SurfaceMaterial b2Chain_GetSurfaceMaterial( b2ChainId id, int segmentIndex )
+{
+    b2ChainShape* chain = b2GetChainFromId( id );
+    B2_ASSERT( chain != NULL && segmentIndex >= 0 && segmentIndex < chain->segmentCount );
+    return b2_worlds[id.world0].shapes.data[chain->shapeIndices[segmentIndex]].material;
+}

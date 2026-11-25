@@ -94,6 +94,7 @@ int BodyNameTest( void );
 int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
+int ChainMaterialTest( void );
 int ChainEnumerationTest( void );
 int ChainLifecycleTest( void );
 int BodyExplicitMassTest( void );
@@ -703,6 +704,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ChainEnumerationTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ChainMaterialTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ChainMaterialTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

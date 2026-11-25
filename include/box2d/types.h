@@ -214,3 +214,8 @@ B2_API int b2Chain_GetSegmentCount( b2ChainId chainId );
 B2_API int b2Chain_GetSegments( b2ChainId chainId, b2ShapeId* segmentArray, int capacity );
 B2_API b2ChainSegment b2Shape_GetChainSegment( b2ShapeId shapeId );
 B2_API b2ChainId b2Shape_GetParentChain( b2ShapeId shapeId );
+
+
+B2_API void b2Chain_SetSurfaceMaterial( b2ChainId chainId, const b2SurfaceMaterial* material, int segmentIndex );
+B2_API void b2Chain_SetAllSurfaceMaterials( b2ChainId chainId, const b2SurfaceMaterial* material );
+B2_API b2SurfaceMaterial b2Chain_GetSurfaceMaterial( b2ChainId chainId, int segmentIndex );
