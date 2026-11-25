@@ -593,3 +593,57 @@ void b2DestroyChain( b2ChainId id )
     chain->generation = generation;
     chain->id = B2_NULL_INDEX;
 }
+
+
+static b2ChainShape* b2GetChainFromId( b2ChainId id )
+{
+    if ( b2Chain_IsValid( id ) == false )
+    {
+        return NULL;
+    }
+    return b2_worlds[id.world0].chainShapes.data + id.index1 - 1;
+}
+
+b2WorldId b2Chain_GetWorld( b2ChainId id )
+{
+    B2_ASSERT( b2Chain_IsValid( id ) );
+    return b2WorldId{ (uint16_t)(id.world0+1), b2_worlds[id.world0].generation };
+}
+
+int b2Chain_GetSegmentCount( b2ChainId id )
+{
+    b2ChainShape* chain = b2GetChainFromId( id );
+    return chain != NULL && b2_worlds[id.world0].locked == false ? chain->segmentCount : 0;
+}
+
+int b2Chain_GetSegments( b2ChainId id, b2ShapeId* output, int capacity )
+{
+    b2ChainShape* chain = b2GetChainFromId( id );
+    if ( chain == NULL || capacity <= 0 || output == NULL || b2_worlds[id.world0].locked )
+    {
+        return 0;
+    }
+    int count = b2MinInt( chain->segmentCount, capacity );
+    for ( int i = 0; i < count; ++i )
+    {
+        int shapeId = chain->shapeIndices[i];
+        output[i] = b2ShapeId{ shapeId+1, id.world0, b2_worlds[id.world0].shapes.data[shapeId].generation };
+    }
+    return count;
+}
+
+b2ChainSegment b2Shape_GetChainSegment( b2ShapeId id )
+{
+    return b2GetShapeWithType( id, b2_chainSegmentShape )->chainSegment;
+}
+
+b2ChainId b2Shape_GetParentChain( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    if ( shape == NULL || shape->type != b2_chainSegmentShape || shape->chainSegment.chainId == B2_NULL_INDEX )
+    {
+        return b2_nullChainId;
+    }
+    int chainId = shape->chainSegment.chainId;
+    return b2ChainId{ chainId+1, id.world0, b2_worlds[id.world0].chainShapes.data[chainId].generation };
+}

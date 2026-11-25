@@ -372,3 +372,40 @@ int ChainLifecycleTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int ChainEnumerationTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Vec2 points[] = { { 0.0f, 0.0f }, { 4.0f, 0.0f }, { 4.0f, 3.0f }, { 0.0f, 3.0f } };
+    b2ChainDef def = b2DefaultChainDef();
+    def.points = points; def.pointCount = 4; def.isLoop = true;
+    b2ChainId chain = b2CreateChain( body, &def );
+    ENSURE( b2Chain_GetWorld( chain ).index1 == world.index1 );
+    ENSURE( b2Chain_GetWorld( chain ).generation == world.generation );
+    ENSURE( b2Chain_GetSegmentCount( chain ) == 4 );
+    b2ShapeId shapes[5] = {};
+    ENSURE( b2Chain_GetSegments( chain, shapes, 2 ) == 2 );
+    ENSURE( shapes[2].index1 == 0 );
+    ENSURE( b2Chain_GetSegments( chain, shapes, 5 ) == 4 );
+    for ( int i = 0; i < 4; ++i )
+    {
+        ENSURE( b2Shape_IsValid( shapes[i] ) );
+        b2ChainId parent = b2Shape_GetParentChain( shapes[i] );
+        ENSURE( parent.index1 == chain.index1 && parent.generation == chain.generation );
+        b2ChainSegment segment = b2Shape_GetChainSegment( shapes[i] );
+        ENSURE( segment.segment.point1.x == points[i].x && segment.segment.point1.y == points[i].y );
+    }
+    ENSURE( b2Chain_GetSegments( chain, NULL, 0 ) == 0 );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    ENSURE( b2Shape_GetParentChain( b2CreateCircleShape( body, &sd, &circle ) ).index1 == 0 );
+    b2DestroyChain( chain );
+    ENSURE( b2Chain_GetSegmentCount( chain ) == 0 );
+    ENSURE( b2Chain_GetSegments( chain, shapes, 5 ) == 0 );
+    b2DestroyWorld( world );
+    return 0;
+}

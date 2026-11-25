@@ -207,3 +207,10 @@ B2_API b2ChainDef b2DefaultChainDef( void );
 B2_API b2ChainId b2CreateChain( b2BodyId bodyId, const b2ChainDef* def );
 B2_API void b2DestroyChain( b2ChainId chainId );
 B2_API bool b2Chain_IsValid( b2ChainId chainId );
+
+
+B2_API b2WorldId b2Chain_GetWorld( b2ChainId chainId );
+B2_API int b2Chain_GetSegmentCount( b2ChainId chainId );
+B2_API int b2Chain_GetSegments( b2ChainId chainId, b2ShapeId* segmentArray, int capacity );
+B2_API b2ChainSegment b2Shape_GetChainSegment( b2ShapeId shapeId );
+B2_API b2ChainId b2Shape_GetParentChain( b2ShapeId shapeId );
