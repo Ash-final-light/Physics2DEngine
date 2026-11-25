@@ -5,13 +5,14 @@
 
 #include "core.h"
 #include "world.h"
+#include "shape.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 
 #include <string.h>
 
-static b2Body* b2GetBody( b2World* world, b2BodyId bodyId )
+b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId )
 {
 	if ( world == NULL || bodyId.index1 < 1 || bodyId.index1 > world->bodies.count )
 	{
@@ -60,6 +61,7 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 	*body = b2Body{};
 	body->generation = generation;
 	body->id = bodyId;
+	body->headShapeId = B2_NULL_INDEX;
 	body->type = def->type;
 	body->transform.p = def->position;
 	body->transform.q = def->rotation;
@@ -94,12 +96,18 @@ void b2DestroyBody( b2BodyId bodyId )
 	}
 
 	b2World* world = b2_worlds + bodyId.world0;
-	b2Body* body = b2GetBody( world, bodyId );
+	b2Body* body = b2GetBodyFullId( world, bodyId );
 	if ( body == NULL )
 	{
 		return;
 	}
 
+
+    while ( body->headShapeId != B2_NULL_INDEX )
+    {
+        b2Shape* shape = world->shapes.data + body->headShapeId;
+        b2DestroyShape( b2ShapeId{ shape->id + 1, world->worldId, shape->generation }, false );
+    }
 	b2FreeId( &world->bodyIdPool, body->id );
 	uint16_t generation = body->generation;
 	*body = b2Body{};
@@ -136,7 +144,7 @@ void b2Body_SetName( b2BodyId bodyId, const char* name )
 	{
 		return;
 	}
-	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
 	if ( body == NULL )
 	{
 		return;
@@ -158,7 +166,7 @@ const char* b2Body_GetName( b2BodyId bodyId )
 	{
 		return empty;
 	}
-	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
 	if ( body == NULL )
 	{
 		return empty;
@@ -172,7 +180,7 @@ void b2Body_SetUserData( b2BodyId bodyId, void* userData )
 	{
 		return;
 	}
-	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
 	if ( body == NULL )
 	{
 		return;
@@ -186,7 +194,7 @@ void* b2Body_GetUserData( b2BodyId bodyId )
 	{
 		return NULL;
 	}
-	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
 	if ( body == NULL )
 	{
 		return NULL;
@@ -197,7 +205,7 @@ void* b2Body_GetUserData( b2BodyId bodyId )
 static b2WorldTransform b2GetBodyTransformFromId( b2BodyId bodyId )
 {
 	B2_ASSERT( b2Body_IsValid( bodyId ) );
-	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
 	return body->transform;
 }
 
@@ -248,9 +256,13 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	{
 		return;
 	}
-	b2Body* body = b2GetBody( world, bodyId );
+	b2Body* body = b2GetBodyFullId( world, bodyId );
 	body->transform.p = position;
 	body->transform.q = rotation;
+    for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
+    {
+        b2UpdateShapeAABB( world->shapes.data + id, body->transform );
+    }
 }
 
 b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
@@ -259,7 +271,19 @@ b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
 	{
 		return b2AABB{};
 	}
-	// Bodies in this stage have no attached shapes: bound the body origin.
-	b2Pos position = b2Body_GetPosition( bodyId );
-	return b2AABB{ position, position };
+    b2World* world = b2_worlds + bodyId.world0;
+    b2Body* body = b2GetBodyFullId( world, bodyId );
+    if ( body->headShapeId == B2_NULL_INDEX )
+    {
+        b2Pos position = body->transform.p;
+        return b2AABB{ position, position };
+    }
+    b2Shape* shape = world->shapes.data + body->headShapeId;
+    b2AABB bounds = shape->aabb;
+    while ( shape->nextShapeId != B2_NULL_INDEX )
+    {
+        shape = world->shapes.data + shape->nextShapeId;
+        bounds = b2AABB_Union( bounds, shape->aabb );
+    }
+    return bounds;
 }

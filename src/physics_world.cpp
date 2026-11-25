@@ -65,6 +65,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->userData = def->userData;
 	world->bodyIdPool = b2CreateIdPool();
 	b2Array_Create( world->bodies );
+	world->shapeIdPool = b2CreateIdPool();
+	b2Array_Create( world->shapes );
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -83,6 +85,8 @@ void b2DestroyWorld( b2WorldId worldId )
 
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
+	b2Array_Destroy( world->shapes );
+	b2DestroyIdPool( &world->shapeIdPool );
 	b2DestroyIdPool( &world->bodyIdPool );
 	uint16_t generation = world->generation;
 	*world = b2World{};

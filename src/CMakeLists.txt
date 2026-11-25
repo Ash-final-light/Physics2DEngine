@@ -16,6 +16,7 @@ add_library(box2d
 	types.cpp
 	physics_world.cpp
 	body.cpp
+	shape.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

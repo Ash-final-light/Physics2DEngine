@@ -19,3 +19,13 @@ typedef struct b2BodyId
 } b2BodyId;
 
 static const b2BodyId b2_nullBodyId = {};
+
+
+typedef struct b2ShapeId
+{
+    int32_t index1;
+    uint16_t world0;
+    uint16_t generation;
+} b2ShapeId;
+
+static const b2ShapeId b2_nullShapeId = {};

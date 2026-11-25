@@ -4,6 +4,7 @@
 #pragma once
 
 #include "base.h"
+#include "collision.h"
 #include "id.h"
 #include "math_types.h"
 
@@ -105,3 +106,48 @@ B2_API b2Vec2 b2Body_GetLocalVector( b2BodyId bodyId, b2Vec2 worldVector );
 B2_API b2Vec2 b2Body_GetWorldVector( b2BodyId bodyId, b2Vec2 localVector );
 B2_API void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation );
 B2_API b2AABB b2Body_ComputeBounds( b2BodyId bodyId );
+
+
+typedef struct b2Filter
+{
+    uint64_t categoryBits;
+    uint64_t maskBits;
+    int groupIndex;
+} b2Filter;
+
+typedef enum b2ShapeType
+{
+    b2_circleShape,
+    b2_capsuleShape,
+    b2_segmentShape,
+    b2_polygonShape,
+    b2_chainSegmentShape,
+    b2_shapeTypeCount
+} b2ShapeType;
+
+typedef struct b2SurfaceMaterial
+{
+    float friction;
+    float restitution;
+    float rollingResistance;
+    float tangentSpeed;
+    uint64_t userMaterialId;
+    uint32_t customColor;
+} b2SurfaceMaterial;
+
+typedef struct b2ShapeDef
+{
+    void* userData;
+    b2SurfaceMaterial material;
+    float density;
+    b2Filter filter;
+    bool updateBodyMass;
+    int internalValue;
+} b2ShapeDef;
+
+B2_API b2Filter b2DefaultFilter( void );
+B2_API b2SurfaceMaterial b2DefaultSurfaceMaterial( void );
+B2_API b2ShapeDef b2DefaultShapeDef( void );
+B2_API b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle );
+B2_API void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass );
+B2_API bool b2Shape_IsValid( b2ShapeId shapeId );

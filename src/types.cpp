@@ -41,3 +41,27 @@ b2BodyDef b2DefaultBodyDef( void )
 	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
+
+
+b2Filter b2DefaultFilter( void )
+{
+    return b2Filter{ 1, UINT64_MAX, 0 };
+}
+
+b2SurfaceMaterial b2DefaultSurfaceMaterial( void )
+{
+    b2SurfaceMaterial material = {};
+    material.friction = 0.6f;
+    return material;
+}
+
+b2ShapeDef b2DefaultShapeDef( void )
+{
+    b2ShapeDef def = {};
+    def.material = b2DefaultSurfaceMaterial();
+    def.density = 1.0f;
+    def.filter = b2DefaultFilter();
+    def.updateBodyMass = true;
+    def.internalValue = B2_SECRET_COOKIE;
+    return def;
+}

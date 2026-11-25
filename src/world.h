@@ -7,6 +7,7 @@
 #include "body.h"
 #include "container.h"
 #include "id_pool.h"
+#include "shape.h"
 
 #include "box2d/constants.h"
 #include "box2d/types.h"
@@ -35,6 +36,8 @@ struct b2World
 	b2Stack stack;
 	b2IdPool bodyIdPool;
 	b2DynamicArray<b2Body> bodies;
+	b2IdPool shapeIdPool;
+	b2DynamicArray<b2Shape> shapes;
 };
 
 extern b2World b2_worlds[B2_MAX_WORLDS];

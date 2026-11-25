@@ -11,6 +11,9 @@
 struct b2Body
 {
 	int id;
+	int headShapeId;
+	int shapeCount;
+	bool dirtyMass;
 	uint16_t generation;
 	b2BodyType type;
 	b2WorldTransform transform;
@@ -31,3 +34,6 @@ struct b2Body
 	bool allowFastRotation;
 	bool enableContactRecycling;
 };
+
+struct b2World;
+b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId );

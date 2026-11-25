@@ -60,6 +60,7 @@ if(BUILD_TESTING)
 		test/test_chain.cpp
 		test/test_dynamic_tree.cpp
 		test/test_world.cpp
+		test/test_shape.cpp
 		test/test_hull.cpp
 		test/toolchain_c.c
 	)
