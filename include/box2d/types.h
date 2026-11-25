@@ -232,3 +232,11 @@ B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
 B2_API void b2World_Step( b2WorldId worldId, float timeStep, int subStepCount );
+
+
+B2_API b2Vec2 b2Body_GetLinearVelocity( b2BodyId bodyId );
+B2_API float b2Body_GetAngularVelocity( b2BodyId bodyId );
+B2_API void b2Body_SetLinearVelocity( b2BodyId bodyId, b2Vec2 linearVelocity );
+B2_API void b2Body_SetAngularVelocity( b2BodyId bodyId, float angularVelocity );
+B2_API b2Vec2 b2Body_GetLocalPointVelocity( b2BodyId bodyId, b2Vec2 localPoint );
+B2_API b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId bodyId, b2Pos worldPoint );

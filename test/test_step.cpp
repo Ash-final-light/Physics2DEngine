@@ -41,3 +41,33 @@ int FreeBodyStepTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int BodyVelocityTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Body_SetLinearVelocity( body, { 4.0f, 2.0f } );
+    b2Body_SetAngularVelocity( body, 0.5f );
+    b2World_Step( world, 0.25f, 2 );
+    ENSURE_SMALL( b2Body_GetPosition( body ).x-1.0f, 0.00001f );
+    ENSURE( b2Body_GetLinearVelocity( body ).y == 2.0f && b2Body_GetAngularVelocity( body ) == 0.5f );
+    b2Body_SetLinearVelocity( body, { NAN, 0.0f } );
+    b2Body_SetAngularVelocity( body, INFINITY );
+    ENSURE( b2Body_GetLinearVelocity( body ).x == 4.0f && b2Body_GetAngularVelocity( body ) == 0.5f );
+    b2Body_SetTransform( body, { 3.0f, 4.0f }, { 0.0f, 1.0f } );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+    b2CreateCircleShape( body, &sd, &circle );
+    b2Body_SetLinearVelocity( body, { 2.0f, 3.0f } ); b2Body_SetAngularVelocity( body, 2.0f );
+    b2Vec2 local = b2Body_GetLocalPointVelocity( body, { 2.0f, 0.0f } );
+    b2Vec2 global = b2Body_GetWorldPointVelocity( body, { 3.0f, 6.0f } );
+    ENSURE( local.x == 0.0f && local.y == 3.0f && global.x == local.x && global.y == local.y );
+    bd.type = b2_staticBody;
+    b2BodyId fixed = b2CreateBody( world, &bd );
+    b2Body_SetLinearVelocity( fixed, { 1.0f, 2.0f } );
+    ENSURE( b2Body_GetLinearVelocity( fixed ).x == 0.0f );
+    b2DestroyWorld( world ); return 0;
+}

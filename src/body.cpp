@@ -481,3 +481,88 @@ int b2Body_GetShapes( b2BodyId id, b2ShapeId* output, int capacity )
     }
     return count;
 }
+
+
+static bool b2HasBodyMotionState( const b2Body* body )
+{
+    return body->type != b2_staticBody && body->isEnabled && body->isAwake;
+}
+
+b2Vec2 b2Body_GetLinearVelocity( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    return b2HasBodyMotionState( body ) ? body->linearVelocity : b2Vec2_zero;
+}
+
+float b2Body_GetAngularVelocity( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    return b2HasBodyMotionState( body ) ? body->angularVelocity : 0.0f;
+}
+
+void b2Body_SetLinearVelocity( b2BodyId id, b2Vec2 velocity )
+{
+    if ( b2Body_IsValid( id ) == false || b2IsValidVec2( velocity ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    if ( body->type == b2_staticBody || body->isEnabled == false )
+    {
+        return;
+    }
+    if ( b2LengthSquared( velocity ) > 0.0f )
+    {
+        body->isAwake = true;
+    }
+    if ( body->isAwake )
+    {
+        body->linearVelocity = velocity;
+    }
+}
+
+void b2Body_SetAngularVelocity( b2BodyId id, float velocity )
+{
+    if ( b2Body_IsValid( id ) == false || b2IsValidFloat( velocity ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    if ( body->type == b2_staticBody || body->isEnabled == false || body->motionLocks.angularZ )
+    {
+        return;
+    }
+    if ( velocity != 0.0f )
+    {
+        body->isAwake = true;
+    }
+    if ( body->isAwake )
+    {
+        body->angularVelocity = velocity;
+    }
+}
+
+b2Vec2 b2Body_GetLocalPointVelocity( b2BodyId id, b2Vec2 point )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    if ( b2HasBodyMotionState( body ) == false )
+    {
+        return b2Vec2_zero;
+    }
+    b2Vec2 offset = b2RotateVector( body->transform.q, b2Sub( point, body->localCenter ) );
+    return b2Add( body->linearVelocity, b2CrossSV( body->angularVelocity, offset ) );
+}
+
+b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId id, b2Pos point )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    if ( b2HasBodyMotionState( body ) == false )
+    {
+        return b2Vec2_zero;
+    }
+    return b2Add( body->linearVelocity, b2CrossSV( body->angularVelocity, b2Sub( point, body->center ) ) );
+}
