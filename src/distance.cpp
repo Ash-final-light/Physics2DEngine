@@ -69,3 +69,30 @@ b2SegmentDistanceResult b2ComputeSegmentDistance( b2Vec2 p1, b2Vec2 q1, b2Vec2 p
 	result.distanceSquared = b2DistanceSquared( result.closest1, result.closest2 );
 	return result;
 }
+
+b2ShapeProxy b2MakeProxy( const b2Vec2* points, int count, float radius )
+{
+	count = b2MinInt( count, B2_MAX_POLYGON_VERTICES );
+	b2ShapeProxy proxy;
+	for ( int i = 0; i < count; ++i )
+	{
+		proxy.points[i] = points[i];
+	}
+	proxy.count = count;
+	proxy.radius = radius;
+	return proxy;
+}
+
+b2ShapeProxy b2MakeOffsetProxy( const b2Vec2* points, int count, float radius, b2Vec2 position, b2Rot rotation )
+{
+	count = b2MinInt( count, B2_MAX_POLYGON_VERTICES );
+	b2Transform transform = { position, rotation };
+	b2ShapeProxy proxy;
+	for ( int i = 0; i < count; ++i )
+	{
+		proxy.points[i] = b2TransformPoint( transform, points[i] );
+	}
+	proxy.count = count;
+	proxy.radius = radius;
+	return proxy;
+}

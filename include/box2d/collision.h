@@ -114,3 +114,14 @@ typedef struct b2SegmentDistanceResult
 } b2SegmentDistanceResult;
 
 B2_API b2SegmentDistanceResult b2ComputeSegmentDistance( b2Vec2 p1, b2Vec2 q1, b2Vec2 p2, b2Vec2 q2 );
+
+/// 距离查询使用的点云。点数为 1 到 B2_MAX_POLYGON_VERTICES，半径可以为 0。
+typedef struct b2ShapeProxy
+{
+	b2Vec2 points[B2_MAX_POLYGON_VERTICES];
+	int count;
+	float radius;
+} b2ShapeProxy;
+
+B2_API b2ShapeProxy b2MakeProxy( const b2Vec2* points, int count, float radius );
+B2_API b2ShapeProxy b2MakeOffsetProxy( const b2Vec2* points, int count, float radius, b2Vec2 position, b2Rot rotation );

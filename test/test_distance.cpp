@@ -66,3 +66,40 @@ int SegmentDistanceTest( void )
 	ENSURE_SMALL( both.distanceSquared - b2DistanceSquared( point, d1 ), FLT_EPSILON );
 	return 0;
 }
+
+int ShapeProxyTest( void )
+{
+	b2Vec2 points[9];
+	for ( int i = 0; i < 9; ++i )
+	{
+		points[i].x = (float)i;
+		points[i].y = (float)( i * 2 );
+	}
+
+	b2ShapeProxy proxy = b2MakeProxy( points, 3, 0.25f );
+	ENSURE( proxy.count == 3 );
+	ENSURE( proxy.radius == 0.25f );
+	ENSURE( proxy.points[0].x == 0.0f && proxy.points[0].y == 0.0f );
+	ENSURE( proxy.points[2].x == 2.0f && proxy.points[2].y == 4.0f );
+
+	points[0].x = 9.0f;
+	ENSURE( proxy.points[0].x == 0.0f );
+
+	b2ShapeProxy capped = b2MakeProxy( points, 9, 0.0f );
+	ENSURE( capped.count == B2_MAX_POLYGON_VERTICES );
+	ENSURE( capped.radius == 0.0f );
+	ENSURE( capped.points[7].x == 7.0f && capped.points[7].y == 14.0f );
+
+	b2Vec2 local = { 1.0f, 0.0f };
+	b2Vec2 position = { 2.0f, 3.0f };
+	b2Rot quarter = { 0.0f, 1.0f };
+	b2ShapeProxy moved = b2MakeOffsetProxy( &local, 1, 0.4f, position, quarter );
+	ENSURE( moved.count == 1 && moved.radius == 0.4f );
+	b2Vec2 expected = b2TransformPoint( { position, quarter }, local );
+	ENSURE_SMALL( moved.points[0].x - expected.x, FLT_EPSILON );
+	ENSURE_SMALL( moved.points[0].y - expected.y, FLT_EPSILON );
+
+	b2ShapeProxy plain = b2MakeOffsetProxy( &local, 1, 0.4f, b2Vec2_zero, b2Rot_identity );
+	ENSURE( plain.points[0].x == 1.0f && plain.points[0].y == 0.0f );
+	return 0;
+}
