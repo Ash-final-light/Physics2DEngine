@@ -517,3 +517,41 @@ int RayCastCapsuleTest( void )
 	ENSURE_SMALL( fromCapsule.point.x - fromCircle.point.x, FLT_EPSILON );
 	return 0;
 }
+
+int RayCastSegmentTest( void )
+{
+	b2Segment segment = { { 0.0f, 1.0f }, { 0.0f, -1.0f } };
+	b2RayCastInput fromLeft = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 1.0f };
+	b2CastOutput front = b2CastRaySegment( &segment, &fromLeft, true );
+	ENSURE( front.hit == true );
+	ENSURE_SMALL( front.normal.x + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( front.normal.y, FLT_EPSILON );
+	ENSURE_SMALL( front.fraction - 0.5f, FLT_EPSILON );
+	ENSURE_SMALL( front.point.x, FLT_EPSILON );
+	ENSURE_SMALL( front.point.y, FLT_EPSILON );
+
+	b2RayCastInput fromRight = { { 4.0f, 0.0f }, { -8.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRaySegment( &segment, &fromRight, true ).hit == false );
+	b2CastOutput back = b2CastRaySegment( &segment, &fromRight, false );
+	ENSURE( back.hit == true );
+	ENSURE_SMALL( back.normal.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( back.fraction - 0.5f, 0.0001f );
+	ENSURE_SMALL( back.point.x, 0.0001f );
+
+	b2RayCastInput endRay = { { -2.0f, 1.0f }, { 4.0f, 0.0f }, 1.0f };
+	b2CastOutput endHit = b2CastRaySegment( &segment, &endRay, false );
+	ENSURE( endHit.hit == true );
+	ENSURE_SMALL( endHit.point.x, 0.0001f );
+	ENSURE_SMALL( endHit.point.y - 1.0f, 0.0001f );
+
+	b2RayCastInput past = { { -2.0f, 2.0f }, { 4.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRaySegment( &segment, &past, false ).hit == false );
+
+	b2RayCastInput parallel = { { -1.0f, 0.0f }, { 0.0f, 2.0f }, 1.0f };
+	ENSURE( b2CastRaySegment( &segment, &parallel, false ).hit == false );
+
+	b2Segment collapsed = { { 1.0f, 1.0f }, { 1.0f, 1.0f } };
+	b2RayCastInput through = { { 0.0f, 1.0f }, { 2.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRaySegment( &collapsed, &through, false ).hit == false );
+	return 0;
+}

@@ -594,3 +594,62 @@ b2CastOutput b2CastRayCapsule( const b2Capsule* shape, const b2RayCastInput* inp
 	output.hit = true;
 	return output;
 }
+
+b2CastOutput b2CastRaySegment( const b2Segment* shape, const b2RayCastInput* input, bool oneSided )
+{
+	if ( oneSided )
+	{
+		float offset = b2Cross( b2Sub( input->origin, shape->point1 ), b2Sub( shape->point2, shape->point1 ) );
+		if ( offset < 0.0f )
+		{
+			b2CastOutput output = {};
+			return output;
+		}
+	}
+
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
+	b2Vec2 v1 = shape->point1;
+	b2Vec2 v2 = shape->point2;
+	b2Vec2 e = b2Sub( v2, v1 );
+	b2CastOutput output = {};
+
+	float length;
+	b2Vec2 eUnit = b2GetLengthAndNormalize( &length, e );
+	if ( length == 0.0f )
+	{
+		return output;
+	}
+
+	b2Vec2 normal = b2RightPerp( eUnit );
+	float numerator = b2Dot( normal, b2Sub( v1, p1 ) );
+	float denominator = b2Dot( normal, d );
+	if ( denominator == 0.0f )
+	{
+		return output;
+	}
+
+	float t = numerator / denominator;
+	if ( t < 0.0f || input->maxFraction < t )
+	{
+		return output;
+	}
+
+	b2Vec2 p = b2MulAdd( p1, t, d );
+	float s = b2Dot( b2Sub( p, v1 ), eUnit );
+	if ( s < 0.0f || length < s )
+	{
+		return output;
+	}
+
+	if ( numerator > 0.0f )
+	{
+		normal = b2Neg( normal );
+	}
+
+	output.fraction = t;
+	output.point = p;
+	output.normal = normal;
+	output.hit = true;
+	return output;
+}

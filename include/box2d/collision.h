@@ -101,3 +101,4 @@ B2_API bool b2PointInPolygon( const b2Polygon* shape, b2Vec2 point );
 B2_API bool b2IsValidRay( const b2RayCastInput* input );
 B2_API b2CastOutput b2CastRayCircle( const b2Circle* shape, const b2RayCastInput* input );
 B2_API b2CastOutput b2CastRayCapsule( const b2Capsule* shape, const b2RayCastInput* input );
+B2_API b2CastOutput b2CastRaySegment( const b2Segment* shape, const b2RayCastInput* input, bool oneSided );
