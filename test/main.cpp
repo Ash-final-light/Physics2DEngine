@@ -33,6 +33,7 @@ int BitSetTest( void );
 int BitSetGrowTest( void );
 int IdPoolTest( void );
 int HashSetInsertTest( void );
+int HashSetRemoveTest( void );
 
 int main( int argc, char** argv )
 {
@@ -205,6 +206,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( HashSetInsertTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "HashSetRemoveTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( HashSetRemoveTest );
 	}
 
 	if ( ran == 0 )

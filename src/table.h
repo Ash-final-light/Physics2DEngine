@@ -40,6 +40,9 @@ void b2DestroySet( b2HashSet* set );
 // 键已在集合中时返回 true。
 bool b2AddKey( b2HashSet* set, uint64_t key );
 
+// 找到并删除该键时返回 true。
+bool b2RemoveKey( b2HashSet* set, uint64_t key );
+
 bool b2ContainsKey( const b2HashSet* set, uint64_t key );
 bool b2ContainsHashedKey( const b2HashSet* set, uint64_t key, uint64_t hash );
 

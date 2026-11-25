@@ -95,3 +95,54 @@ bool b2AddKey( b2HashSet* set, uint64_t key )
 	b2AddKeyHaveCapacity( set, key, hash );
 	return false;
 }
+
+bool b2RemoveKey( b2HashSet* set, uint64_t key )
+{
+	uint64_t hash = b2KeyHash( key );
+	int i = b2FindSlot( set, key, hash );
+	b2SetItem* items = set->items;
+	if ( items[i].key == 0 )
+	{
+		return false;
+	}
+
+	items[i].key = 0;
+
+	B2_ASSERT( set->count > 0 );
+	set->count -= 1;
+
+	int j = i;
+	uint32_t capacity = set->capacity;
+	for ( ;; )
+	{
+		j = ( j + 1 ) & (int)( capacity - 1 );
+		if ( items[j].key == 0 )
+		{
+			break;
+		}
+
+		uint64_t hashJ = b2KeyHash( items[j].key );
+		int k = (int)( hashJ & ( capacity - 1 ) );
+
+		if ( i <= j )
+		{
+			if ( i < k && k <= j )
+			{
+				continue;
+			}
+		}
+		else
+		{
+			if ( i < k || k <= j )
+			{
+				continue;
+			}
+		}
+
+		items[i] = items[j];
+		items[j].key = 0;
+		i = j;
+	}
+
+	return true;
+}

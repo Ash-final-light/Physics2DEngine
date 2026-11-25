@@ -83,3 +83,58 @@ int HashSetInsertTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+static int FindKeysForSlot( const b2HashSet* set, uint32_t slot, uint64_t* keys, int wanted )
+{
+	int found = 0;
+	for ( uint64_t key = 1; key < 400000 && found < wanted; ++key )
+	{
+		if ( ( (uint32_t)b2KeyHash( key ) & ( set->capacity - 1 ) ) == slot )
+		{
+			keys[found] = key;
+			found += 1;
+		}
+	}
+	return found;
+}
+
+int HashSetRemoveTest( void )
+{
+	b2HashSet set = b2CreateSet( 64 );
+	uint64_t chain[3];
+	ENSURE( FindKeysForSlot( &set, 10, chain, 3 ) == 3 );
+	ENSURE( b2AddKey( &set, chain[0] ) == false );
+	ENSURE( b2AddKey( &set, chain[1] ) == false );
+	ENSURE( b2AddKey( &set, chain[2] ) == false );
+	ENSURE( set.items[10].key == chain[0] );
+	ENSURE( set.items[11].key == chain[1] );
+	ENSURE( set.items[12].key == chain[2] );
+
+	ENSURE( b2RemoveKey( &set, chain[1] ) == true );
+	ENSURE( b2GetSetCount( &set ) == 2 );
+	ENSURE( b2ContainsKey( &set, chain[1] ) == false );
+	ENSURE( b2ContainsKey( &set, chain[0] ) && b2ContainsKey( &set, chain[2] ) );
+	ENSURE( b2RemoveKey( &set, chain[1] ) == false );
+	ENSURE( b2RemoveKey( &set, 999 ) == false );
+	ENSURE( b2GetSetCount( &set ) == 2 );
+
+	ENSURE( b2RemoveKey( &set, chain[0] ) == true );
+	ENSURE( b2ContainsKey( &set, chain[0] ) == false );
+	ENSURE( b2ContainsKey( &set, chain[2] ) );
+	ENSURE( b2GetSetCount( &set ) == 1 );
+
+	uint64_t wrapped[3];
+	ENSURE( FindKeysForSlot( &set, set.capacity - 1, wrapped, 3 ) == 3 );
+	ENSURE( b2AddKey( &set, wrapped[0] ) == false );
+	ENSURE( b2AddKey( &set, wrapped[1] ) == false );
+	ENSURE( b2AddKey( &set, wrapped[2] ) == false );
+	ENSURE( b2RemoveKey( &set, wrapped[0] ) == true );
+	ENSURE( b2ContainsKey( &set, wrapped[0] ) == false );
+	ENSURE( b2ContainsKey( &set, wrapped[1] ) && b2ContainsKey( &set, wrapped[2] ) );
+	ENSURE( b2ContainsKey( &set, chain[2] ) );
+	ENSURE( b2GetSetCount( &set ) == 3 );
+	ENSURE( b2GetSetCapacity( &set ) == 64 );
+
+	b2DestroySet( &set );
+	return 0;
+}
