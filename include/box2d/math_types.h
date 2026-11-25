@@ -11,6 +11,15 @@ typedef struct b2Vec2
 
 static const b2Vec2 b2Vec2_zero = { 0.0f, 0.0f };
 
+/// 余弦与正弦对。
+typedef struct b2CosSin
+{
+	float cosine;
+	float sine;
+} b2CosSin;
+
+#define B2_PI 3.14159265359f
+
 /// 二维旋转。用余弦和正弦表示。
 typedef struct b2Rot
 {

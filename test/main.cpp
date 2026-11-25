@@ -19,6 +19,7 @@ int VectorTest( void );
 int RotationTest( void );
 int TransformTest( void );
 int MatrixTest( void );
+int TrigTest( void );
 
 int main( int argc, char** argv )
 {
@@ -107,6 +108,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( MatrixTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "TrigTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( TrigTest );
 	}
 
 	if ( ran == 0 )

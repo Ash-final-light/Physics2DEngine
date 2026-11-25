@@ -193,6 +193,45 @@ B2_INLINE b2Rot b2MakeRotFromUnitVector( b2Vec2 unitVector )
 /// 计算两个单位向量之间的旋转
 B2_API b2Rot b2ComputeRotationBetweenUnitVectors( b2Vec2 v1, b2Vec2 v2 );
 
+/// 计算范围 [-pi, pi] 内的近似反正切。
+B2_API float b2Atan2( float y, float x );
+
+/// 计算以弧度为单位的角的余弦与正弦。
+B2_API b2CosSin b2ComputeCosSin( float radians );
+
+/// 使用以弧度为单位的角创建旋转
+B2_INLINE b2Rot b2MakeRot( float radians )
+{
+	b2CosSin cs = b2ComputeCosSin( radians );
+	return B2_LITERAL( b2Rot ){ cs.cosine, cs.sine };
+}
+
+/// 获取范围 [-pi, pi] 内以弧度为单位的角
+B2_INLINE float b2Rot_GetAngle( b2Rot q )
+{
+	return b2Atan2( q.s, q.c );
+}
+
+/// 旋转 b 相对旋转 a 的角。单位为弧度。
+B2_INLINE float b2RelativeAngle( b2Rot a, b2Rot b )
+{
+	float s = a.c * b.s - a.s * b.c;
+	float c = a.c * b.c + a.s * b.s;
+	return b2Atan2( s, c );
+}
+
+/// 将任意角转换到区间 [-pi, pi]。
+B2_INLINE float b2UnwindAngle( float radians )
+{
+	B2_VALIDATE( b2AbsFloat( radians ) < 1.0e4f );
+	float x = b2ClampFloat( radians, -1.0e6f, 1.0e6f );
+	double twoPi = 2.0f * B2_PI;
+	double roundToNearest = 6755399441055744.0;
+	double a = x;
+	double k = ( a / twoPi + roundToNearest ) - roundToNearest;
+	return (float)( a - k * twoPi );
+}
+
 /// 获取旋转的逆
 B2_INLINE b2Rot b2InvertRot( b2Rot a )
 {

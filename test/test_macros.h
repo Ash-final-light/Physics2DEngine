@@ -31,3 +31,14 @@
 		}                                                                                                                        \
 	}                                                                                                                            \
 	while ( 0 )
+
+#define ENSURE_SMALL( C, tol )                                                                                                   \
+	do                                                                                                                           \
+	{                                                                                                                            \
+		if ( ( C ) < -( tol ) || ( tol ) < ( C ) )                                                                               \
+		{                                                                                                                        \
+			printf( "condition false: abs(" #C ") < %g\n", (double)( tol ) );                                                    \
+			return 1;                                                                                                            \
+		}                                                                                                                        \
+	}                                                                                                                            \
+	while ( 0 )

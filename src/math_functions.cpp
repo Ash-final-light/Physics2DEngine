@@ -68,3 +68,83 @@ bool b2IsValidTransform( b2Transform t )
 
 	return b2IsValidRot( t.q );
 }
+
+float b2Atan2( float y, float x )
+{
+	if ( x == 0.0f && y == 0.0f )
+	{
+		return 0.0f;
+	}
+
+	float ax = b2AbsFloat( x );
+	float ay = b2AbsFloat( y );
+	float mx = b2MaxFloat( ay, ax );
+	float mn = b2MinFloat( ay, ax );
+	float a = mn / mx;
+
+	float s = a * a;
+	float c = s * a;
+	float q = s * s;
+	float r = 0.024840285f * q + 0.18681418f;
+	float t = -0.094097948f * q - 0.33213072f;
+	r = r * s + t;
+	r = r * c + a;
+
+	if ( ay > ax )
+	{
+		r = 1.57079637f - r;
+	}
+
+	if ( x < 0 )
+	{
+		r = 3.14159274f - r;
+	}
+
+	if ( y < 0 )
+	{
+		r = -r;
+	}
+
+	return r;
+}
+
+b2CosSin b2ComputeCosSin( float radians )
+{
+	float x = b2UnwindAngle( radians );
+	float pi2 = B2_PI * B2_PI;
+
+	float c;
+	if ( x < -0.5f * B2_PI )
+	{
+		float y = x + B2_PI;
+		float y2 = y * y;
+		c = -( pi2 - 4.0f * y2 ) / ( pi2 + y2 );
+	}
+	else if ( x > 0.5f * B2_PI )
+	{
+		float y = x - B2_PI;
+		float y2 = y * y;
+		c = -( pi2 - 4.0f * y2 ) / ( pi2 + y2 );
+	}
+	else
+	{
+		float y2 = x * x;
+		c = ( pi2 - 4.0f * y2 ) / ( pi2 + y2 );
+	}
+
+	float s;
+	if ( x < 0.0f )
+	{
+		float y = x + B2_PI;
+		s = -16.0f * y * ( B2_PI - y ) / ( 5.0f * pi2 - 4.0f * y * ( B2_PI - y ) );
+	}
+	else
+	{
+		s = 16.0f * x * ( B2_PI - x ) / ( 5.0f * pi2 - 4.0f * x * ( B2_PI - x ) );
+	}
+
+	float mag = sqrtf( s * s + c * c );
+	float invMag = mag > 0.0f ? 1.0f / mag : 0.0f;
+	b2CosSin cs = { c * invMag, s * invMag };
+	return cs;
+}
