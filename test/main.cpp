@@ -90,6 +90,7 @@ int WorldIdTest( void );
 int WorldUserDataTest( void );
 int BodyCreateTest( void );
 int BodyIdTest( void );
+int BodyNameTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -605,6 +606,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BodyIdTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyNameTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyNameTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

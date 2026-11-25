@@ -129,3 +129,67 @@ bool b2Body_IsValid( b2BodyId id )
 	}
 	return body->generation == id.generation;
 }
+
+void b2Body_SetName( b2BodyId bodyId, const char* name )
+{
+	if ( bodyId.world0 >= B2_MAX_WORLDS || b2_worlds[bodyId.world0].inUse == false )
+	{
+		return;
+	}
+	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	if ( body == NULL )
+	{
+		return;
+	}
+	if ( name != NULL )
+	{
+		strncpy_s( body->name, sizeof( body->name ), name, B2_NAME_LENGTH );
+	}
+	else
+	{
+		memset( body->name, 0, sizeof( body->name ) );
+	}
+}
+
+const char* b2Body_GetName( b2BodyId bodyId )
+{
+	static const char empty[] = "";
+	if ( bodyId.world0 >= B2_MAX_WORLDS || b2_worlds[bodyId.world0].inUse == false )
+	{
+		return empty;
+	}
+	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	if ( body == NULL )
+	{
+		return empty;
+	}
+	return body->name;
+}
+
+void b2Body_SetUserData( b2BodyId bodyId, void* userData )
+{
+	if ( bodyId.world0 >= B2_MAX_WORLDS || b2_worlds[bodyId.world0].inUse == false )
+	{
+		return;
+	}
+	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	if ( body == NULL )
+	{
+		return;
+	}
+	body->userData = userData;
+}
+
+void* b2Body_GetUserData( b2BodyId bodyId )
+{
+	if ( bodyId.world0 >= B2_MAX_WORLDS || b2_worlds[bodyId.world0].inUse == false )
+	{
+		return NULL;
+	}
+	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	if ( body == NULL )
+	{
+		return NULL;
+	}
+	return body->userData;
+}

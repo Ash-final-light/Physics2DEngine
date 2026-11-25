@@ -91,3 +91,7 @@ B2_API b2BodyDef b2DefaultBodyDef( void );
 B2_API b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def );
 B2_API void b2DestroyBody( b2BodyId bodyId );
 B2_API bool b2Body_IsValid( b2BodyId id );
+B2_API void b2Body_SetName( b2BodyId bodyId, const char* name );
+B2_API const char* b2Body_GetName( b2BodyId bodyId );
+B2_API void b2Body_SetUserData( b2BodyId bodyId, void* userData );
+B2_API void* b2Body_GetUserData( b2BodyId bodyId );

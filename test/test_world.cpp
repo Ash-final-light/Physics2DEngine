@@ -7,6 +7,7 @@
 #include "box2d/types.h"
 
 #include <math.h>
+#include <string.h>
 
 int WorldCreateTest( void )
 {
@@ -132,5 +133,36 @@ int BodyIdTest( void )
 	ENSURE( b2Body_IsValid( reused ) );
 	b2DestroyWorld( worldId );
 	ENSURE( b2Body_IsValid( reused ) == false );
+	return 0;
+}
+
+int BodyNameTest( void )
+{
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld( &worldDef );
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	bodyDef.name = "box";
+	int marker = 3;
+	bodyDef.userData = &marker;
+	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+	ENSURE( strcmp( b2Body_GetName( bodyId ), "box" ) == 0 );
+	ENSURE( b2Body_GetUserData( bodyId ) == &marker );
+
+	b2Body_SetName( bodyId, "0123456789ABC" );
+	ENSURE( strcmp( b2Body_GetName( bodyId ), "0123456789" ) == 0 );
+	b2Body_SetName( bodyId, NULL );
+	ENSURE( strcmp( b2Body_GetName( bodyId ), "" ) == 0 );
+
+	int other = 4;
+	b2BodyDef plain = b2DefaultBodyDef();
+	b2BodyId second = b2CreateBody( worldId, &plain );
+	b2Body_SetUserData( bodyId, &other );
+	ENSURE( b2Body_GetUserData( bodyId ) == &other );
+	ENSURE( b2Body_GetUserData( second ) == NULL );
+	b2DestroyBody( bodyId );
+	ENSURE( b2Body_GetUserData( bodyId ) == NULL );
+	ENSURE( strcmp( b2Body_GetName( bodyId ), "" ) == 0 );
+	b2DestroyBody( second );
+	b2DestroyWorld( worldId );
 	return 0;
 }
