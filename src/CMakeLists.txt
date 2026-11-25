@@ -3,6 +3,7 @@ add_library(box2d
 	math_functions.cpp
 	aabb.cpp
 	geometry.cpp
+	hull.cpp
 	bitset.cpp
 	id_pool.cpp
 	table.cpp

@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include "base.h"
 #include "math_types.h"
+
+/// 凸多边形最多使用的顶点数。
+#define B2_MAX_POLYGON_VERTICES 8
 
 /// 射线检测输出。未命中时 hit 为 false，其余字段为零。
 typedef struct b2CastOutput
@@ -36,3 +40,16 @@ typedef struct b2Capsule
 	b2Vec2 center2;
 	float radius;
 } b2Capsule;
+
+/// 凸包。点按逆时针排列。
+typedef struct b2Hull
+{
+	b2Vec2 points[B2_MAX_POLYGON_VERTICES];
+	int count;
+} b2Hull;
+
+/// 计算点集的凸包。点数不足、超过 8 个、全部过近或共线时返回空凸包。
+B2_API b2Hull b2ComputeHull( const b2Vec2* points, int count );
+
+/// 检查凸包是否严格凸、逆时针，且没有过近的共线点。
+B2_API bool b2ValidateHull( const b2Hull* hull );

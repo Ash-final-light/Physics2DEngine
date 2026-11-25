@@ -141,6 +141,25 @@ B2_INLINE b2Vec2 b2Lerp( b2Vec2 a, b2Vec2 b, float t )
 	return B2_LITERAL( b2Vec2 ){ ( 1.0f - t ) * a.x + t * b.x, ( 1.0f - t ) * a.y + t * b.y };
 }
 
+/// 分量最小值。
+B2_INLINE b2Vec2 b2Min( b2Vec2 a, b2Vec2 b )
+{
+	return B2_LITERAL( b2Vec2 ){ b2MinFloat( a.x, b.x ), b2MinFloat( a.y, b.y ) };
+}
+
+/// 分量最大值。
+B2_INLINE b2Vec2 b2Max( b2Vec2 a, b2Vec2 b )
+{
+	return B2_LITERAL( b2Vec2 ){ b2MaxFloat( a.x, b.x ), b2MaxFloat( a.y, b.y ) };
+}
+
+/// 两点距离的平方。
+B2_INLINE float b2DistanceSquared( b2Vec2 a, b2Vec2 b )
+{
+	b2Vec2 c = b2Sub( a, b );
+	return c.x * c.x + c.y * c.y;
+}
+
 /// 向量取反
 B2_INLINE b2Vec2 b2Neg( b2Vec2 a )
 {

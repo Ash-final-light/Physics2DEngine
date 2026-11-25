@@ -41,6 +41,7 @@ int AABBTest( void );
 int AABBRayCastTest( void );
 int CircleSegmentTest( void );
 int CapsuleTest( void );
+int HullTest( void );
 
 int main( int argc, char** argv )
 {
@@ -261,6 +262,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( CapsuleTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( HullTest );
 	}
 
 	if ( ran == 0 )
