@@ -41,6 +41,7 @@ struct b2World
 	float maxLinearSpeed;
 	b2FrictionCallbackFcn* frictionCallback;
 	b2RestitutionCallbackFcn* restitutionCallback;
+	bool enableWarmStarting;
 	bool enableSleep;
 	bool enableContinuous;
 	int workerCount;

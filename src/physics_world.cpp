@@ -60,6 +60,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->contactDampingRatio = b2ClampFloat( def->contactDampingRatio, 0.0f, FLT_MAX );
 	world->frictionCallback = def->frictionCallback;
 	world->restitutionCallback = def->restitutionCallback;
+	world->enableWarmStarting=true;
 	world->enableSleep = def->enableSleep;
 	world->enableContinuous = def->enableContinuous;
 	world->workerCount = 1;
@@ -183,4 +184,17 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     b2SplitContactIslands( world );
     b2SolveFreeBodies( world, timeStep, subStepCount );
     world->locked = false;
+}
+
+void b2World_EnableWarmStarting(b2WorldId id,bool flag)
+{
+    b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || world->locked) { return; }
+    world->enableWarmStarting=flag;
+}
+
+bool b2World_IsWarmStartingEnabled(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);
+    return world!=NULL && world->enableWarmStarting;
 }

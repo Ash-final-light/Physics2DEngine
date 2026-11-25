@@ -28,6 +28,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     {
         for(int i=0;i<set->bodySims.count;++i)
         { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
+        b2WarmStartContacts(&context);
         b2PushNormalContacts(&context);
         for(int i=0;i<set->bodySims.count;++i)
         {

@@ -21,6 +21,7 @@ int ContactPrepareTest(void)
     b2MassData mass={2,{0,0},4};b2Body_SetMassData(body,mass);
     b2Body_SetLinearVelocity(body,{1,-2});
     sim->manifold.points[0].normalImpulse=7;
+    b2World_EnableWarmStarting(id,false);
     b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.1f,10.0f};
     b2PrepareContactConstraints(&context);
     b2ContactConstraint* constraint=world->constraintGraph.colors[contact->colorIndex].overflowConstraints+contact->localIndex;
@@ -47,7 +48,7 @@ static void SolveHardNormal(b2WorldId id)
     b2World* world=b2_worlds+id.index1-1;
     b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
     b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100.0f};
-    b2PrepareContactConstraints(&context);b2SolveNormalContacts(&context);
+    b2PrepareContactConstraints(&context);b2WarmStartContacts(&context);b2SolveNormalContacts(&context);
     b2StoreContactImpulses(&context);b2ReleaseContactConstraints(&context);
 }
 
@@ -180,4 +181,58 @@ int ContactSubstepCorrectionTest(void)
         b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
     }
     ENSURE(penetration[1]<penetration[0]);return 0;
+}
+
+int ContactWarmStartTest(void)
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    ENSURE(b2World_IsWarmStartingEnabled(id));
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();
+    b2Polygon box=b2MakeBox(1,0.5f);b2CreatePolygonShape(body,&sd,&box);
+    bd.type=b2_staticBody;bd.position={0,-0.9f};b2BodyId ground=b2CreateBody(id,&bd);
+    b2Polygon floor=b2MakeBox(5,0.5f);b2CreatePolygonShape(ground,&sd,&floor);
+    b2Body_SetMassData(body,b2MassData{2,{0,0},4});
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    b2Contact* contact=world->contacts.data;b2ContactSim* sim=b2GetContactSim(world,contact);
+    sim->manifold.points[0].normalImpulse=4;
+    for(int enabled=0;enabled<2;++enabled)
+    {
+        b2World_EnableWarmStarting(id,enabled!=0);ENSURE(b2World_IsWarmStartingEnabled(id)==(enabled!=0));
+        world->locked=true;b2World_EnableWarmStarting(id,enabled==0);world->locked=false;
+        ENSURE(b2World_IsWarmStartingEnabled(id)==(enabled!=0));
+        b2Body_SetLinearVelocity(body,{0,0});b2Body_SetAngularVelocity(body,0);
+        b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100};
+        b2PrepareContactConstraints(&context);
+        b2ContactConstraint* constraint=world->constraintGraph.colors[contact->colorIndex].overflowConstraints+contact->localIndex;
+        ENSURE(constraint->points[0].normalImpulse==(enabled?4.0f:0.0f));
+        b2Vec2 P=b2MulSV(enabled?4.0f:0.0f,sim->manifold.normal);
+        b2Vec2 expected=b2MulSV(-0.5f,P);
+        float expectedW=-0.25f*b2Cross(sim->manifold.points[0].anchorA,P);
+        b2WarmStartContacts(&context);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-expected.x,0.00001f);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-expected.y,0.00001f);
+        ENSURE_SMALL(b2Body_GetAngularVelocity(body)-expectedW,0.00001f);
+        ENSURE(constraint->points[0].totalNormalImpulse==(enabled?4.0f:0.0f));
+        ENSURE(b2Body_GetPosition(ground).y==-0.9f && b2Body_GetLinearVelocity(ground).y==0);
+        b2ReleaseContactConstraints(&context);
+    }
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Persistent warm starting must keep a small stack bounded over many frames.
+    wd=b2DefaultWorldDef();id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_staticBody;bd.position={0,-1};
+    ground=b2CreateBody(id,&bd);b2CreatePolygonShape(ground,&sd,&floor);
+    b2BodyId stack[3];box=b2MakeBox(0.5f,0.5f);
+    for(int i=0;i<3;++i)
+    {
+        bd.type=b2_dynamicBody;bd.position={0,1.0f*i};stack[i]=b2CreateBody(id,&bd);b2CreatePolygonShape(stack[i],&sd,&box);
+    }
+    for(int i=0;i<360;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    for(int i=0;i<3;++i)
+    {
+        ENSURE_SMALL(b2Body_GetPosition(stack[i]).y-i,0.03f);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(stack[i]).y,0.02f);
+    }
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

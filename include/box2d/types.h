@@ -232,6 +232,8 @@ B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
 B2_API void b2World_Step( b2WorldId worldId, float timeStep, int subStepCount );
+B2_API void b2World_EnableWarmStarting(b2WorldId worldId,bool flag);
+B2_API bool b2World_IsWarmStartingEnabled(b2WorldId worldId);
 
 
 B2_API b2Vec2 b2Body_GetLinearVelocity( b2BodyId bodyId );

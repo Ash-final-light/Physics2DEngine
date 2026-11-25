@@ -6,6 +6,7 @@
 void b2PrepareContactConstraints(b2StepContext* context)
 {
     b2World* world=context->world;
+    float warmStartScale=world->enableWarmStarting?1.0f:0.0f;
     float contactHertz=b2MinFloat(world->contactHertz,0.125f*context->inv_h);
     b2Softness contactSoftness=b2MakeSoft(contactHertz,world->contactDampingRatio,context->h);
     b2Softness staticSoftness=b2MakeSoft(2.0f*contactHertz,world->contactDampingRatio,context->h);
@@ -47,6 +48,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
                 b2ContactConstraintPoint* cp=constraint->points+j;
                 b2Vec2 rA=mp->anchorA,rB=mp->anchorB;
                 cp->anchorA=rA;cp->anchorB=rB;
+                cp->normalImpulse=warmStartScale*mp->normalImpulse;
                 cp->baseSeparation=mp->separation-b2Dot(b2Sub(rB,rA),constraint->normal);
                 float rnA=b2Cross(rA,constraint->normal),rnB=b2Cross(rB,constraint->normal);
                 float kNormal=mA+mB+iA*rnA*rnA+iB*rnB*rnB;
@@ -149,4 +151,33 @@ void b2PushNormalContacts(b2StepContext* context)
 {
     b2SolveNormalColor(context,B2_OVERFLOW_INDEX,true);
     for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i,true); }
+}
+
+void b2WarmStartContacts(b2StepContext* context)
+{
+    b2BodyState dummyState=b2_identityBodyState;
+    for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
+    {
+        int c=order==0?B2_OVERFLOW_INDEX:order-1;
+        b2GraphColor* color=context->graph->colors+c;
+        for(int i=0;i<color->contactSims.count;++i)
+        {
+            b2ContactConstraint* constraint=color->overflowConstraints+i;
+            int indexA=constraint->indexA-1,indexB=constraint->indexB-1;
+            b2BodyState* stateA=indexA==B2_NULL_INDEX?&dummyState:context->states+indexA;
+            b2BodyState* stateB=indexB==B2_NULL_INDEX?&dummyState:context->states+indexB;
+            b2Vec2 vA=stateA->linearVelocity,vB=stateB->linearVelocity;
+            float wA=stateA->angularVelocity,wB=stateB->angularVelocity;
+            for(int j=0;j<constraint->pointCount;++j)
+            {
+                b2ContactConstraintPoint* cp=constraint->points+j;
+                b2Vec2 P=b2MulSV(cp->normalImpulse,constraint->normal);
+                cp->totalNormalImpulse+=cp->normalImpulse;
+                wA-=constraint->invIA*b2Cross(cp->anchorA,P);vA=b2MulAdd(vA,-constraint->invMassA,P);
+                wB+=constraint->invIB*b2Cross(cp->anchorB,P);vB=b2MulAdd(vB,constraint->invMassB,P);
+            }
+            if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
+            if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
+        }
+    }
 }
