@@ -1,6 +1,7 @@
 add_library(box2d
 	core.cpp
 	math_functions.cpp
+	aabb.cpp
 	bitset.cpp
 	id_pool.cpp
 	table.cpp

@@ -38,6 +38,7 @@ int HashSetGrowTest( void );
 int StackAllocatorTest( void );
 int TimerTest( void );
 int AABBTest( void );
+int AABBRayCastTest( void );
 
 int main( int argc, char** argv )
 {
@@ -240,6 +241,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( AABBTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "AABBRayCastTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( AABBRayCastTest );
 	}
 
 	if ( ran == 0 )

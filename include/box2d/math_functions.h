@@ -129,6 +129,18 @@ B2_INLINE b2Vec2 b2Sub( b2Vec2 a, b2Vec2 b )
 	return B2_LITERAL( b2Vec2 ){ a.x - b.x, a.y - b.y };
 }
 
+/// 分量绝对值。
+B2_INLINE b2Vec2 b2Abs( b2Vec2 a )
+{
+	return B2_LITERAL( b2Vec2 ){ b2AbsFloat( a.x ), b2AbsFloat( a.y ) };
+}
+
+/// 向量线性插值。
+B2_INLINE b2Vec2 b2Lerp( b2Vec2 a, b2Vec2 b, float t )
+{
+	return B2_LITERAL( b2Vec2 ){ ( 1.0f - t ) * a.x + t * b.x, ( 1.0f - t ) * a.y + t * b.y };
+}
+
 /// 向量取反
 B2_INLINE b2Vec2 b2Neg( b2Vec2 a )
 {
