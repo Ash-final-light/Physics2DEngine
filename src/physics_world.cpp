@@ -270,3 +270,19 @@ void b2World_SetRestitutionCallback(b2WorldId id,b2RestitutionCallbackFcn* callb
 {
     b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->restitutionCallback=callback;
 }
+
+void b2World_EnableSleeping(b2WorldId id,bool flag)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked || flag==world->enableSleep) { return; }
+    world->enableSleep=flag;
+    if(!flag)
+    {
+        for(int i=b2_firstSleepingSet;i<world->solverSets.count;++i)
+        { if(world->solverSets.data[i].bodySims.count>0) { b2WakeSolverSet(world,i); } }
+    }
+}
+
+bool b2World_IsSleepingEnabled(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableSleep;
+}

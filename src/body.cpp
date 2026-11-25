@@ -984,3 +984,28 @@ void b2Body_WakeTouching(b2BodyId id)
         b2WakeBody(world,world->bodies.data+contact->edges[edge^1].bodyId);
     }
 }
+
+void b2Body_SetSleepThreshold(b2BodyId id,float threshold)
+{
+    if(!b2IsValidFloat(threshold) || threshold<0 || !b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2GetBodyFullId(b2_worlds+id.world0,id)->sleepThreshold=threshold;
+}
+
+float b2Body_GetSleepThreshold(b2BodyId id)
+{
+    B2_ASSERT(b2Body_IsValid(id));return b2GetBodyFullId(b2_worlds+id.world0,id)->sleepThreshold;
+}
+
+void b2Body_EnableSleeping(b2BodyId id,bool enableSleep)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    bool current=(body->flags&b2_enableSleep)!=0;if(current==enableSleep) { return; }
+    body->flags=enableSleep?body->flags|b2_enableSleep:body->flags&~b2_enableSleep;b2SyncBodyFlags(world,body);
+    if(!enableSleep) { b2WakeBody(world,body); }
+}
+
+bool b2Body_IsSleepingEnabled(b2BodyId id)
+{
+    B2_ASSERT(b2Body_IsValid(id));return (b2GetBodyFullId(b2_worlds+id.world0,id)->flags&b2_enableSleep)!=0;
+}

@@ -140,3 +140,33 @@ int IslandWakeTest(void)
     b2Body_SetAwake(a,false);b2DestroyBody(a);ENSURE(b2Body_IsAwake(b));
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int SleepControlTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0.1f,0};
+    b2BodyId a=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(a,&sd,&c);
+    bd.position={20,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    ENSURE(b2World_IsSleepingEnabled(id) && b2Body_IsSleepingEnabled(a));
+    b2Body_SetSleepThreshold(a,0.2f);b2Body_SetSleepThreshold(b,0);
+    b2Body_SetSleepThreshold(a,-1);b2Body_SetSleepThreshold(a,NAN);ENSURE(b2Body_GetSleepThreshold(a)==0.2f);
+    world->locked=true;b2Body_SetSleepThreshold(a,0);b2Body_EnableSleeping(a,false);b2World_EnableSleeping(id,false);world->locked=false;
+    ENSURE(b2Body_GetSleepThreshold(a)==0.2f && b2Body_IsSleepingEnabled(a) && b2World_IsSleepingEnabled(id));
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    ENSURE(!b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    b2Body_EnableSleeping(a,false);ENSURE(b2Body_IsAwake(a) && !b2Body_IsSleepingEnabled(a));
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    ENSURE(b2Body_IsAwake(a));
+    b2Body_EnableSleeping(a,true);
+    for(int i=0;i<40;++i) { b2World_Step(id,1.0f/60.0f,1); }ENSURE(!b2Body_IsAwake(a));
+    b2Body_SetLinearVelocity(b,{0,0});b2Body_SetSleepThreshold(b,0.2f);
+    for(int i=0;i<40;++i) { b2World_Step(id,1.0f/60.0f,1); }ENSURE(!b2Body_IsAwake(b));
+    b2World_EnableSleeping(id,false);ENSURE(!b2World_IsSleepingEnabled(id) && b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    b2World_EnableSleeping(id,true);
+    for(int i=0;i<40;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
