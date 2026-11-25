@@ -289,9 +289,10 @@ b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact )
 bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTransform transformA,
                       b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB )
 {
-    (void)world;
-    sim->friction=sqrtf(a->material.friction*b->material.friction);
-    sim->restitution=b2MaxFloat(a->material.restitution,b->material.restitution);
+    sim->friction=world->frictionCallback==NULL?sqrtf(a->material.friction*b->material.friction):
+        world->frictionCallback(a->material.friction,a->material.userMaterialId,b->material.friction,b->material.userMaterialId);
+    sim->restitution=world->restitutionCallback==NULL?b2MaxFloat(a->material.restitution,b->material.restitution):
+        world->restitutionCallback(a->material.restitution,a->material.userMaterialId,b->material.restitution,b->material.userMaterialId);
     sim->tangentSpeed=a->material.tangentSpeed+b->material.tangentSpeed;
     sim->rollingResistance=0.0f;
     if(a->material.rollingResistance>0 || b->material.rollingResistance>0)

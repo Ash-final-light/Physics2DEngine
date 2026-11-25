@@ -502,3 +502,46 @@ int ContactRestitutionControlTest(void)
     ENSURE(finalVelocity[1][3]-finalVelocity[1][2]>-0.001f);
     return 0;
 }
+
+static uint64_t expectedMaterialA;
+static bool materialInputsValid;
+static int frictionCalls,restitutionCalls;
+static float MixTestFriction(float a,uint64_t idA,float b,uint64_t idB)
+{
+    bool forward=idA==expectedMaterialA && idB==29 && a==0.04f && b==0.81f;
+    bool reverse=idB==expectedMaterialA && idA==29 && b==0.04f && a==0.81f;
+    materialInputsValid&=forward||reverse;++frictionCalls;return 0.25f;
+}
+static float MixTestRestitution(float a,uint64_t idA,float b,uint64_t idB)
+{
+    bool forward=idA==expectedMaterialA && idB==29 && a==0.2f && b==0.3f;
+    bool reverse=idB==expectedMaterialA && idA==29 && b==0.2f && a==0.3f;
+    materialInputsValid&=forward||reverse;++restitutionCalls;return 0.5f;
+}
+
+int ContactMaterialCallbackTest(void)
+{
+    size_t before=b2GetByteCount();expectedMaterialA=17;materialInputsValid=true;frictionCalls=0;restitutionCalls=0;
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.frictionCallback=MixTestFriction;wd.restitutionCallback=MixTestRestitution;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;b2World_SetContactRecycleDistance(id,0);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={10,-4};
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=0.04f;sd.material.restitution=0.2f;sd.material.userMaterialId=17;
+    b2Circle c={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);b2Body_SetMassData(body,b2MassData{1,{0,0},0});
+    bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);
+    sd.material.friction=0.81f;sd.material.restitution=0.3f;sd.material.userMaterialId=29;
+    b2Polygon floor=b2MakeBox(100,0.5f);b2CreatePolygonShape(ground,&sd,&floor);
+    world->locked=true;b2World_SetFrictionCallback(id,NULL);b2World_SetRestitutionCallback(id,NULL);world->locked=false;
+    b2World_Step(id,0.01f,1);
+    ENSURE(materialInputsValid && frictionCalls==1 && restitutionCalls==1);
+    b2ContactSim* sim=b2GetContactSim(world,world->contacts.data);ENSURE(sim->friction==0.25f && sim->restitution==0.5f);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-9,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-2,0.0001f);
+    expectedMaterialA=(uint64_t(1)<<45)+17;b2Shape_SetUserMaterial(shape,expectedMaterialA);
+    ENSURE(b2Shape_GetUserMaterial(shape)==expectedMaterialA);
+    b2UpdateContacts(world);ENSURE(materialInputsValid && frictionCalls==2 && restitutionCalls==2);
+    b2World_SetFrictionCallback(id,NULL);b2World_SetRestitutionCallback(id,NULL);b2UpdateContacts(world);
+    sim=b2GetContactSim(world,world->contacts.data);ENSURE_SMALL(sim->friction-0.18f,0.00001f);ENSURE(sim->restitution==0.3f);
+    ENSURE(frictionCalls==2 && restitutionCalls==2);
+    b2World_SetFrictionCallback(id,MixTestFriction);b2World_SetRestitutionCallback(id,MixTestRestitution);b2UpdateContacts(world);
+    ENSURE(materialInputsValid && frictionCalls==3 && restitutionCalls==3);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

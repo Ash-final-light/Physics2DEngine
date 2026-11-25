@@ -260,3 +260,13 @@ bool b2World_IsRestitutionPropagationEnabled(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableRestitutionPropagation;
 }
+
+void b2World_SetFrictionCallback(b2WorldId id,b2FrictionCallbackFcn* callback)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->frictionCallback=callback;
+}
+
+void b2World_SetRestitutionCallback(b2WorldId id,b2RestitutionCallbackFcn* callback)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->restitutionCallback=callback;
+}

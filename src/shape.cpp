@@ -902,3 +902,13 @@ float b2Shape_GetRestitution(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.restitution:0.0f;
 }
+
+void b2Shape_SetUserMaterial(b2ShapeId id,uint64_t material)
+{
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->material.userMaterialId=material;
+}
+
+uint64_t b2Shape_GetUserMaterial(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.userMaterialId:0;
+}
