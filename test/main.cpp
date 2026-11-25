@@ -17,6 +17,7 @@ int ZeroAllocTest( void );
 int ScalarTest( void );
 int VectorTest( void );
 int RotationTest( void );
+int TransformTest( void );
 
 int main( int argc, char** argv )
 {
@@ -93,6 +94,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( RotationTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "TransformTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( TransformTest );
 	}
 
 	if ( ran == 0 )

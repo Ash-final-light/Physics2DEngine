@@ -43,3 +43,28 @@ b2Rot b2ComputeRotationBetweenUnitVectors( b2Vec2 v1, b2Vec2 v2 )
 	rot.s = b2Cross( v1, v2 );
 	return b2NormalizeRot( rot );
 }
+
+bool b2IsValidRot( b2Rot q )
+{
+	if ( isnan( q.s ) || isnan( q.c ) )
+	{
+		return false;
+	}
+
+	if ( isinf( q.s ) || isinf( q.c ) )
+	{
+		return false;
+	}
+
+	return b2IsNormalizedRot( q );
+}
+
+bool b2IsValidTransform( b2Transform t )
+{
+	if ( b2IsValidVec2( t.p ) == false )
+	{
+		return false;
+	}
+
+	return b2IsValidRot( t.q );
+}

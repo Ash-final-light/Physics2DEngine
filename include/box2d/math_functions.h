@@ -20,6 +20,12 @@ B2_API bool b2IsValidFloat( float a );
 /// 这是否为有效向量？非 NaN 或无穷。
 B2_API bool b2IsValidVec2( b2Vec2 v );
 
+/// 这是否为有效旋转？非 NaN 或无穷。已归一化。
+B2_API bool b2IsValidRot( b2Rot q );
+
+/// 这是否为有效变换？非 NaN 或无穷。旋转已归一化。
+B2_API bool b2IsValidTransform( b2Transform t );
+
 /// @return 两个整数中的较小值
 B2_INLINE int b2MinInt( int a, int b )
 {
@@ -260,6 +266,40 @@ B2_INLINE b2Vec2 b2Rot_GetYAxis( b2Rot q )
 {
 	b2Vec2 v = { -q.s, q.c };
 	return v;
+}
+
+/// 变换点（例如从局部空间到世界空间）。
+B2_INLINE b2Vec2 b2TransformPoint( b2Transform t, const b2Vec2 p )
+{
+	float x = ( t.q.c * p.x - t.q.s * p.y ) + t.p.x;
+	float y = ( t.q.s * p.x + t.q.c * p.y ) + t.p.y;
+	return B2_LITERAL( b2Vec2 ){ x, y };
+}
+
+/// 逆变换点（例如从世界空间到局部空间）。
+B2_INLINE b2Vec2 b2InvTransformPoint( b2Transform t, const b2Vec2 p )
+{
+	float vx = p.x - t.p.x;
+	float vy = p.y - t.p.y;
+	return B2_LITERAL( b2Vec2 ){ t.q.c * vx + t.q.s * vy, -t.q.s * vx + t.q.c * vy };
+}
+
+/// 两个变换相乘。
+B2_INLINE b2Transform b2MulTransforms( b2Transform A, b2Transform B )
+{
+	b2Transform C;
+	C.q = b2MulRot( A.q, B.q );
+	C.p = b2Add( b2RotateVector( A.q, B.p ), A.p );
+	return C;
+}
+
+/// 创建将坐标系 B 中的局部点转换为坐标系 A 中局部点的变换。
+B2_INLINE b2Transform b2InvMulTransforms( b2Transform A, b2Transform B )
+{
+	b2Transform C;
+	C.q = b2InvMulRot( A.q, B.q );
+	C.p = b2InvRotateVector( A.q, b2Sub( B.p, A.p ) );
+	return C;
 }
 
 /// 设置每米对应的长度单位。只接受有限且大于 0 的值，非法值保持原值。

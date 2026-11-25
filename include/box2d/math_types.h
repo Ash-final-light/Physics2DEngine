@@ -18,3 +18,20 @@ typedef struct b2Rot
 } b2Rot;
 
 static const b2Rot b2Rot_identity = { 1.0f, 0.0f };
+
+/// 二维刚体变换
+typedef struct b2Transform
+{
+	b2Vec2 p;
+	b2Rot q;
+} b2Transform;
+
+static const b2Transform b2Transform_identity = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };
+
+/// 2×2 矩阵，按列存储。
+typedef struct b2Mat22
+{
+	b2Vec2 cx, cy;
+} b2Mat22;
+
+static const b2Mat22 b2Mat22_zero = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
