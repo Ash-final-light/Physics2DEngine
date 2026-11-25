@@ -37,6 +37,12 @@ typedef struct b2Transform
 
 static const b2Transform b2Transform_identity = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };
 
+typedef b2Vec2 b2Pos;
+typedef b2Transform b2WorldTransform;
+
+static const b2Pos b2Pos_zero = { 0.0f, 0.0f };
+static const b2WorldTransform b2WorldTransform_identity = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };
+
 /// 2×2 矩阵，按列存储。
 typedef struct b2Mat22
 {

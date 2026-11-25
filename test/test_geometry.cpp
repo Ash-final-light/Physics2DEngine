@@ -262,3 +262,62 @@ int PolygonMassTest( void )
 	ENSURE_SMALL( twoMass.rotationalInertia - capsuleMass.rotationalInertia, FLT_EPSILON );
 	return 0;
 }
+
+int ShapeBoundsTest( void )
+{
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2AABB circleBox = b2ComputeCircleBounds( &circle, b2WorldTransform_identity );
+	ENSURE_SMALL( circleBox.lowerBound.x, FLT_EPSILON );
+	ENSURE_SMALL( circleBox.lowerBound.y + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( circleBox.upperBound.x - 2.0f, FLT_EPSILON );
+	ENSURE_SMALL( circleBox.upperBound.y - 1.0f, FLT_EPSILON );
+
+	b2WorldTransform moved = { { 3.0f, 4.0f }, b2Rot_identity };
+	b2AABB shifted = b2ComputeCircleBounds( &circle, moved );
+	ENSURE_SMALL( shifted.lowerBound.x - 3.0f, FLT_EPSILON );
+	ENSURE_SMALL( shifted.lowerBound.y - 3.0f, FLT_EPSILON );
+	ENSURE_SMALL( shifted.upperBound.x - 5.0f, FLT_EPSILON );
+	ENSURE_SMALL( shifted.upperBound.y - 5.0f, FLT_EPSILON );
+
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2AABB capsuleBox = b2ComputeCapsuleBounds( &capsule, b2WorldTransform_identity );
+	ENSURE_SMALL( capsuleBox.lowerBound.x + 2.0f, FLT_EPSILON );
+	ENSURE_SMALL( capsuleBox.lowerBound.y + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( capsuleBox.upperBound.x - 2.0f, FLT_EPSILON );
+	ENSURE_SMALL( capsuleBox.upperBound.y - 1.0f, FLT_EPSILON );
+
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2AABB boxBounds = b2ComputePolygonBounds( &box, b2WorldTransform_identity );
+	ENSURE_SMALL( boxBounds.lowerBound.x + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( boxBounds.lowerBound.y + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( boxBounds.upperBound.x - 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( boxBounds.upperBound.y - 1.0f, FLT_EPSILON );
+
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 1.0f, 0.25f );
+	b2AABB roundBounds = b2ComputePolygonBounds( &rounded, b2WorldTransform_identity );
+	ENSURE_SMALL( roundBounds.lowerBound.x + 1.25f, FLT_EPSILON );
+	ENSURE_SMALL( roundBounds.upperBound.y - 1.25f, FLT_EPSILON );
+
+	b2Rot quarter = { 0.0f, 1.0f };
+	b2WorldTransform turned = { { 1.0f, 2.0f }, quarter };
+	b2Polygon flat = b2MakeBox( 2.0f, 0.5f );
+	b2AABB spun = b2ComputePolygonBounds( &flat, turned );
+	ENSURE_SMALL( spun.lowerBound.x - 0.5f, 0.0001f );
+	ENSURE_SMALL( spun.upperBound.x - 1.5f, 0.0001f );
+	ENSURE_SMALL( spun.lowerBound.y - 0.0f, 0.0001f );
+	ENSURE_SMALL( spun.upperBound.y - 4.0f, 0.0001f );
+
+	b2Segment segment = { { 0.0f, 1.0f }, { 0.0f, -1.0f } };
+	b2AABB segmentBox = b2ComputeSegmentBounds( &segment, b2WorldTransform_identity );
+	ENSURE_SMALL( segmentBox.lowerBound.x, FLT_EPSILON );
+	ENSURE_SMALL( segmentBox.lowerBound.y + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( segmentBox.upperBound.x, FLT_EPSILON );
+	ENSURE_SMALL( segmentBox.upperBound.y - 1.0f, FLT_EPSILON );
+
+	b2AABB segmentTurned = b2ComputeSegmentBounds( &segment, turned );
+	ENSURE_SMALL( segmentTurned.lowerBound.x - 0.0f, 0.0001f );
+	ENSURE_SMALL( segmentTurned.upperBound.x - 2.0f, 0.0001f );
+	ENSURE_SMALL( segmentTurned.lowerBound.y - 2.0f, 0.0001f );
+	ENSURE_SMALL( segmentTurned.upperBound.y - 2.0f, 0.0001f );
+	return 0;
+}

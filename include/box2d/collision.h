@@ -83,3 +83,7 @@ B2_API b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Ve
 B2_API b2MassData b2ComputeCircleMass( const b2Circle* shape, float density );
 B2_API b2MassData b2ComputeCapsuleMass( const b2Capsule* shape, float density );
 B2_API b2MassData b2ComputePolygonMass( const b2Polygon* shape, float density );
+B2_API b2AABB b2ComputeCircleBounds( const b2Circle* shape, b2WorldTransform transform );
+B2_API b2AABB b2ComputeCapsuleBounds( const b2Capsule* shape, b2WorldTransform transform );
+B2_API b2AABB b2ComputePolygonBounds( const b2Polygon* shape, b2WorldTransform transform );
+B2_API b2AABB b2ComputeSegmentBounds( const b2Segment* shape, b2WorldTransform transform );

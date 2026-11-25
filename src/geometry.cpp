@@ -287,3 +287,91 @@ b2MassData b2ComputePolygonMass( const b2Polygon* shape, float density )
 	B2_ASSERT( massData.rotationalInertia >= 0.0f );
 	return massData;
 }
+
+static float b2RoundDownFloat( double x )
+{
+	return (float)x;
+}
+
+static float b2RoundUpFloat( double x )
+{
+	return (float)x;
+}
+
+static b2AABB b2ComputeCircleFatAABB( const b2Circle* shape, b2WorldTransform xf, float extra )
+{
+	b2Vec2 c = b2TransformPoint( xf, shape->center );
+	double r = (double)shape->radius + (double)extra;
+	b2AABB aabb = {
+		{ b2RoundDownFloat( c.x - r ), b2RoundDownFloat( c.y - r ) },
+		{ b2RoundUpFloat( c.x + r ), b2RoundUpFloat( c.y + r ) },
+	};
+	return aabb;
+}
+
+static b2AABB b2ComputeCapsuleFatAABB( const b2Capsule* shape, b2WorldTransform xf, float extra )
+{
+	b2Vec2 v1 = b2TransformPoint( xf, shape->center1 );
+	b2Vec2 v2 = b2TransformPoint( xf, shape->center2 );
+	double r = (double)shape->radius + (double)extra;
+	b2AABB aabb = {
+		{ b2RoundDownFloat( ( v1.x < v2.x ? v1.x : v2.x ) - r ), b2RoundDownFloat( ( v1.y < v2.y ? v1.y : v2.y ) - r ) },
+		{ b2RoundUpFloat( ( v1.x > v2.x ? v1.x : v2.x ) + r ), b2RoundUpFloat( ( v1.y > v2.y ? v1.y : v2.y ) + r ) },
+	};
+	return aabb;
+}
+
+static b2AABB b2ComputePolygonFatAABB( const b2Polygon* shape, b2WorldTransform xf, float extra )
+{
+	B2_ASSERT( shape->count > 0 );
+	b2Vec2 v = b2TransformPoint( xf, shape->vertices[0] );
+	double lx = v.x, ly = v.y, ux = v.x, uy = v.y;
+
+	for ( int i = 1; i < shape->count; ++i )
+	{
+		v = b2TransformPoint( xf, shape->vertices[i] );
+		lx = v.x < lx ? v.x : lx;
+		ly = v.y < ly ? v.y : ly;
+		ux = v.x > ux ? v.x : ux;
+		uy = v.y > uy ? v.y : uy;
+	}
+
+	double r = (double)shape->radius + (double)extra;
+	b2AABB aabb = {
+		{ b2RoundDownFloat( lx - r ), b2RoundDownFloat( ly - r ) },
+		{ b2RoundUpFloat( ux + r ), b2RoundUpFloat( uy + r ) },
+	};
+	return aabb;
+}
+
+static b2AABB b2ComputeSegmentFatAABB( const b2Segment* shape, b2WorldTransform xf, float extra )
+{
+	b2Vec2 v1 = b2TransformPoint( xf, shape->point1 );
+	b2Vec2 v2 = b2TransformPoint( xf, shape->point2 );
+	double e = (double)extra;
+	b2AABB aabb = {
+		{ b2RoundDownFloat( ( v1.x < v2.x ? v1.x : v2.x ) - e ), b2RoundDownFloat( ( v1.y < v2.y ? v1.y : v2.y ) - e ) },
+		{ b2RoundUpFloat( ( v1.x > v2.x ? v1.x : v2.x ) + e ), b2RoundUpFloat( ( v1.y > v2.y ? v1.y : v2.y ) + e ) },
+	};
+	return aabb;
+}
+
+b2AABB b2ComputeCircleBounds( const b2Circle* shape, b2WorldTransform xf )
+{
+	return b2ComputeCircleFatAABB( shape, xf, 0.0f );
+}
+
+b2AABB b2ComputeCapsuleBounds( const b2Capsule* shape, b2WorldTransform xf )
+{
+	return b2ComputeCapsuleFatAABB( shape, xf, 0.0f );
+}
+
+b2AABB b2ComputePolygonBounds( const b2Polygon* shape, b2WorldTransform xf )
+{
+	return b2ComputePolygonFatAABB( shape, xf, 0.0f );
+}
+
+b2AABB b2ComputeSegmentBounds( const b2Segment* shape, b2WorldTransform xf )
+{
+	return b2ComputeSegmentFatAABB( shape, xf, 0.0f );
+}
