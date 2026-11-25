@@ -145,3 +145,33 @@ int BodyForceTest( void )
     ENSURE_SMALL( b2Body_GetAngularVelocity( offCenter )+0.5f, 0.00001f );
     b2DestroyWorld( world ); return 0;
 }
+
+
+int BodyTorqueTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Body_SetMassData( body, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
+    b2Body_ApplyTorque( body, 4.0f, true ); b2Body_ApplyTorque( body, 4.0f, true );
+    b2Body_ApplyTorque( body, NAN, true );
+    b2World_Step( world, 0.5f, 2 );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.0f, 0.00001f );
+    ENSURE( b2Body_GetLinearVelocity( body ).x == 0.0f );
+    b2World_Step( world, 0.25f, 1 );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.0f, 0.00001f );
+    b2Body_ApplyTorque( body, 100.0f, true ); b2Body_ClearForces( body );
+    b2World_Step( world, 0.1f, 1 );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.0f, 0.00001f );
+    bd.isAwake = false;
+    b2BodyId asleep = b2CreateBody( world, &bd );
+    b2Body_SetMassData( asleep, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
+    b2Body_ApplyTorque( asleep, 8.0f, false );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE( b2Body_GetAngularVelocity( asleep ) == 0.0f );
+    b2Body_ApplyTorque( asleep, 8.0f, true );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( asleep )-1.0f, 0.00001f );
+    b2DestroyWorld( world ); return 0;
+}

@@ -254,3 +254,5 @@ B2_API float b2Body_GetAngularDamping( b2BodyId bodyId );
 B2_API void b2Body_ApplyForce( b2BodyId bodyId, b2Vec2 force, b2Pos point, bool wake );
 B2_API void b2Body_ApplyForceToCenter( b2BodyId bodyId, b2Vec2 force, bool wake );
 B2_API void b2Body_ClearForces( b2BodyId bodyId );
+
+B2_API void b2Body_ApplyTorque( b2BodyId bodyId, float torque, bool wake );

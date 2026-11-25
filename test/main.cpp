@@ -95,6 +95,7 @@ int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int FreeBodyStepTest( void );
+int BodyTorqueTest( void );
 int BodyForceTest( void );
 int BodyDampingTest( void );
 int BodyGravityTest( void );
@@ -801,6 +802,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BodyForceTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyTorqueTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyTorqueTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

@@ -666,3 +666,17 @@ void b2Body_ClearForces( b2BodyId id )
         body->torque = 0.0f;
     }
 }
+
+
+void b2Body_ApplyTorque( b2BodyId id, float torque, bool wake )
+{
+    if ( b2IsValidFloat( torque ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->torque += torque;
+    }
+}
