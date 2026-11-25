@@ -21,10 +21,12 @@ struct b2ContactConstraint
     b2Vec2 normal;
     float invMassA, invMassB;
     float invIA, invIB;
+    b2Softness softness;
     int pointCount;
 };
 
 void b2PrepareContactConstraints(b2StepContext* context);
 void b2ReleaseContactConstraints(b2StepContext* context);
 void b2SolveNormalContacts(b2StepContext* context);
+void b2PushNormalContacts(b2StepContext* context);
 void b2StoreContactImpulses(b2StepContext* context);

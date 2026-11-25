@@ -70,7 +70,7 @@ int ContactManifoldUpdateTest( void )
     bd.type=b2_staticBody;bd.position={100.0f,202.5f};bd.rotation=b2Rot_identity;
     b2BodyId b=b2CreateBody(worldId,&bd);
     circle.center={0.0f,0.0f};b2CreateCircleShape(b,&sd,&circle);
-    b2World_Step(worldId,0.001f,1);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
     b2Contact* contact=world->contacts.data;
     b2ContactSim* sim=b2GetContactSim(world,contact);
     ENSURE(sim->manifold.pointCount==1 && (contact->flags&b2_contactTouchingFlag)!=0);
@@ -80,12 +80,12 @@ int ContactManifoldUpdateTest( void )
     ENSURE_SMALL(sim->manifold.points[0].anchorA.y-0.75f,0.00001f);
     ENSURE_SMALL(sim->manifold.points[0].anchorB.y+0.75f,0.00001f);
     b2Body_SetTransform(b,{100.0f,203.03f},b2Rot_identity);
-    b2World_Step(worldId,0.001f,1);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
     sim=b2GetContactSim(world,contact);
     ENSURE(world->broadPhase.pairSet.count==1);
     ENSURE(sim->manifold.pointCount==0 && (contact->flags&b2_contactTouchingFlag)==0);
     b2Body_SetTransform(b,{100.0f,202.5f},b2Rot_identity);
-    b2World_Step(worldId,0.001f,1);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
     sim=b2GetContactSim(world,contact);
     ENSURE(sim->manifold.pointCount==1);
     b2DestroyWorld(worldId);return 0;

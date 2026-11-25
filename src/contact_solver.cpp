@@ -6,6 +6,9 @@
 void b2PrepareContactConstraints(b2StepContext* context)
 {
     b2World* world=context->world;
+    float contactHertz=b2MinFloat(world->contactHertz,0.125f*context->inv_h);
+    b2Softness contactSoftness=b2MakeSoft(contactHertz,world->contactDampingRatio,context->h);
+    b2Softness staticSoftness=b2MakeSoft(2.0f*contactHertz,world->contactDampingRatio,context->h);
     for(int colorIndex=0;colorIndex<B2_GRAPH_COLOR_COUNT;++colorIndex)
     {
         b2GraphColor* color=context->graph->colors+colorIndex;
@@ -33,6 +36,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->indexA=b2DecodeAwakeIndex(sim->encodedBodySimA)+1;
             constraint->indexB=b2DecodeAwakeIndex(sim->encodedBodySimB)+1;
             constraint->normal=manifold->normal;
+            constraint->softness=(constraint->indexA==0 || constraint->indexB==0)?staticSoftness:contactSoftness;
             constraint->pointCount=manifold->pointCount;
             float mA=sim->invMassA,iA=sim->invIA,mB=sim->invMassB,iB=sim->invIB;
             constraint->invMassA=mA;constraint->invIA=iA;
@@ -63,7 +67,7 @@ void b2ReleaseContactConstraints(b2StepContext* context)
     }
 }
 
-static void b2SolveNormalColor(b2StepContext* context,int colorIndex)
+static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
 {
     b2GraphColor* color=context->graph->colors+colorIndex;
     b2BodyState* states=context->states;
@@ -90,12 +94,19 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex)
             b2Vec2 ds=b2Add(dp,b2Sub(b2RotateVector(stateB->deltaRotation,rB),b2RotateVector(stateA->deltaRotation,rA)));
             float s=cp->baseSeparation+b2Dot(ds,normal);
             float velocityBias=s>0.0f?s*context->inv_h:0.0f;
+            float massScale=1.0f,impulseScale=0.0f;
+            if(useBias && s<=0.0f)
+            {
+                const b2Softness softness=constraint->softness;
+                velocityBias=b2MaxFloat(softness.massScale*softness.biasRate*s,-context->world->contactSpeed);
+                massScale=softness.massScale;impulseScale=softness.impulseScale;
+            }
             float vn=vnc+wB*rnB[j]-wA*rnA[j];
             for(int k=0;k<j;++k)
             {
                 vn+=(mA+mB+iA*rnA[k]*rnA[j]+iB*rnB[k]*rnB[j])*impulses[k];
             }
-            float impulse=b2MaxFloat(-cp->normalMass*(vn+velocityBias),-cp->normalImpulse);
+            float impulse=b2MaxFloat(-cp->normalMass*(massScale*vn+velocityBias)-impulseScale*cp->normalImpulse,-cp->normalImpulse);
             cp->normalImpulse+=impulse;cp->totalNormalImpulse+=impulse;
             impulses[j]=impulse;
             normalImpulse+=impulse;angularA+=impulse*rnA[j];angularB+=impulse*rnB[j];
@@ -111,8 +122,8 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex)
 void b2SolveNormalContacts(b2StepContext* context)
 {
     // Overflow constraints run first, as in the reference stage driver.
-    b2SolveNormalColor(context,B2_OVERFLOW_INDEX);
-    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i); }
+    b2SolveNormalColor(context,B2_OVERFLOW_INDEX,false);
+    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i,false); }
 }
 
 void b2StoreContactImpulses(b2StepContext* context)
@@ -132,4 +143,10 @@ void b2StoreContactImpulses(b2StepContext* context)
             }
         }
     }
+}
+
+void b2PushNormalContacts(b2StepContext* context)
+{
+    b2SolveNormalColor(context,B2_OVERFLOW_INDEX,true);
+    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i,true); }
 }

@@ -42,6 +42,15 @@ int ContactPrepareTest(void)
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
 
+static void SolveHardNormal(b2WorldId id)
+{
+    b2World* world=b2_worlds+id.index1-1;
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100.0f};
+    b2PrepareContactConstraints(&context);b2SolveNormalContacts(&context);
+    b2StoreContactImpulses(&context);b2ReleaseContactConstraints(&context);
+}
+
 int ContactNormalSolveTest(void)
 {
     size_t before=b2GetByteCount();
@@ -51,7 +60,7 @@ int ContactNormalSolveTest(void)
     b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
     b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.type=b2_staticBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
-    b2World_Step(id,0.01f,1);
+    SolveHardNormal(id);
     ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);
     ENSURE(b2Body_GetLinearVelocity(a).y==2);
     ENSURE_SMALL(b2Body_GetPosition(a).x,0.00001f);ENSURE(b2Body_GetPosition(b).x==2);
@@ -61,7 +70,7 @@ int ContactNormalSolveTest(void)
     a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.position={2,0};bd.linearVelocity={0,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
     b2Body_SetMassData(a,b2MassData{2,{0,0},1});b2Body_SetMassData(b,b2MassData{1,{0,0},1});
-    b2World_Step(id,0.01f,1);
+    SolveHardNormal(id);
     ENSURE_SMALL(b2Body_GetLinearVelocity(a).x-2,0.00001f);
     ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-2,0.00001f);
     ENSURE_SMALL(2*b2Body_GetLinearVelocity(a).x+b2Body_GetLinearVelocity(b).x-6,0.00001f);
@@ -69,7 +78,7 @@ int ContactNormalSolveTest(void)
     id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={3,0};
     a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.position={2,0};bd.linearVelocity={-3,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
-    b2World_Step(id,0.01f,1);
+    SolveHardNormal(id);
     ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x,0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
     // A moving kinematic obstacle transfers normal velocity without being slowed.
@@ -77,7 +86,7 @@ int ContactNormalSolveTest(void)
     a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.type=b2_kinematicBody;bd.position={2,0};bd.linearVelocity={-1,0};
     b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
-    b2World_Step(id,0.01f,1);
+    SolveHardNormal(id);
     ENSURE_SMALL(b2Body_GetLinearVelocity(a).x+1,0.00001f);ENSURE(b2Body_GetLinearVelocity(b).x==-1);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
     // The only blocking normal is assigned to overflow after the regular static colors fill.
@@ -88,15 +97,18 @@ int ContactNormalSolveTest(void)
     {
         c.center={i==B2_GRAPH_COLOR_COUNT-1?-2.0f:2.0f,0};b2CreateCircleShape(b,&sd,&c);
     }
-    b2World_Step(id,0.01f,1);
+    SolveHardNormal(id);
     ENSURE(b2_worlds[id.index1-1].constraintGraph.colors[B2_OVERFLOW_INDEX].contactSims.count>0);
     ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);c.center={0,0};
-    // Sustained gravity support is exercised over many frames and substeps.
+    // Sustained normal support balances repeated gravity impulses.
     wd.gravity={0,-10};id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
     a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.type=b2_staticBody;bd.position={0,-2};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
-    for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    for(int i=0;i<120;++i)
+    {
+        b2Body_ApplyLinearImpulseToCenter(a,{0,-b2Body_GetMass(a)/6.0f},true);SolveHardNormal(id);
+    }
     ENSURE_SMALL(b2Body_GetPosition(a).y,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y,0.0001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
@@ -125,4 +137,47 @@ int ContactImpulseStoreTest(void)
     ENSURE_SMALL(sim->manifold.points[0].normalImpulse,0.00001f);
     ENSURE_SMALL(sim->manifold.points[0].totalNormalImpulse,0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int ContactSubstepCorrectionTest(void)
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.contactSpeed=0.5f;
+    b2WorldId id=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},1};
+    b2BodyId body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&circle);
+    bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&circle);
+    b2World_Step(id,0.01f,1);
+    ENSURE(b2Body_GetPosition(body).y>0 && b2Body_GetPosition(body).y<=0.005001f);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).y,0.00001f);
+    for(int i=0;i<240;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE_SMALL(b2Body_GetPosition(body).y-0.5f,0.0002f);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).y,0.0001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // A rotated box must settle under gravity using both contact points and angular correction.
+    wd=b2DefaultWorldDef();id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();
+    bd.type=b2_staticBody;bd.position={0,-1};ground=b2CreateBody(id,&bd);
+    b2Polygon floor=b2MakeBox(20,0.5f);b2CreatePolygonShape(ground,&sd,&floor);
+    bd.type=b2_dynamicBody;bd.position={0,0.1f};bd.rotation=b2MakeRot(0.15f);
+    body=b2CreateBody(id,&bd);b2Polygon box=b2MakeBox(0.5f,0.5f);b2CreatePolygonShape(body,&sd,&box);
+    for(int i=0;i<360;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE(b2Body_GetPosition(body).y>-0.01f && b2Body_GetPosition(body).y<0.02f);
+    ENSURE_SMALL(b2Body_GetRotation(body).s,0.005f);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).y,0.01f);
+    ENSURE_SMALL(b2Body_GetAngularVelocity(body),0.01f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Smaller substeps reduce gravity-induced penetration for the same frame interval.
+    float penetration[2];
+    for(int run=0;run<2;++run)
+    {
+        id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+        body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&circle);
+        bd.type=b2_staticBody;bd.position={0,-2};ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&circle);
+        for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60.0f,run==0?1:4); }
+        penetration[run]=-b2Body_GetPosition(body).y;
+        ENSURE(penetration[run]>=0 && penetration[run]<0.01f);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    ENSURE(penetration[1]<penetration[0]);return 0;
 }

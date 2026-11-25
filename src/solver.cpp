@@ -28,13 +28,14 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     {
         for(int i=0;i<set->bodySims.count;++i)
         { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
-        b2SolveNormalContacts(&context);
+        b2PushNormalContacts(&context);
         for(int i=0;i<set->bodySims.count;++i)
         {
             b2BodyState* state=set->bodyStates.data+i;
             state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
         }
+        b2SolveNormalContacts(&context);
     }
     for(int i=0;i<set->bodySims.count;++i)
     {
