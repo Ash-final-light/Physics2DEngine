@@ -2,6 +2,7 @@ add_library(box2d
 	core.cpp
 	math_functions.cpp
 	bitset.cpp
+	id_pool.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

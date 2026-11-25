@@ -146,4 +146,10 @@ inline void b2Array_Clear( b2DynamicArray<T>& a )
 	a.count = 0;
 }
 
+template <typename T>
+inline int b2Array_ByteCount( const b2DynamicArray<T>& a )
+{
+	return a.capacity * static_cast<int>( sizeof( T ) );
+}
+
 b2DeclareArrayNative( int );

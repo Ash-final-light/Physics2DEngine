@@ -31,6 +31,7 @@ int ArrayConstraintTest( void );
 int SwapValuesTest( void );
 int BitSetTest( void );
 int BitSetGrowTest( void );
+int IdPoolTest( void );
 
 int main( int argc, char** argv )
 {
@@ -191,6 +192,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BitSetGrowTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "IdPoolTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( IdPoolTest );
 	}
 
 	if ( ran == 0 )
