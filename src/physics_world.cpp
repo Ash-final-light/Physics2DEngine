@@ -198,3 +198,20 @@ bool b2World_IsWarmStartingEnabled(b2WorldId id)
     b2World* world=b2GetWorldFromId(id);
     return world!=NULL && world->enableWarmStarting;
 }
+
+void b2World_SetContactTuning(b2WorldId id,float hertz,float dampingRatio,float pushSpeed)
+{
+    if(!b2IsValidFloat(hertz) || !b2IsValidFloat(dampingRatio) || !b2IsValidFloat(pushSpeed)) { return; }
+    b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || world->locked) { return; }
+    world->contactHertz=b2ClampFloat(hertz,0.0f,FLT_MAX);
+    world->contactDampingRatio=b2ClampFloat(dampingRatio,0.0f,FLT_MAX);
+    world->contactSpeed=b2ClampFloat(pushSpeed,0.0f,FLT_MAX);
+}
+
+void b2World_GetContactTuning(b2WorldId id,float* hertz,float* dampingRatio,float* pushSpeed)
+{
+    b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || hertz==NULL || dampingRatio==NULL || pushSpeed==NULL) { return; }
+    *hertz=world->contactHertz;*dampingRatio=world->contactDampingRatio;*pushSpeed=world->contactSpeed;
+}

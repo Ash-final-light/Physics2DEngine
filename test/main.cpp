@@ -103,6 +103,7 @@ int ContactNormalSolveTest( void );
 int ContactImpulseStoreTest( void );
 int ContactSubstepCorrectionTest( void );
 int ContactWarmStartTest( void );
+int ContactTuningTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
@@ -894,6 +895,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ContactImpulseStoreTest")==0) { ran=1; RUN_TEST(ContactImpulseStoreTest); }
 	if(filter==NULL || strcmp(filter,"ContactSubstepCorrectionTest")==0) { ran=1; RUN_TEST(ContactSubstepCorrectionTest); }
 	if(filter==NULL || strcmp(filter,"ContactWarmStartTest")==0) { ran=1; RUN_TEST(ContactWarmStartTest); }
+	if(filter==NULL || strcmp(filter,"ContactTuningTest")==0) { ran=1; RUN_TEST(ContactTuningTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

@@ -236,3 +236,50 @@ int ContactWarmStartTest(void)
     }
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactTuningTest(void)
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* w=b2_worlds+id.index1-1;
+    float hz=-1,zeta=-1,speed=-1;
+    b2World_GetContactTuning(id,&hz,&zeta,&speed);
+    ENSURE(hz==wd.contactHertz && zeta==wd.contactDampingRatio && speed==wd.contactSpeed);
+    b2World_SetContactTuning(id,12,2,0.25f);b2World_GetContactTuning(id,&hz,&zeta,&speed);
+    ENSURE(hz==12 && zeta==2 && speed==0.25f);
+    w->locked=true;b2World_SetContactTuning(id,1,1,1);w->locked=false;
+    b2World_SetContactTuning(id,NAN,1,1);b2World_SetContactTuning(id,1,INFINITY,1);
+    b2World_GetContactTuning(id,&hz,&zeta,&speed);ENSURE(hz==12 && zeta==2 && speed==0.25f);
+    b2World_SetContactTuning(id,-1,-2,-3);b2World_GetContactTuning(id,&hz,&zeta,&speed);
+    ENSURE(hz==0 && zeta==0 && speed==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    float displacement[4];
+    const float hertz[4]={0,10,10,10},damping[4]={1,1,10,1},push[4]={10,10,10,0.01f};
+    for(int run=0;run<4;++run)
+    {
+        id=b2CreateWorld(&wd);w=b2_worlds+id.index1-1;b2World_SetContactTuning(id,hertz[run],damping[run],push[run]);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+        bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+        b2World_Step(id,0.01f,1);displacement[run]=b2Body_GetPosition(body).y;
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    ENSURE(displacement[0]==0 && displacement[1]>0);
+    ENSURE(displacement[2]<displacement[1] && displacement[3]<=0.0001001f);
+    ENSURE(displacement[3]>0);
+    // Frequency clipping is applied before doubling the static contact frequency.
+    id=b2CreateWorld(&wd);w=b2_worlds+id.index1-1;b2World_SetContactTuning(id,10000,1,10);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2BodyId body=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+    b2UpdateBroadPhaseContacts(w);b2UpdateContacts(w);
+    b2StepContext context={w,&w->constraintGraph,w->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100};
+    b2PrepareContactConstraints(&context);
+    b2Contact* contact=w->contacts.data;
+    const b2Softness actual=w->constraintGraph.colors[contact->colorIndex].overflowConstraints[contact->localIndex].softness;
+    const b2Softness expected=b2MakeSoft(25,1,0.01f);
+    ENSURE_SMALL(actual.biasRate-expected.biasRate,0.00001f);
+    ENSURE_SMALL(actual.massScale-expected.massScale,0.00001f);
+    ENSURE_SMALL(actual.impulseScale-expected.impulseScale,0.00001f);
+    b2ReleaseContactConstraints(&context);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
