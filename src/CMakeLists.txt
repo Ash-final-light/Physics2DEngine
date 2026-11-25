@@ -4,6 +4,7 @@ add_library(box2d
 	aabb.cpp
 	geometry.cpp
 	distance.cpp
+	manifold.cpp
 	hull.cpp
 	bitset.cpp
 	id_pool.cpp

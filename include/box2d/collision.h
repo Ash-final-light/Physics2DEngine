@@ -234,3 +234,19 @@ typedef struct b2TOIOutput
 } b2TOIOutput;
 
 B2_API b2TOIOutput b2ComputeTimeOfImpact( const b2TOIInput* input );
+
+typedef struct b2LocalManifoldPoint
+{
+	b2Vec2 point;
+	float separation;
+	uint16_t id;
+} b2LocalManifoldPoint;
+
+typedef struct b2LocalManifold
+{
+	b2Vec2 normal;
+	b2LocalManifoldPoint points[2];
+	int pointCount;
+} b2LocalManifold;
+
+B2_API b2LocalManifold b2CollideCircles( const b2Circle* circleA, const b2Circle* circleB, b2Transform xf );
