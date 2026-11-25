@@ -286,3 +286,14 @@ bool b2World_IsSleepingEnabled(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableSleep;
 }
+
+void b2World_SetMaxLinearSpeed(b2WorldId id,float speed)
+{
+    if(!b2IsValidFloat(speed) || speed<=0) { return; }b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || world->locked) { return; }world->maxLinearSpeed=speed;
+}
+
+float b2World_GetMaxLinearSpeed(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->maxLinearSpeed:0.0f;
+}

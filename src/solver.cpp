@@ -152,6 +152,18 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             state->linearVelocity.x=(state->flags&b2_lockLinearX)?0.0f:state->linearVelocity.x;
             state->linearVelocity.y=(state->flags&b2_lockLinearY)?0.0f:state->linearVelocity.y;
             state->angularVelocity=(state->flags&b2_lockAngularZ)?0.0f:state->angularVelocity;
+            float maxSpeed=world->maxLinearSpeed;
+            if(b2LengthSquared(state->linearVelocity)>maxSpeed*maxSpeed)
+            {
+                float ratio=maxSpeed/b2Length(state->linearVelocity);
+                state->linearVelocity=b2MulSV(ratio,state->linearVelocity);state->flags|=b2_isSpeedCapped;
+            }
+            float maxAngularSpeed=B2_MAX_ROTATION/timeStep;
+            if(state->angularVelocity*state->angularVelocity>maxAngularSpeed*maxAngularSpeed && (state->flags&b2_allowFastRotation)==0)
+            {
+                float ratio=maxAngularSpeed/b2AbsFloat(state->angularVelocity);
+                state->angularVelocity*=ratio;state->flags|=b2_isSpeedCapped;
+            }
             state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
         }
@@ -176,7 +188,9 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         b2Body* body=world->bodies.data+sim->bodyId;
         if(!world->enableSleep || (body->flags&b2_enableSleep)==0 || sleepVelocity>body->sleepThreshold) { body->sleepTime=0; }
         else { body->sleepTime+=timeStep; }
-        sim->flags&=~(b2_isFast|b2_hadTimeOfImpact);
+        body->flags&=~b2_bodyTransientFlags;body->flags|=state->flags&b2_isSpeedCapped;
+        state->flags&=~b2_bodyTransientFlags;
+        sim->flags&=~(b2_isFast|b2_bodyTransientFlags);
         float maxMotion=b2MaxFloat(maxDeltaPosition,maxVelocity*timeStep);
         bool deferBullet=false;
         if(body->type==b2_dynamicBody && world->enableContinuous && maxMotion>body->safetyFactor*sim->minExtent)

@@ -125,6 +125,7 @@ int ContactManifoldUpdateTest( void );
 int BodyTypeChangeTest( void );
 int BodyMotionLocksTest( void );
 int BodyEnableDisableTest( void );
+int BodySafetyAndSpeedTest( void );
 int BodyTypesTest( void );
 int BodyTargetTransformTest( void );
 int BodyAngularImpulseTest( void );
@@ -928,6 +929,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"SpeculativeContactTest")==0) { ran=1; RUN_TEST(SpeculativeContactTest); }
 	if(filter==NULL || strcmp(filter,"ContinuousCollisionTest")==0) { ran=1; RUN_TEST(ContinuousCollisionTest); }
 	if(filter==NULL || strcmp(filter,"BulletCollisionTest")==0) { ran=1; RUN_TEST(BulletCollisionTest); }
+	if(filter==NULL || strcmp(filter,"BodySafetyAndSpeedTest")==0) { ran=1; RUN_TEST(BodySafetyAndSpeedTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

@@ -103,7 +103,7 @@ int BodyDampingTest( void )
 {
     b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
     b2WorldId world = b2CreateWorld( &wd );
-    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;bd.allowFastRotation=true;
     bd.linearVelocity = { 10.0f, 0.0f }; bd.angularVelocity = 4.0f;
     b2BodyId body = b2CreateBody( world, &bd );
     b2Body_SetLinearDamping( body, 2.0f ); b2Body_SetAngularDamping( body, 3.0f );
@@ -381,4 +381,39 @@ int BodyEnableDisableTest(void)
     ENSURE(b2Body_GetType(sleeping)==b2_kinematicBody && world->bodies.data[sleeping.index1-1].setIndex==b2_awakeSet);
     b2Body_SetLinearVelocity(sleeping,{2,0});b2World_Step(id,0.1f,1);ENSURE_SMALL(b2Body_GetPosition(sleeping).x-20.2f,0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int BodySafetyAndSpeedTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    ENSURE(b2World_GetMaxLinearSpeed(id)==wd.maximumLinearSpeed);b2World_SetMaxLinearSpeed(id,5);
+    b2World_SetMaxLinearSpeed(id,0);b2World_SetMaxLinearSpeed(id,NAN);ENSURE(b2World_GetMaxLinearSpeed(id)==5);
+    world->locked=true;b2World_SetMaxLinearSpeed(id,10);world->locked=false;ENSURE(b2World_GetMaxLinearSpeed(id)==5);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={30,40};b2BodyId body=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.1f};b2CreateCircleShape(body,&sd,&c);
+    b2World_Step(id,0.1f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-3,0.00001f);ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-4,0.00001f);
+    ENSURE_SMALL(b2Body_GetPosition(body).x-0.3f,0.00001f);ENSURE_SMALL(b2Body_GetPosition(body).y-0.4f,0.00001f);
+    ENSURE((world->bodies.data[body.index1-1].flags&b2_isSpeedCapped)!=0);
+    b2World_SetMaxLinearSpeed(id,100);b2World_Step(id,0.1f,1);ENSURE((world->bodies.data[body.index1-1].flags&b2_isSpeedCapped)==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    for(int fast=0;fast<2;++fast)
+    {
+        id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.angularVelocity=100;bd.allowFastRotation=fast!=0;
+        body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&c);b2World_Step(id,0.1f,4);
+        ENSURE_SMALL(b2Body_GetAngularVelocity(body)-(fast?100.0f:B2_MAX_ROTATION/0.1f),0.0001f);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    for(int large=0;large<2;++large)
+    {
+        id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};
+        body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&c);
+        b2Body_SetSafetyFactor(body,large?100.0f:0.0f);float expected=large?100.0f:0.0f;
+        b2Body_SetSafetyFactor(body,-1);b2Body_SetSafetyFactor(body,NAN);ENSURE(b2Body_GetSafetyFactor(body)==expected);
+        world->locked=true;b2Body_SetSafetyFactor(body,2);world->locked=false;ENSURE(b2Body_GetSafetyFactor(body)==expected);
+        bd.type=b2_staticBody;bd.position={0,0};b2BodyId fixed=b2CreateBody(id,&bd);b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(fixed,&sd,&wall);
+        b2World_Step(id,0.05f,1);ENSURE(large?b2Body_GetPosition(body).x>0:b2Body_GetPosition(body).x<0);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    return 0;
 }

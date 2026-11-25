@@ -1027,3 +1027,14 @@ bool b2Body_IsBullet(b2BodyId id)
 {
     B2_ASSERT(b2Body_IsValid(id));return (b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId(b2_worlds+id.world0,id))->flags&b2_isBullet)!=0;
 }
+
+void b2Body_SetSafetyFactor(b2BodyId id,float factor)
+{
+    if(!b2IsValidFloat(factor) || factor<0 || !b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2GetBodyFullId(b2_worlds+id.world0,id)->safetyFactor=factor;
+}
+
+float b2Body_GetSafetyFactor(b2BodyId id)
+{
+    B2_ASSERT(b2Body_IsValid(id));return b2GetBodyFullId(b2_worlds+id.world0,id)->safetyFactor;
+}
