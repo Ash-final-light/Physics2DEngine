@@ -57,3 +57,4 @@ static inline int64_t b2AtomicLoadI64( b2AtomicI64* a )
 void b2Log( const char* format, ... );
 void* b2Alloc( size_t size );
 void b2Free( void* mem, size_t size );
+void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize );

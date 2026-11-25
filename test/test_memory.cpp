@@ -83,3 +83,34 @@ int MemoryTest( void )
 
 	return 0;
 }
+
+int GrowAllocTest( void )
+{
+	int* first = static_cast<int*>( b2GrowAlloc( NULL, 0, sizeof( int ) * 2 ) );
+	if ( first == NULL || b2GetByteCount() != sizeof( int ) * 2 )
+	{
+		return 1;
+	}
+	first[0] = 11;
+	first[1] = 22;
+
+	int* second = static_cast<int*>( b2GrowAlloc( first, sizeof( int ) * 2, sizeof( int ) * 4 ) );
+	if ( second == NULL || second[0] != 11 || second[1] != 22 )
+	{
+		return 1;
+	}
+	if ( b2GetByteCount() != sizeof( int ) * 4 )
+	{
+		b2Free( second, sizeof( int ) * 4 );
+		return 1;
+	}
+
+	second[2] = 33;
+	second[3] = 44;
+	b2Free( second, sizeof( int ) * 4 );
+	if ( b2GetByteCount() != 0 )
+	{
+		return 1;
+	}
+	return 0;
+}

@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #if defined( B2_PLATFORM_WINDOWS )
 #include <malloc.h>
@@ -168,4 +169,16 @@ void b2Free( void* mem, size_t size )
 	}
 
 	b2AtomicFetchAddI64( &b2_byteCount, -(int64_t)size );
+}
+
+void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize )
+{
+	B2_ASSERT( newSize > oldSize );
+	void* newMem = b2Alloc( newSize );
+	if ( oldSize > 0 )
+	{
+		memcpy( newMem, oldMem, oldSize );
+		b2Free( oldMem, oldSize );
+	}
+	return newMem;
 }

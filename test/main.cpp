@@ -12,6 +12,7 @@ extern "C" int AssertCallbackTest( void );
 int LogCallbackTest( void );
 int LengthUnitsTest( void );
 int MemoryTest( void );
+int GrowAllocTest( void );
 
 int main( int argc, char** argv )
 {
@@ -58,6 +59,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( MemoryTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "GrowAllocTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( GrowAllocTest );
 	}
 
 	if ( ran == 0 )
