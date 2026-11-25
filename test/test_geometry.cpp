@@ -555,3 +555,35 @@ int RayCastSegmentTest( void )
 	ENSURE( b2CastRaySegment( &collapsed, &through, false ).hit == false );
 	return 0;
 }
+
+int RayCastPolygonTest( void )
+{
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2RayCastInput input = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 1.0f };
+	b2CastOutput hit = b2CastRayPolygon( &box, &input );
+	ENSURE( hit.hit == true );
+	ENSURE_SMALL( hit.normal.x + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( hit.normal.y, FLT_EPSILON );
+	ENSURE_SMALL( hit.fraction - 3.0f / 8.0f, FLT_EPSILON );
+	ENSURE_SMALL( hit.point.x + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( hit.point.y, FLT_EPSILON );
+
+	b2RayCastInput above = { { -4.0f, 3.0f }, { 8.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRayPolygon( &box, &above ).hit == false );
+
+	b2RayCastInput inside = { { 0.0f, 0.0f }, { 2.0f, 0.0f }, 1.0f };
+	b2CastOutput overlap = b2CastRayPolygon( &box, &inside );
+	ENSURE( overlap.hit == true );
+	ENSURE( overlap.point.x == 0.0f && overlap.point.y == 0.0f );
+
+	b2Rot quarter = { 0.0f, 1.0f };
+	b2Polygon turned = b2MakeOffsetBox( 2.0f, 0.5f, b2Vec2_zero, quarter );
+	b2RayCastInput up = { { 0.0f, -4.0f }, { 0.0f, 8.0f }, 1.0f };
+	b2CastOutput side = b2CastRayPolygon( &turned, &up );
+	ENSURE( side.hit == true );
+	ENSURE_SMALL( side.normal.x, 0.0001f );
+	ENSURE_SMALL( side.normal.y + 1.0f, 0.0001f );
+	ENSURE_SMALL( side.point.y + 2.0f, 0.0001f );
+	ENSURE_SMALL( side.fraction - 0.25f, 0.0001f );
+	return 0;
+}

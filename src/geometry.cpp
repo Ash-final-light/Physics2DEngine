@@ -653,3 +653,68 @@ b2CastOutput b2CastRaySegment( const b2Segment* shape, const b2RayCastInput* inp
 	output.hit = true;
 	return output;
 }
+
+b2CastOutput b2CastRayPolygon( const b2Polygon* shape, const b2RayCastInput* input )
+{
+	B2_ASSERT( b2IsValidRay( input ) );
+	B2_ASSERT( shape->radius == 0.0f );
+
+	b2CastOutput output = {};
+	if ( shape->radius != 0.0f )
+	{
+		return output;
+	}
+
+	b2Vec2 base = shape->vertices[0];
+	b2Vec2 p1 = b2Sub( input->origin, base );
+	b2Vec2 d = input->translation;
+	float lower = 0.0f;
+	float upper = input->maxFraction;
+	int index = -1;
+
+	for ( int edgeIndex = 0; edgeIndex < shape->count; ++edgeIndex )
+	{
+		b2Vec2 vertex = b2Sub( shape->vertices[edgeIndex], base );
+		float numerator = b2Dot( shape->normals[edgeIndex], b2Sub( vertex, p1 ) );
+		float denominator = b2Dot( shape->normals[edgeIndex], d );
+
+		if ( denominator == 0.0f )
+		{
+			if ( numerator < 0.0f )
+			{
+				return output;
+			}
+		}
+		else if ( denominator < 0.0f && numerator < lower * denominator )
+		{
+			lower = numerator / denominator;
+			index = edgeIndex;
+		}
+		else if ( denominator > 0.0f && numerator < upper * denominator )
+		{
+			upper = numerator / denominator;
+		}
+
+		if ( upper < lower )
+		{
+			return output;
+		}
+	}
+
+	B2_ASSERT( 0.0f <= lower && lower <= input->maxFraction );
+
+	if ( index >= 0 )
+	{
+		output.fraction = lower;
+		output.normal = shape->normals[index];
+		output.point = b2MulAdd( input->origin, lower, d );
+		output.hit = true;
+	}
+	else
+	{
+		output.point = input->origin;
+		output.hit = true;
+	}
+
+	return output;
+}
