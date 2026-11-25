@@ -10,6 +10,7 @@ extern int ToolchainTest( void );
 extern "C" int VersionCTest( void );
 extern "C" int AssertCallbackTest( void );
 int LogCallbackTest( void );
+int LengthUnitsTest( void );
 
 int main( int argc, char** argv )
 {
@@ -44,6 +45,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( LogCallbackTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "LengthUnitsTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( LengthUnitsTest );
 	}
 
 	if ( ran == 0 )

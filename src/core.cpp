@@ -3,6 +3,9 @@
 
 #include "core.h"
 
+#include "box2d/math_functions.h"
+
+#include <cmath>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -72,4 +75,23 @@ void b2Log( const char* format, ... )
 	vsnprintf( buffer, sizeof( buffer ), format, args );
 	b2LogHandler( buffer );
 	va_end( args );
+}
+
+float b2_lengthUnitsPerMeter = 1.0f;
+
+void b2SetLengthUnitsPerMeter( float lengthUnits )
+{
+	if ( std::isfinite( lengthUnits ) == false || lengthUnits <= 0.0f )
+	{
+		b2Log( "invalid input: lengthUnits in %s\n", __func__ );
+		B2_ASSERT( std::isfinite( lengthUnits ) && lengthUnits > 0.0f );
+		return;
+	}
+
+	b2_lengthUnitsPerMeter = lengthUnits;
+}
+
+float b2GetLengthUnitsPerMeter( void )
+{
+	return b2_lengthUnitsPerMeter;
 }

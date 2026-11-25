@@ -39,6 +39,7 @@ if(BUILD_TESTING)
 		test/test_version.c
 		test/test_assert.c
 		test/test_log.cpp
+		test/test_length.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE
