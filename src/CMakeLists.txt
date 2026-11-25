@@ -15,6 +15,7 @@ add_library(box2d
 	timer.cpp
 	types.cpp
 	physics_world.cpp
+	broad_phase.cpp
 	body.cpp
 	shape.cpp
 )

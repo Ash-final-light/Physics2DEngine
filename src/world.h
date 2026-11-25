@@ -5,6 +5,7 @@
 
 #include "arena_allocator.h"
 #include "body.h"
+#include "broad_phase.h"
 #include "container.h"
 #include "id_pool.h"
 #include "shape.h"
@@ -19,6 +20,7 @@ struct b2World
 	bool inUse;
 	bool locked;
 	b2Vec2 gravity;
+	b2BroadPhase broadPhase;
 	float restitutionThreshold;
 	int restitutionIterations;
 	bool enableRestitutionPropagation;
