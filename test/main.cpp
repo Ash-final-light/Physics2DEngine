@@ -62,6 +62,7 @@ int ShapeCastDispatchTest( void );
 int SweepTransformTest( void );
 int TimeOfImpactTest( void );
 int CircleManifoldTest( void );
+int CapsuleCircleManifoldTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -409,6 +410,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( CircleManifoldTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "CapsuleCircleManifoldTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( CapsuleCircleManifoldTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
