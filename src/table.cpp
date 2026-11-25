@@ -58,6 +58,31 @@ static void b2AddKeyHaveCapacity( b2HashSet* set, uint64_t key, uint64_t hash )
 	set->count += 1;
 }
 
+static void b2GrowTable( b2HashSet* set )
+{
+	uint32_t oldCount = set->count;
+	uint32_t oldCapacity = set->capacity;
+	b2SetItem* oldItems = set->items;
+
+	set->count = 0;
+	set->capacity = 2 * oldCapacity;
+	set->items = static_cast<b2SetItem*>( b2Alloc( set->capacity * sizeof( b2SetItem ) ) );
+	memset( set->items, 0, set->capacity * sizeof( b2SetItem ) );
+
+	for ( uint32_t i = 0; i < oldCapacity; ++i )
+	{
+		if ( oldItems[i].key == 0 )
+		{
+			continue;
+		}
+
+		b2AddKeyHaveCapacity( set, oldItems[i].key, b2KeyHash( oldItems[i].key ) );
+	}
+
+	B2_ASSERT( set->count == oldCount );
+	b2Free( oldItems, oldCapacity * sizeof( b2SetItem ) );
+}
+
 bool b2ContainsKey( const b2HashSet* set, uint64_t key )
 {
 	B2_VALIDATE( key != 0 );
@@ -90,6 +115,11 @@ bool b2AddKey( b2HashSet* set, uint64_t key )
 	{
 		B2_ASSERT( set->items[index].key == key );
 		return true;
+	}
+
+	if ( 2 * set->count >= set->capacity )
+	{
+		b2GrowTable( set );
 	}
 
 	b2AddKeyHaveCapacity( set, key, hash );

@@ -138,3 +138,42 @@ int HashSetRemoveTest( void )
 	b2DestroySet( &set );
 	return 0;
 }
+
+int HashSetGrowTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2HashSet set = b2CreateSet( 16 );
+	ENSURE( b2GetSetCapacity( &set ) == 16 );
+
+	for ( uint64_t key = 1; key <= 8; ++key )
+	{
+		ENSURE( b2AddKey( &set, key ) == false );
+	}
+	ENSURE( b2GetSetCount( &set ) == 8 && b2GetSetCapacity( &set ) == 16 );
+
+	ENSURE( b2AddKey( &set, 9 ) == false );
+	ENSURE( b2GetSetCount( &set ) == 9 && b2GetSetCapacity( &set ) == 32 );
+	ENSURE( b2GetByteCount() == before + 32 * sizeof( b2SetItem ) );
+
+	for ( uint64_t key = 10; key <= 16; ++key )
+	{
+		ENSURE( b2AddKey( &set, key ) == false );
+	}
+	ENSURE( b2GetSetCapacity( &set ) == 32 );
+
+	ENSURE( b2AddKey( &set, 17 ) == false );
+	ENSURE( b2GetSetCount( &set ) == 17 && b2GetSetCapacity( &set ) == 64 );
+	ENSURE( b2AddKey( &set, 1 ) == true );
+	ENSURE( b2GetSetCount( &set ) == 17 && b2GetSetCapacity( &set ) == 64 );
+
+	for ( uint64_t key = 1; key <= 17; ++key )
+	{
+		ENSURE( b2ContainsKey( &set, key ) );
+	}
+	ENSURE( b2GetHashSetBytes( &set ) == 64 * (int)sizeof( b2SetItem ) );
+	ENSURE( b2GetByteCount() == before + 64 * sizeof( b2SetItem ) );
+
+	b2DestroySet( &set );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
