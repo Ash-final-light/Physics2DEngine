@@ -24,16 +24,22 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     B2_ASSERT(set->bodySims.count==set->bodyStates.count);
     b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
     b2PrepareContactConstraints(&context);
+    for(int step=0;step<subStepCount;++step)
+    {
+        for(int i=0;i<set->bodySims.count;++i)
+        { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
+        b2SolveNormalContacts(&context);
+        for(int i=0;i<set->bodySims.count;++i)
+        {
+            b2BodyState* state=set->bodyStates.data+i;
+            state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
+            state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
+        }
+    }
     for(int i=0;i<set->bodySims.count;++i)
     {
         b2BodySim* sim=set->bodySims.data+i;
         b2BodyState* state=set->bodyStates.data+i;
-        for(int step=0;step<subStepCount;++step)
-        {
-            b2IntegrateBodyVelocity(world,sim,state,h);
-            state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
-            state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
-        }
         sim->center=b2Add(sim->center,state->deltaPosition);
         sim->transform.q=b2NormalizeRot(b2MulRot(state->deltaRotation,sim->transform.q));
         sim->transform.p=b2Sub(sim->center,b2RotateVector(sim->transform.q,sim->localCenter));

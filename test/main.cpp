@@ -99,6 +99,7 @@ int SolverSetOrganizationTest( void );
 int ContactIslandTest( void );
 int ConstraintGraphTest( void );
 int ContactPrepareTest( void );
+int ContactNormalSolveTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
@@ -886,6 +887,7 @@ int main( int argc, char** argv )
 if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(ContactIslandTest); }
 	if(filter==NULL || strcmp(filter,"ConstraintGraphTest")==0) { ran=1; RUN_TEST(ConstraintGraphTest); }
 	if(filter==NULL || strcmp(filter,"ContactPrepareTest")==0) { ran=1; RUN_TEST(ContactPrepareTest); }
+	if(filter==NULL || strcmp(filter,"ContactNormalSolveTest")==0) { ran=1; RUN_TEST(ContactNormalSolveTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

@@ -62,3 +62,55 @@ void b2ReleaseContactConstraints(b2StepContext* context)
         color->overflowConstraints=NULL;
     }
 }
+
+static void b2SolveNormalColor(b2StepContext* context,int colorIndex)
+{
+    b2GraphColor* color=context->graph->colors+colorIndex;
+    b2BodyState* states=context->states;
+    b2BodyState dummyState=b2_identityBodyState;
+    for(int i=0;i<color->contactSims.count;++i)
+    {
+        b2ContactConstraint* constraint=color->overflowConstraints+i;
+        float mA=constraint->invMassA,iA=constraint->invIA,mB=constraint->invMassB,iB=constraint->invIB;
+        int indexA=constraint->indexA-1,indexB=constraint->indexB-1;
+        b2BodyState* stateA=indexA==B2_NULL_INDEX?&dummyState:states+indexA;
+        b2BodyState* stateB=indexB==B2_NULL_INDEX?&dummyState:states+indexB;
+        b2Vec2 vA=stateA->linearVelocity,vB=stateB->linearVelocity;
+        float wA=stateA->angularVelocity,wB=stateB->angularVelocity;
+        b2Vec2 dp=b2Sub(stateB->deltaPosition,stateA->deltaPosition);
+        b2Vec2 normal=constraint->normal;
+        float vnc=b2Dot(b2Sub(vB,vA),normal);
+        float impulses[2]={0,0},rnA[2],rnB[2];
+        float normalImpulse=0,angularA=0,angularB=0;
+        for(int j=0;j<constraint->pointCount;++j)
+        {
+            b2ContactConstraintPoint* cp=constraint->points+j;
+            b2Vec2 rA=cp->anchorA,rB=cp->anchorB;
+            rnA[j]=b2Cross(rA,normal);rnB[j]=b2Cross(rB,normal);
+            b2Vec2 ds=b2Add(dp,b2Sub(b2RotateVector(stateB->deltaRotation,rB),b2RotateVector(stateA->deltaRotation,rA)));
+            float s=cp->baseSeparation+b2Dot(ds,normal);
+            float velocityBias=s>0.0f?s*context->inv_h:0.0f;
+            float vn=vnc+wB*rnB[j]-wA*rnA[j];
+            for(int k=0;k<j;++k)
+            {
+                vn+=(mA+mB+iA*rnA[k]*rnA[j]+iB*rnB[k]*rnB[j])*impulses[k];
+            }
+            float impulse=b2MaxFloat(-cp->normalMass*(vn+velocityBias),-cp->normalImpulse);
+            cp->normalImpulse+=impulse;cp->totalNormalImpulse+=impulse;
+            impulses[j]=impulse;
+            normalImpulse+=impulse;angularA+=impulse*rnA[j];angularB+=impulse*rnB[j];
+        }
+        b2Vec2 P=b2MulSV(normalImpulse,normal);
+        vA=b2MulSub(vA,mA,P);wA-=iA*angularA;
+        vB=b2MulAdd(vB,mB,P);wB+=iB*angularB;
+        if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
+        if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
+    }
+}
+
+void b2SolveNormalContacts(b2StepContext* context)
+{
+    // Overflow constraints run first, as in the reference stage driver.
+    b2SolveNormalColor(context,B2_OVERFLOW_INDEX);
+    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i); }
+}

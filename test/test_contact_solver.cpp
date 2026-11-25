@@ -41,3 +41,62 @@ int ContactPrepareTest(void)
     for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i) { ENSURE(world->constraintGraph.colors[i].overflowConstraints==NULL); }
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactNormalSolveTest(void)
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={3,2};
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.01f,1);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);
+    ENSURE(b2Body_GetLinearVelocity(a).y==2);
+    ENSURE_SMALL(b2Body_GetPosition(a).x,0.00001f);ENSURE(b2Body_GetPosition(b).x==2);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Unequal masses retain linear momentum in an inelastic collision.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={3,0};
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.position={2,0};bd.linearVelocity={0,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2Body_SetMassData(a,b2MassData{2,{0,0},1});b2Body_SetMassData(b,b2MassData{1,{0,0},1});
+    b2World_Step(id,0.01f,1);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(a).x-2,0.00001f);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-2,0.00001f);
+    ENSURE_SMALL(2*b2Body_GetLinearVelocity(a).x+b2Body_GetLinearVelocity(b).x-6,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={3,0};
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.position={2,0};bd.linearVelocity={-3,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.01f,1);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // A moving kinematic obstacle transfers normal velocity without being slowed.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_kinematicBody;bd.position={2,0};bd.linearVelocity={-1,0};
+    b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.01f,1);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(a).x+1,0.00001f);ENSURE(b2Body_GetLinearVelocity(b).x==-1);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // The only blocking normal is assigned to overflow after the regular static colors fill.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={-3,0};
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.linearVelocity={0,0};b=b2CreateBody(id,&bd);
+    for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
+    {
+        c.center={i==B2_GRAPH_COLOR_COUNT-1?-2.0f:2.0f,0};b2CreateCircleShape(b,&sd,&c);
+    }
+    b2World_Step(id,0.01f,1);
+    ENSURE(b2_worlds[id.index1-1].constraintGraph.colors[B2_OVERFLOW_INDEX].contactSims.count>0);
+    ENSURE_SMALL(b2Body_GetLinearVelocity(a).x,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);c.center={0,0};
+    // Sustained gravity support is exercised over many frames and substeps.
+    wd.gravity={0,-10};id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,-2};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE_SMALL(b2Body_GetPosition(a).y,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y,0.0001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

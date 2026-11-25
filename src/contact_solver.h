@@ -26,3 +26,4 @@ struct b2ContactConstraint
 
 void b2PrepareContactConstraints(b2StepContext* context);
 void b2ReleaseContactConstraints(b2StepContext* context);
+void b2SolveNormalContacts(b2StepContext* context);

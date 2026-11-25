@@ -80,6 +80,7 @@ int BodyGravityTest( void )
     b2WorldId world = b2CreateWorld( &wd );
     b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
     b2BodyId normal = b2CreateBody( world, &bd );
+    bd.position.x=10.0f;
     b2BodyId scaled = b2CreateBody( world, &bd );
     b2BodyId massless = b2CreateBody( world, &bd );
     b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
@@ -257,7 +258,7 @@ int BodyTypesTest( void )
     b2BodyId bodies[b2_bodyTypeCount];
     for(int type=0;type<b2_bodyTypeCount;++type)
     {
-        bd.type=(b2BodyType)type;bodies[type]=b2CreateBody(world,&bd);
+        bd.type=(b2BodyType)type;bd.position.x=10.0f*type;bodies[type]=b2CreateBody(world,&bd);
         b2CreateCircleShape(bodies[type],&sd,&circle);
         ENSURE(b2Body_GetType(bodies[type])==type);
     }
@@ -268,7 +269,7 @@ int BodyTypesTest( void )
     b2Body_ApplyLinearImpulseToCenter(bodies[b2_staticBody],{1000.0f,0.0f},true);
     b2World_Step(world,1.0f,2);
     ENSURE(b2Body_GetPosition(bodies[b2_staticBody]).x==0.0f);
-    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_kinematicBody]).x-2.0f,0.00001f);
+    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_kinematicBody]).x-(10.0f*b2_kinematicBody+2.0f),0.00001f);
     ENSURE(b2Body_GetPosition(bodies[b2_kinematicBody]).y==0.0f);
     ENSURE_SMALL(b2Body_GetPosition(bodies[b2_dynamicBody]).y+7.5f,0.00001f);
     bd.type=(b2BodyType)b2_bodyTypeCount;
