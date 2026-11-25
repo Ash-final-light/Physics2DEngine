@@ -719,3 +719,17 @@ void b2Body_ApplyLinearImpulseToCenter( b2BodyId id, b2Vec2 impulse, bool wake )
         b2LimitBodyVelocity( body, b2_worlds[id.world0].maxLinearSpeed );
     }
 }
+
+
+void b2Body_ApplyAngularImpulse( b2BodyId id, float impulse, bool wake )
+{
+    if ( b2IsValidFloat( impulse ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->angularVelocity += body->invInertia*impulse;
+    }
+}
