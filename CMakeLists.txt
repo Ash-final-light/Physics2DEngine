@@ -65,6 +65,7 @@ if(BUILD_TESTING)
 		test/test_solver_set.cpp
 		test/test_island.cpp
 		test/test_constraint_graph.cpp
+		test/test_contact_solver.cpp
 		test/test_shape.cpp
 		test/test_broad_phase.cpp
 		test/test_hull.cpp

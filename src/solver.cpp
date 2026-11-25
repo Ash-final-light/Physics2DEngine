@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "solver.h"
+#include "contact_solver.h"
 #include "world.h"
 #include "shape.h"
 #include "box2d/math_functions.h"
@@ -21,6 +22,8 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     float h=timeStep/(float)subStepCount;
     b2SolverSet* set=world->solverSets.data+b2_awakeSet;
     B2_ASSERT(set->bodySims.count==set->bodyStates.count);
+    b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
+    b2PrepareContactConstraints(&context);
     for(int i=0;i<set->bodySims.count;++i)
     {
         b2BodySim* sim=set->bodySims.data+i;
@@ -39,4 +42,5 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
+    b2ReleaseContactConstraints(&context);
 }

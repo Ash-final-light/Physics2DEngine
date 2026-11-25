@@ -36,6 +36,8 @@ typedef struct b2GraphColor
 	// 缓存友好的数组
 	b2DynamicArray<b2ContactSim> contactSims;
 
+	// Temporary scalar constraints, including the overflow color.
+	struct b2ContactConstraint* overflowConstraints;
 } b2GraphColor;
 
 typedef struct b2ConstraintGraph

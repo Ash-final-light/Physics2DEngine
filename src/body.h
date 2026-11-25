@@ -7,6 +7,9 @@
 #include "box2d/constants.h"
 #include "core.h"
 
+static inline int b2DecodeAwakeIndex(int encodedBodySimIndex)
+{ return encodedBodySimIndex>=0?encodedBodySimIndex:B2_NULL_INDEX; }
+
 enum b2BodyFlags
 {
 	// 此刚体沿 x 轴平移锁定
