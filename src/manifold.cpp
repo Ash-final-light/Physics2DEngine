@@ -716,3 +716,9 @@ b2LocalManifold b2CollidePolygonAndCapsule( const b2Polygon* polygonA, const b2C
 	b2Polygon polyB = b2MakeCapsule( capsuleB->center1, capsuleB->center2, capsuleB->radius );
 	return b2CollidePolygons( polygonA, &polyB, xf );
 }
+
+b2LocalManifold b2CollideSegmentAndPolygon( const b2Segment* segmentA, const b2Polygon* polygonB, b2Transform xf )
+{
+	b2Polygon polygonA = b2MakeCapsule( segmentA->point1, segmentA->point2, 0.0f );
+	return b2CollidePolygons( &polygonA, polygonB, xf );
+}

@@ -265,3 +265,22 @@ int PolygonManifoldTest( void )
 	ENSURE( b2CollidePolygons( &boxA, &boxB, apart ).pointCount == 0 );
 	return 0;
 }
+
+int SegmentPolygonManifoldTest( void )
+{
+	b2Segment segment = { { -0.5f, 0.0f }, { 0.5f, 0.0f } };
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2Transform inside = { { 0.0f, 0.5f }, b2Rot_identity };
+	b2LocalManifold hit = b2CollideSegmentAndPolygon( &segment, &box, inside );
+	ENSURE( hit.pointCount >= 1 );
+	float separation = hit.points[0].separation;
+	if ( hit.pointCount == 2 && hit.points[1].separation < separation )
+	{
+		separation = hit.points[1].separation;
+	}
+	ENSURE( separation < 0.0f );
+
+	b2Transform apart = { { 0.0f, 3.0f }, b2Rot_identity };
+	ENSURE( b2CollideSegmentAndPolygon( &segment, &box, apart ).pointCount == 0 );
+	return 0;
+}
