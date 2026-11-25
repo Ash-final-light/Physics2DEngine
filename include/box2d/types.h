@@ -160,3 +160,17 @@ B2_API b2ShapeId b2CreateSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, c
 
 B2_API void b2Shape_SetUserData( b2ShapeId shapeId, void* userData );
 B2_API void* b2Shape_GetUserData( b2ShapeId shapeId );
+
+B2_API b2Circle b2Shape_GetCircle( b2ShapeId shapeId );
+B2_API void b2Shape_SetCircle( b2ShapeId shapeId, const b2Circle* circle );
+
+B2_API b2Capsule b2Shape_GetCapsule( b2ShapeId shapeId );
+B2_API void b2Shape_SetCapsule( b2ShapeId shapeId, const b2Capsule* capsule );
+
+B2_API b2Polygon b2Shape_GetPolygon( b2ShapeId shapeId );
+B2_API void b2Shape_SetPolygon( b2ShapeId shapeId, const b2Polygon* polygon );
+
+B2_API b2Segment b2Shape_GetSegment( b2ShapeId shapeId );
+B2_API void b2Shape_SetSegment( b2ShapeId shapeId, const b2Segment* segment );
+
+B2_API b2ShapeType b2Shape_GetType( b2ShapeId shapeId );

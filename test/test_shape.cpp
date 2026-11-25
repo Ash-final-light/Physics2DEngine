@@ -183,3 +183,47 @@ int ShapeUserDataTest( void )
     b2DestroyWorld( world );
     return 0;
 }
+
+
+int ShapeGeometryEditTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2ShapeId shape = b2CreateCircleShape( body, &sd, &circle );
+    ENSURE( b2Shape_GetType( shape ) == b2_circleShape );
+    circle.center.x = 3.0f;
+    circle.radius = 2.0f;
+    b2Shape_SetCircle( shape, &circle );
+    ENSURE( b2Shape_GetCircle( shape ).center.x == 3.0f );
+    ENSURE( b2Body_ComputeBounds( body ).upperBound.x > 5.0f );
+    b2Circle bad = circle;
+    bad.radius = -1.0f;
+    b2Shape_SetCircle( shape, &bad );
+    ENSURE( b2Shape_GetCircle( shape ).radius == 2.0f );
+    b2Polygon box = b2MakeBox( 2.0f, 3.0f );
+    b2Shape_SetPolygon( shape, &box );
+    ENSURE( b2Shape_GetType( shape ) == b2_polygonShape );
+    ENSURE( b2Shape_GetPolygon( shape ).count == 4 );
+    ENSURE( b2Body_ComputeBounds( body ).upperBound.y > 3.0f );
+    b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 0.5f };
+    b2Shape_SetCapsule( shape, &capsule );
+    ENSURE( b2Shape_GetType( shape ) == b2_capsuleShape );
+    ENSURE( b2Shape_GetCapsule( shape ).radius == 0.5f );
+    capsule.center2 = capsule.center1;
+    b2Shape_SetCapsule( shape, &capsule );
+    ENSURE( b2Shape_GetCapsule( shape ).center2.x == 1.0f );
+    b2Segment segment = { { -5.0f, 0.0f }, { 5.0f, 0.0f } };
+    b2Shape_SetSegment( shape, &segment );
+    ENSURE( b2Shape_GetType( shape ) == b2_segmentShape );
+    ENSURE( b2Shape_GetSegment( shape ).point2.x == 5.0f );
+    b2Body_SetTransform( body, { 10.0f, 0.0f }, { 0.0f, 1.0f } );
+    b2AABB bounds = b2Body_ComputeBounds( body );
+    ENSURE( bounds.lowerBound.y < -5.0f && bounds.upperBound.y > 5.0f );
+    ENSURE( b2Shape_IsValid( shape ) );
+    b2DestroyWorld( world );
+    return 0;
+}

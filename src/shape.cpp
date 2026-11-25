@@ -238,3 +238,93 @@ void* b2Shape_GetUserData( b2ShapeId id )
     b2Shape* shape = b2GetShapeFromId( id );
     return shape != NULL ? shape->userData : NULL;
 }
+
+
+b2ShapeType b2Shape_GetType( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL );
+    return shape->type;
+}
+
+static b2Shape* b2GetShapeWithType( b2ShapeId id, b2ShapeType type )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL && shape->type == type );
+    return shape;
+}
+
+static void b2SetShapeGeometry( b2ShapeId id, const void* geometry, b2ShapeType type )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    if ( shape == NULL || b2_worlds[id.world0].locked )
+    {
+        return;
+    }
+    switch ( type )
+    {
+        case b2_circleShape: shape->circle = *(const b2Circle*)geometry; break;
+        case b2_capsuleShape: shape->capsule = *(const b2Capsule*)geometry; break;
+        case b2_polygonShape: shape->polygon = *(const b2Polygon*)geometry; break;
+        case b2_segmentShape: shape->segment = *(const b2Segment*)geometry; break;
+        default: B2_ASSERT( false ); return;
+    }
+    shape->type = type;
+    b2Body* body = b2_worlds[id.world0].bodies.data + shape->bodyId;
+    b2UpdateShapeAABB( shape, body->transform );
+}
+
+b2Circle b2Shape_GetCircle( b2ShapeId id )
+{
+    return b2GetShapeWithType( id, b2_circleShape )->circle;
+}
+
+b2Capsule b2Shape_GetCapsule( b2ShapeId id )
+{
+    return b2GetShapeWithType( id, b2_capsuleShape )->capsule;
+}
+
+b2Polygon b2Shape_GetPolygon( b2ShapeId id )
+{
+    return b2GetShapeWithType( id, b2_polygonShape )->polygon;
+}
+
+b2Segment b2Shape_GetSegment( b2ShapeId id )
+{
+    return b2GetShapeWithType( id, b2_segmentShape )->segment;
+}
+
+
+void b2Shape_SetCircle( b2ShapeId id, const b2Circle* circle )
+{
+    if ( circle != NULL && b2IsValidVec2( circle->center ) && b2IsValidFloat( circle->radius ) && circle->radius >= 0.0f )
+    {
+        b2SetShapeGeometry( id, circle, b2_circleShape );
+    }
+}
+
+void b2Shape_SetCapsule( b2ShapeId id, const b2Capsule* capsule )
+{
+    if ( capsule != NULL && b2IsValidVec2( capsule->center1 ) && b2IsValidVec2( capsule->center2 ) &&
+         b2IsValidFloat( capsule->radius ) && capsule->radius >= 0.0f &&
+         b2DistanceSquared( capsule->center1, capsule->center2 ) > B2_LINEAR_SLOP * B2_LINEAR_SLOP )
+    {
+        b2SetShapeGeometry( id, capsule, b2_capsuleShape );
+    }
+}
+
+void b2Shape_SetPolygon( b2ShapeId id, const b2Polygon* polygon )
+{
+    if ( b2IsValidPolygon( polygon ) )
+    {
+        b2SetShapeGeometry( id, polygon, b2_polygonShape );
+    }
+}
+
+void b2Shape_SetSegment( b2ShapeId id, const b2Segment* segment )
+{
+    if ( segment != NULL && b2IsValidVec2( segment->point1 ) && b2IsValidVec2( segment->point2 ) )
+    {
+        b2SetShapeGeometry( id, segment, b2_segmentShape );
+    }
+}
