@@ -23,6 +23,8 @@ struct b2World
 	bool locked;
 	b2Vec2 gravity;
 	b2BroadPhase broadPhase;
+	b2IdPool islandIdPool;
+	b2DynamicArray<b2Island> islands;
 	b2IdPool contactIdPool;
 	b2DynamicArray<b2Contact> contacts;
 	b2IdPool solverSetIdPool;

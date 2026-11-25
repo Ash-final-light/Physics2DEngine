@@ -3,6 +3,7 @@
 
 #include "contact.h"
 #include "world.h"
+#include "island.h"
 #include "body.h"
 #include "shape.h"
 
@@ -190,6 +191,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
 
 void b2DestroyContact( b2World* world, b2Contact* contact )
 {
+    if(contact->islandId!=B2_NULL_INDEX) { b2UnlinkContact(world,contact); }
     uint64_t key = B2_SHAPE_PAIR_KEY(contact->shapeIdA,contact->shapeIdB);
     b2RemoveKey(&world->broadPhase.pairSet,key);
     for ( int edge = 0; edge < 2; ++edge )
@@ -321,7 +323,7 @@ void b2UpdateContacts( b2World* world )
     for ( int i = 0; i < world->contacts.count; ++i )
     {
         b2Contact* contact = world->contacts.data+i;
-        if ( contact->contactId == B2_NULL_INDEX )
+        if ( contact->contactId == B2_NULL_INDEX || contact->setIndex != b2_awakeSet )
         {
             continue;
         }
@@ -329,10 +331,13 @@ void b2UpdateContacts( b2World* world )
         b2Shape* b = world->shapes.data+contact->shapeIdB;
         b2Body* bodyA = world->bodies.data+a->bodyId;
         b2Body* bodyB = world->bodies.data+b->bodyId;
+        bool wasTouching=(contact->flags & b2_contactTouchingFlag)!=0;
         bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,b2GetBodySim(world,bodyA)->transform,
             b2Sub(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2Sub(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
         if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
         else { contact->flags &= ~b2_contactTouchingFlag; }
+        if(touching && !wasTouching) { b2LinkContact(world,contact); }
+        else if(!touching && wasTouching) { b2UnlinkContact(world,contact); }
     }
 }
 

@@ -33,6 +33,7 @@ void b2DestroySolverSet( b2World* world, int index )
     b2Array_Destroy(set->bodySims);
     b2Array_Destroy(set->bodyStates);
     b2Array_Destroy(set->contactSims);
+    b2Array_Destroy(set->islandSims);
     set->setIndex=B2_NULL_INDEX;
     b2FreeId(&world->solverSetIdPool,index);
 }
@@ -115,7 +116,7 @@ void b2RemoveBodyFromSolverSet( b2World* world, b2Body* body )
     {
         world->bodies.data[set->bodySims.data[index].bodyId].localIndex=index;
     }
-    if(setIndex>=b2_firstSleepingSet && set->bodySims.count==0 && set->contactSims.count==0)
+    if(setIndex>=b2_firstSleepingSet && set->bodySims.count==0 && set->contactSims.count==0 && set->islandSims.count==0)
     {
         b2DestroySolverSet(world,setIndex);
     }
@@ -145,7 +146,7 @@ void b2TransferBody( b2World* world, b2SolverSet* target, b2SolverSet* source, b
     }
     body->setIndex=target->setIndex;
     body->localIndex=newIndex;
-    if(oldSet>=b2_firstSleepingSet && source->bodySims.count==0 && source->contactSims.count==0)
+    if(oldSet>=b2_firstSleepingSet && source->bodySims.count==0 && source->contactSims.count==0 && source->islandSims.count==0)
     {
         b2DestroySolverSet(world,oldSet);
     }
@@ -155,6 +156,34 @@ void b2TransferBody( b2World* world, b2SolverSet* target, b2SolverSet* source, b
 bool b2WakeBody( b2World* world, b2Body* body )
 {
     if(body->setIndex<b2_firstSleepingSet) { return false; }
-    b2TransferBody(world,world->solverSets.data+b2_awakeSet,world->solverSets.data+body->setIndex,body);
+    b2WakeSolverSet(world,body->setIndex);
     return true;
+}
+
+void b2WakeSolverSet( b2World* world, int setIndex )
+{
+    B2_ASSERT(setIndex>=b2_firstSleepingSet);
+    b2SolverSet* set=world->solverSets.data+setIndex;
+    b2SolverSet* awake=world->solverSets.data+b2_awakeSet;
+    for(int i=0;i<set->bodySims.count;++i)
+    {
+        b2BodySim sim=set->bodySims.data[i];
+        b2Body* body=world->bodies.data+sim.bodyId;
+        body->setIndex=b2_awakeSet;body->localIndex=awake->bodySims.count;body->sleepTime=0.0f;
+        b2Array_Push(awake->bodySims,sim);
+        b2BodyState state=b2_identityBodyState;state.flags=body->flags;
+        b2Array_Push(awake->bodyStates,state);
+    }
+    set->bodySims.count=0;
+    for(int i=0;i<set->islandSims.count;++i)
+    {
+        b2IslandSim sim=set->islandSims.data[i];
+        b2Island* island=world->islands.data+sim.islandId;
+        island->setIndex=b2_awakeSet;island->localIndex=awake->islandSims.count;
+        b2Array_Push(awake->islandSims,sim);
+    }
+    set->islandSims.count=0;
+    b2RefreshContactSets(world);
+    B2_ASSERT(set->contactSims.count==0);
+    b2DestroySolverSet(world,setIndex);
 }

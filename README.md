@@ -78,3 +78,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 ```
 
 工具链程序通过时打印 `C17 and C++20 toolchain check passed` 并返回 0。CTest 会运行 `unit_tests`。
+
+接触岛按非静态刚体的连通性合并，移除约束后使用并查集拆分；静态地面不连接独立的岛。刚体创建、类型变更、销毁和唤醒同步维护岛与求解集合索引。

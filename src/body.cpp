@@ -5,6 +5,7 @@
 
 #include "core.h"
 #include "world.h"
+#include "island.h"
 #include "shape.h"
 #include "contact.h"
 
@@ -26,6 +27,56 @@ b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId )
 	}
 	return body;
 }
+
+static void b2CreateIslandForBody( b2World* world, int setIndex, b2Body* body )
+{
+	B2_ASSERT( body->islandId == B2_NULL_INDEX );
+	B2_ASSERT( setIndex != b2_disabledSet );
+
+	b2Island* island = b2CreateIsland( world, setIndex );
+	b2Array_Push( island->bodies, body->id );
+	body->islandId = island->islandId;
+	body->islandIndex = 0;
+
+	b2ValidateIsland( world, island->islandId );
+}
+
+static void b2RemoveBodyFromIsland( b2World* world, b2Body* body )
+{
+	if ( body->islandId == B2_NULL_INDEX )
+	{
+		B2_ASSERT( body->islandIndex == B2_NULL_INDEX );
+		return;
+	}
+
+	int islandId = body->islandId;
+	b2Island* island = b2Array_Get( world->islands, islandId );
+	{
+		int localIndex = body->islandIndex;
+		int movedBodyId = island->bodies.data[island->bodies.count - 1];
+		island->bodies.data[localIndex] = movedBodyId;
+		B2_VALIDATE( world->bodies.data[movedBodyId].islandIndex == island->bodies.count - 1 );
+		world->bodies.data[movedBodyId].islandIndex = localIndex;
+		island->bodies.count -= 1;
+	}
+
+	if ( island->bodies.count == 0 )
+	{
+		// 销毁空岛
+		B2_ASSERT( island->contacts.count == 0 );
+
+		// 释放岛
+		b2DestroyIsland( world, island->islandId );
+	}
+	else
+	{
+		b2ValidateIsland( world, islandId );
+	}
+
+	body->islandId = B2_NULL_INDEX;
+	body->islandIndex = B2_NULL_INDEX;
+}
+
 
 b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 {
@@ -77,6 +128,7 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
         state.linearVelocity=def->linearVelocity;state.angularVelocity=def->angularVelocity;state.flags=body->flags;
         b2Array_Push(set->bodyStates,state);
     }
+    if(setIndex==b2_awakeSet || setIndex>=b2_firstSleepingSet) { b2CreateIslandForBody(world,setIndex,body); }
     if(def->name!=NULL) { strncpy_s(body->name,sizeof(body->name),def->name,B2_NAME_LENGTH); }
     return b2BodyId{id+1,world->worldId,generation};
 }
@@ -107,6 +159,7 @@ void b2DestroyBody( b2BodyId bodyId )
         b2Shape* shape = world->shapes.data + body->headShapeId;
         b2DestroyShape( b2ShapeId{ shape->id + 1, world->worldId, shape->generation }, false );
     }
+    b2RemoveBodyFromIsland(world,body);
     b2RemoveBodyFromSolverSet(world,body);
 	b2FreeId( &world->bodyIdPool, body->id );
 	uint16_t generation = body->generation;
@@ -770,7 +823,9 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
     b2World* world=b2_worlds+id.world0;
     b2Body* body=b2GetBodyFullId(world,id);
     if(body->type==type) { return; }
+    b2WakeBody(world,body);
     b2DestroyBodyContacts(world,body);
+    b2RemoveBodyFromIsland(world,body);
     body->type=type;
     if(type==b2_dynamicBody) { body->flags|=b2_dynamicFlag; }
     else { body->flags&=~b2_dynamicFlag; }
@@ -779,6 +834,7 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
         int target=type==b2_staticBody?b2_staticSet:b2_awakeSet;
         b2TransferBody(world,world->solverSets.data+target,world->solverSets.data+body->setIndex,body);
     }
+    if(body->setIndex==b2_awakeSet) { b2CreateIslandForBody(world,b2_awakeSet,body); }
     b2SyncBodyFlags(world,body);
     b2UpdateBodyMassData(world,body);
     if(body->setIndex!=b2_disabledSet)

@@ -1,4 +1,5 @@
 add_library(box2d
+	island.cpp
 	contact.cpp
 	core.cpp
 	math_functions.cpp

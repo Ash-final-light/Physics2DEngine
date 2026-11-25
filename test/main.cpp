@@ -96,6 +96,7 @@ int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int FreeBodyStepTest( void );
 int SolverSetOrganizationTest( void );
+int ContactIslandTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
@@ -880,6 +881,7 @@ int main( int argc, char** argv )
 		RUN_TEST( SolverSetOrganizationTest );
 	}
 
+if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(ContactIslandTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;
