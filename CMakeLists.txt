@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.22)
+
+project(box2d
+	VERSION 3.2.0
+	DESCRIPTION "A 2D physics engine for games"
+	HOMEPAGE_URL "https://box2d.org"
+	LANGUAGES C CXX
+)
+
+# 源文件为 UTF-8（无 BOM）。MSVC 默认按系统代码页解析，中文 Windows 上会当成 GBK。
+if(MSVC)
+	add_compile_options(/utf-8)
+endif()
+
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS OFF)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(PROJECT_IS_TOP_LEVEL)
+	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+endif()
+
+add_executable(toolchain_check
+	test/toolchain_c.c
+	test/toolchain_cpp.cpp
+)

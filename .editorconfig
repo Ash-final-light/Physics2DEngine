@@ -1,0 +1,11 @@
+root = true
+
+[*]
+charset = utf-8
+
+[*.{c,h,cpp,inl,md,txt,cmake,py,sh,json,yml,yaml}]
+charset = utf-8
+
+[*.{c,h,cpp,inl}]
+guidelines = 120
+guidelines_style = 1px dotted gray

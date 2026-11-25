@@ -1,0 +1,17 @@
+* text=auto
+
+# 源码与文档按 UTF-8 存储和检出，避免在中文 Windows 上被存成 GBK 导致 GitHub 乱码。
+*.c text working-tree-encoding=UTF-8
+*.cpp text working-tree-encoding=UTF-8
+*.h text working-tree-encoding=UTF-8
+*.inl text working-tree-encoding=UTF-8
+*.md text working-tree-encoding=UTF-8
+*.txt text working-tree-encoding=UTF-8
+*.sh text eol=lf working-tree-encoding=UTF-8
+*.cmake text working-tree-encoding=UTF-8
+*.py text working-tree-encoding=UTF-8
+*.json text working-tree-encoding=UTF-8
+*.yml text working-tree-encoding=UTF-8
+*.yaml text working-tree-encoding=UTF-8
+
+*.ttf binary
