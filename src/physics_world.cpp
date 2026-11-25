@@ -297,3 +297,13 @@ float b2World_GetMaxLinearSpeed(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL?world->maxLinearSpeed:0.0f;
 }
+
+void b2World_SetGravity(b2WorldId id,b2Vec2 gravity)
+{
+    if(!b2IsValidVec2(gravity)) { return; }b2World* world=b2GetWorldFromId(id);if(world!=NULL) { world->gravity=gravity; }
+}
+
+b2Vec2 b2World_GetGravity(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->gravity:b2Vec2_zero;
+}

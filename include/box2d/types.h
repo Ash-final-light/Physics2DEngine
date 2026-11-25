@@ -262,6 +262,8 @@ B2_API void b2Body_SetSafetyFactor(b2BodyId bodyId,float safetyFactor);
 B2_API float b2Body_GetSafetyFactor(b2BodyId bodyId);
 B2_API void b2World_SetMaxLinearSpeed(b2WorldId worldId,float maximumLinearSpeed);
 B2_API float b2World_GetMaxLinearSpeed(b2WorldId worldId);
+B2_API void b2World_SetGravity(b2WorldId worldId,b2Vec2 gravity);
+B2_API b2Vec2 b2World_GetGravity(b2WorldId worldId);
 B2_API void b2Body_SetSleepThreshold(b2BodyId bodyId,float sleepThreshold);
 B2_API float b2Body_GetSleepThreshold(b2BodyId bodyId);
 B2_API void b2Body_EnableSleeping(b2BodyId bodyId,bool enableSleep);
