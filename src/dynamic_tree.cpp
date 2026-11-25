@@ -550,6 +550,18 @@ void b2DynamicTree_EnlargeProxy( b2DynamicTree* tree, int proxyId, b2AABB aabb )
 	}
 }
 
+void b2DynamicTree_SetCategoryBits( b2DynamicTree* tree, int proxyId, uint64_t categoryBits )
+{
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	tree->proxies[proxyId].categoryBits = categoryBits;
+}
+
+uint64_t b2DynamicTree_GetCategoryBits( b2DynamicTree* tree, int proxyId )
+{
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	return tree->proxies[proxyId].categoryBits;
+}
+
 int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree )
 {
 	return tree->proxyCount;

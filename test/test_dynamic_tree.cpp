@@ -100,3 +100,19 @@ int DynamicTreeMoveTest( void )
 	b2DestroyDynamicTree( tree );
 	return 0;
 }
+
+int DynamicTreeCategoryTest( void )
+{
+	b2AABB box = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	int id1 = b2CreateTreeProxy( tree, box, 0x1ull, 1 );
+	int id2 = b2CreateTreeProxy( tree, box, 0x4ull, 2 );
+	ENSURE( b2DynamicTree_GetCategoryBits( tree, id1 ) == 0x1ull );
+	ENSURE( b2DynamicTree_GetCategoryBits( tree, id2 ) == 0x4ull );
+	b2DynamicTree_SetCategoryBits( tree, id1, 0xAAull );
+	ENSURE( b2DynamicTree_GetCategoryBits( tree, id1 ) == 0xAAull );
+	ENSURE( b2DynamicTree_GetCategoryBits( tree, id2 ) == 0x4ull );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), box ) );
+	b2DestroyDynamicTree( tree );
+	return 0;
+}
