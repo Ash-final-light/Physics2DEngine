@@ -56,3 +56,37 @@ int ArrayReserveTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int ArrayPushTest( void )
+{
+	b2Array( int ) values;
+	b2Array_Create( values );
+	b2Array_Push( values, 1 );
+	b2Array_Push( values, 2 );
+	ENSURE( values.count == 2 && values.data[0] == 1 && values.data[1] == 2 );
+
+	for ( int i = 2; i < 8; ++i )
+	{
+		b2Array_Push( values, i );
+	}
+	ENSURE( values.capacity == 8 && values.count == 8 );
+	b2Array_Push( values, values.data[0] );
+	ENSURE( values.count == 9 && values.capacity == 16 && values.data[8] == 1 );
+
+	b2Array( int ) placed;
+	b2Array_Create( placed );
+	for ( int i = 0; i < 10; ++i )
+	{
+		int* slot = b2Array_Emplace( placed );
+		*slot = i;
+	}
+	int sum = 0;
+	for ( int i = 0; i < placed.count; ++i )
+	{
+		sum += placed.data[i];
+	}
+	ENSURE( sum == 45 && placed.count == 10 );
+	b2Array_Destroy( placed );
+	b2Array_Destroy( values );
+	return 0;
+}

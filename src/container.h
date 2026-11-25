@@ -5,6 +5,8 @@
 
 #include "core.h"
 
+#include <type_traits>
+
 // 描述符本身没有所有权钩子。创建和销毁显式配对。
 template <typename T>
 struct b2DynamicArray
@@ -58,6 +60,26 @@ inline void b2Array_Grow( b2DynamicArray<T>& a, int n )
 	{
 		b2Array_Reserve( a, 2 * a.capacity > n ? 2 * a.capacity : n );
 	}
+}
+
+template <typename T>
+inline void b2Array_Push( b2DynamicArray<T>& a, std::type_identity_t<T> value )
+{
+	if ( a.count >= a.capacity )
+	{
+		b2Array_Reserve( a, a.capacity == 0 ? 8 : 2 * a.capacity );
+	}
+	a.data[a.count++] = value;
+}
+
+template <typename T>
+inline T* b2Array_Emplace( b2DynamicArray<T>& a )
+{
+	if ( a.count >= a.capacity )
+	{
+		b2Array_Reserve( a, a.capacity == 0 ? 8 : 2 * a.capacity );
+	}
+	return a.data + a.count++;
 }
 
 b2DeclareArrayNative( int );
