@@ -580,3 +580,377 @@ b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId )
 	B2_ASSERT( 0 <= nodeIndex && nodeIndex < tree->nodeEnd );
 	return tree->nodes[nodeIndex].aabb;
 }
+
+static int b2PartitionMid( int* indices, b2Vec2* centers, int count )
+{
+	if ( count <= 2 )
+	{
+		return count / 2;
+	}
+
+	b2Vec2 lowerBound = centers[0];
+	b2Vec2 upperBound = centers[0];
+	for ( int i = 1; i < count; ++i )
+	{
+		lowerBound = b2Min( lowerBound, centers[i] );
+		upperBound = b2Max( upperBound, centers[i] );
+	}
+
+	b2Vec2 d = b2Sub( upperBound, lowerBound );
+	b2Vec2 c = { 0.5f * ( lowerBound.x + upperBound.x ), 0.5f * ( lowerBound.y + upperBound.y ) };
+	int i1 = 0;
+	int i2 = count;
+	if ( d.x > d.y )
+	{
+		float pivot = c.x;
+		while ( i1 < i2 )
+		{
+			while ( i1 < i2 && centers[i1].x < pivot )
+			{
+				i1 += 1;
+			}
+			while ( i1 < i2 && centers[i2 - 1].x >= pivot )
+			{
+				i2 -= 1;
+			}
+			if ( i1 < i2 )
+			{
+				int temp = indices[i1];
+				indices[i1] = indices[i2 - 1];
+				indices[i2 - 1] = temp;
+				b2Vec2 tempCenter = centers[i1];
+				centers[i1] = centers[i2 - 1];
+				centers[i2 - 1] = tempCenter;
+				i1 += 1;
+				i2 -= 1;
+			}
+		}
+	}
+	else
+	{
+		float pivot = c.y;
+		while ( i1 < i2 )
+		{
+			while ( i1 < i2 && centers[i1].y < pivot )
+			{
+				i1 += 1;
+			}
+			while ( i1 < i2 && centers[i2 - 1].y >= pivot )
+			{
+				i2 -= 1;
+			}
+			if ( i1 < i2 )
+			{
+				int temp = indices[i1];
+				indices[i1] = indices[i2 - 1];
+				indices[i2 - 1] = temp;
+				b2Vec2 tempCenter = centers[i1];
+				centers[i1] = centers[i2 - 1];
+				centers[i2 - 1] = tempCenter;
+				i1 += 1;
+				i2 -= 1;
+			}
+		}
+	}
+
+	if ( i1 > 0 && i1 < count )
+	{
+		return i1;
+	}
+	return count / 2;
+}
+
+typedef struct b2RebuildItem
+{
+	int nodeIndex;
+	int pair;
+	int childCount;
+	int startIndex;
+	int splitIndex;
+	int endIndex;
+} b2RebuildItem;
+
+typedef struct b2CopyItem
+{
+	int oldPair;
+	int newIndex;
+} b2CopyItem;
+
+static int b2BumpPair( b2DynamicTree* tree, int parent )
+{
+	int pair = tree->nodeEnd;
+	B2_ASSERT( pair + 2 <= tree->nodeCapacity );
+	tree->nodeEnd += 2;
+	tree->parents[pair] = parent;
+	tree->parents[pair + 1] = parent;
+	return pair;
+}
+
+static void b2SetLeftChild( b2TreeNode* node, int pair )
+{
+	node->flagIndex = ( node->flagIndex & ~B2_NODE_INDEX_MASK ) | (uint32_t)pair;
+}
+
+static void b2CopySubtree( b2DynamicTree* tree, b2TreeNode node, int newIndex )
+{
+	const b2TreeNode* oldNodes = tree->nodes;
+	b2TreeNode* newNodes = tree->swapNodes;
+	b2TreeProxy* proxies = tree->proxies;
+	if ( b2IsLeaf( &node ) )
+	{
+		newNodes[newIndex] = node;
+		proxies[b2GetProxyId( &node )].node = newIndex;
+		return;
+	}
+
+	b2CopyItem stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	int oldPair = b2GetLeftChild( &node );
+	int newPair = b2BumpPair( tree, newIndex );
+	b2SetLeftChild( &node, newPair );
+	newNodes[newIndex] = node;
+	for ( ;; )
+	{
+		b2TreeNode* pair = newNodes + newPair;
+		pair[0] = oldNodes[oldPair];
+		pair[1] = oldNodes[oldPair + 1];
+		if ( b2IsLeaf( pair + 1 ) )
+		{
+			proxies[b2GetProxyId( pair + 1 )].node = newPair + 1;
+		}
+		else
+		{
+			B2_ASSERT( stackCount < B2_TREE_STACK_SIZE );
+			stack[stackCount++] = b2CopyItem{ b2GetLeftChild( pair + 1 ), newPair + 1 };
+		}
+
+		if ( b2IsLeaf( pair ) == false )
+		{
+			int leftIndex = newPair;
+			oldPair = b2GetLeftChild( pair );
+			newPair = b2BumpPair( tree, leftIndex );
+			b2SetLeftChild( newNodes + leftIndex, newPair );
+			continue;
+		}
+
+		proxies[b2GetProxyId( pair )].node = newPair;
+		if ( stackCount == 0 )
+		{
+			break;
+		}
+
+		b2CopyItem item = stack[--stackCount];
+		oldPair = item.oldPair;
+		newPair = b2BumpPair( tree, item.newIndex );
+		b2SetLeftChild( newNodes + item.newIndex, newPair );
+	}
+}
+
+static void b2PlaceLeaf( b2DynamicTree* tree, b2TreeNode leaf, int newIndex )
+{
+	if ( b2IsLeaf( &leaf ) )
+	{
+		tree->swapNodes[newIndex] = leaf;
+		tree->proxies[b2GetProxyId( &leaf )].node = newIndex;
+	}
+	else
+	{
+		b2CopySubtree( tree, leaf, newIndex );
+	}
+}
+
+static void b2BuildTree( b2DynamicTree* tree, int leafCount )
+{
+	b2TreeNode* nodes = tree->swapNodes;
+	const b2TreeNode* leaves = tree->leafNodes;
+	int* leafIndices = tree->leafIndices;
+	b2Vec2* leafCenters = tree->leafCenters;
+	tree->nodeEnd = 2;
+	nodes[B2_ROOT_NODE + 1] = b2MakeEmptyNode();
+	tree->parents[B2_ROOT_NODE] = B2_NULL_INDEX;
+	tree->parents[B2_ROOT_NODE + 1] = B2_NULL_INDEX;
+	if ( leafCount == 1 )
+	{
+		b2PlaceLeaf( tree, leaves[leafIndices[0]], B2_ROOT_NODE );
+		return;
+	}
+
+	b2RebuildItem stack[B2_TREE_STACK_SIZE];
+	int top = 0;
+	stack[0].nodeIndex = B2_ROOT_NODE;
+	stack[0].pair = b2BumpPair( tree, B2_ROOT_NODE );
+	stack[0].childCount = -1;
+	stack[0].startIndex = 0;
+	stack[0].endIndex = leafCount;
+	stack[0].splitIndex = b2PartitionMid( leafIndices, leafCenters, leafCount );
+	while ( true )
+	{
+		b2RebuildItem* item = stack + top;
+		item->childCount += 1;
+		if ( item->childCount == 2 )
+		{
+			nodes[item->nodeIndex] = b2MakeInternalNode( nodes, item->pair );
+			if ( top == 0 )
+			{
+				break;
+			}
+			top -= 1;
+			continue;
+		}
+
+		int slot = item->childCount;
+		int startIndex = slot == 0 ? item->startIndex : item->splitIndex;
+		int endIndex = slot == 0 ? item->splitIndex : item->endIndex;
+		int count = endIndex - startIndex;
+		int nodeIndex = item->pair + slot;
+		if ( count == 1 )
+		{
+			b2PlaceLeaf( tree, leaves[leafIndices[startIndex]], nodeIndex );
+			continue;
+		}
+
+		B2_ASSERT( top < B2_TREE_STACK_SIZE - 1 );
+		top += 1;
+		b2RebuildItem* newItem = stack + top;
+		newItem->nodeIndex = nodeIndex;
+		newItem->pair = b2BumpPair( tree, nodeIndex );
+		newItem->childCount = -1;
+		newItem->startIndex = startIndex;
+		newItem->endIndex = endIndex;
+		newItem->splitIndex = startIndex + b2PartitionMid( leafIndices + startIndex, leafCenters + startIndex, count );
+	}
+}
+
+#if B2_ENABLE_VALIDATION
+static int b2ValidateSubtree( const b2DynamicTree* tree, int nodeIndex, int* leafCount )
+{
+	const b2TreeNode* node = tree->nodes + nodeIndex;
+	if ( b2IsLeaf( node ) )
+	{
+		int proxyId = b2GetProxyId( node );
+		B2_ASSERT( tree->proxies[proxyId].node == nodeIndex );
+		*leafCount += 1;
+		return 0;
+	}
+
+	int pair = b2GetLeftChild( node );
+	B2_ASSERT( tree->parents[pair] == nodeIndex && tree->parents[pair + 1] == nodeIndex );
+	B2_ASSERT( b2AABB_Contains( node->aabb, tree->nodes[pair].aabb ) );
+	B2_ASSERT( b2AABB_Contains( node->aabb, tree->nodes[pair + 1].aabb ) );
+	int height1 = b2ValidateSubtree( tree, pair, leafCount );
+	int height2 = b2ValidateSubtree( tree, pair + 1, leafCount );
+	return 1 + b2MaxInt( height1, height2 );
+}
+#endif
+
+void b2DynamicTree_Validate( const b2DynamicTree* tree )
+{
+#if B2_ENABLE_VALIDATION
+	if ( tree->proxyCount == 0 )
+	{
+		B2_ASSERT( b2IsEmptyNode( tree->nodes + B2_ROOT_NODE ) );
+		return;
+	}
+
+	int leafCount = 0;
+	b2ValidateSubtree( tree, B2_ROOT_NODE, &leafCount );
+	B2_ASSERT( leafCount == tree->proxyCount );
+#else
+	(void)tree;
+#endif
+}
+
+static void b2DynamicTree_ValidateNoMoved( const b2DynamicTree* tree )
+{
+#if B2_ENABLE_VALIDATION
+	for ( int i = 0; i < tree->nodeEnd; ++i )
+	{
+		B2_ASSERT( b2IsNodeMoved( tree->nodes + i ) == false );
+	}
+#else
+	(void)tree;
+#endif
+}
+
+int b2DynamicTree_Rebuild( b2DynamicTree* tree, bool fullBuild )
+{
+	int proxyCount = tree->proxyCount;
+	if ( proxyCount == 0 )
+	{
+		return 0;
+	}
+
+	const b2TreeNode* nodes = tree->nodes;
+	const b2TreeNode* root = nodes + B2_ROOT_NODE;
+	if ( fullBuild == false && b2IsNodeMoved( root ) == false && tree->dfsOrdered )
+	{
+		return 0;
+	}
+
+	if ( tree->swapNodes == NULL )
+	{
+		tree->swapNodes = static_cast<b2TreeNode*>( b2AllocZero( tree->nodeCapacity * sizeof( b2TreeNode ) ) );
+	}
+
+	if ( proxyCount > tree->rebuildCapacity )
+	{
+		int oldCapacity = tree->rebuildCapacity;
+		int newCapacity = proxyCount + proxyCount / 2;
+		b2Free( tree->leafIndices, oldCapacity * sizeof( int32_t ) );
+		tree->leafIndices = static_cast<int32_t*>( b2Alloc( newCapacity * sizeof( int32_t ) ) );
+		b2Free( tree->leafNodes, oldCapacity * sizeof( b2TreeNode ) );
+		tree->leafNodes = static_cast<b2TreeNode*>( b2Alloc( newCapacity * sizeof( b2TreeNode ) ) );
+		b2Free( tree->leafCenters, oldCapacity * sizeof( b2Vec2 ) );
+		tree->leafCenters = static_cast<b2Vec2*>( b2Alloc( newCapacity * sizeof( b2Vec2 ) ) );
+		tree->rebuildCapacity = newCapacity;
+	}
+
+	int* leafIndices = tree->leafIndices;
+	b2TreeNode* leaves = tree->leafNodes;
+	b2Vec2* leafCenters = tree->leafCenters;
+	int leafCount = 0;
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	if ( b2IsLeaf( root ) == false && ( fullBuild || b2IsNodeMoved( root ) ) )
+	{
+		stack[stackCount++] = b2GetLeftChild( root );
+	}
+	else
+	{
+		b2TreeNode node = *root;
+		node.flagIndex &= ~B2_MOVED_NODE;
+		leafIndices[0] = 0;
+		leaves[0] = node;
+		leafCenters[0] = b2AABB_Center( node.aabb );
+		leafCount = 1;
+	}
+
+	while ( stackCount > 0 )
+	{
+		int pair = stack[--stackCount];
+		for ( int i = 0; i < 2; ++i )
+		{
+			b2TreeNode node = nodes[pair + i];
+			if ( b2IsLeaf( &node ) == false && ( fullBuild || b2IsNodeMoved( &node ) ) )
+			{
+				B2_ASSERT( stackCount < B2_TREE_STACK_SIZE );
+				stack[stackCount++] = b2GetLeftChild( &node );
+				continue;
+			}
+
+			node.flagIndex &= ~B2_MOVED_NODE;
+			leafIndices[leafCount] = leafCount;
+			leaves[leafCount] = node;
+			leafCenters[leafCount] = b2AABB_Center( node.aabb );
+			leafCount += 1;
+		}
+	}
+
+	b2BuildTree( tree, leafCount );
+	B2_SWAP( tree->nodes, tree->swapNodes );
+	tree->pairFreeList = B2_NULL_INDEX;
+	tree->dfsOrdered = true;
+	b2DynamicTree_Validate( tree );
+	b2DynamicTree_ValidateNoMoved( tree );
+	return leafCount;
+}

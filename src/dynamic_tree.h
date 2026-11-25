@@ -13,6 +13,7 @@
 #define B2_NODE_INDEX_MASK ( 0xFFFFFFFFu & ~( B2_MOVED_NODE | B2_LEAF_NODE ) )
 #define B2_EMPTY_NODE ( B2_NODE_INDEX_MASK | B2_LEAF_NODE )
 #define B2_ROOT_NODE 0
+#define B2_TREE_STACK_SIZE 512
 
 typedef struct b2TreeNode
 {
@@ -58,6 +59,11 @@ struct b2DynamicTree
 B2_FORCE_INLINE bool b2IsLeaf( const b2TreeNode* node )
 {
 	return ( node->flagIndex & B2_LEAF_NODE ) == B2_LEAF_NODE;
+}
+
+B2_FORCE_INLINE bool b2IsNodeMoved( const b2TreeNode* node )
+{
+	return ( node->flagIndex & B2_MOVED_NODE ) == B2_MOVED_NODE;
 }
 
 B2_FORCE_INLINE bool b2IsEmptyNode( const b2TreeNode* node )

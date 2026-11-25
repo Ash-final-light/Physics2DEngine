@@ -3,6 +3,8 @@
 
 #include "test_macros.h"
 
+#include "dynamic_tree.h"
+
 #include "box2d/base.h"
 #include "box2d/collision.h"
 
@@ -114,5 +116,72 @@ int DynamicTreeCategoryTest( void )
 	ENSURE( b2DynamicTree_GetCategoryBits( tree, id2 ) == 0x4ull );
 	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), box ) );
 	b2DestroyDynamicTree( tree );
+	return 0;
+}
+
+static int CountRebuiltLeaves( const b2DynamicTree* tree, int nodeIndex )
+{
+	const b2TreeNode* node = tree->nodes + nodeIndex;
+	if ( b2IsLeaf( node ) )
+	{
+		int proxyId = b2GetProxyId( node );
+		if ( tree->proxies[proxyId].node != nodeIndex )
+		{
+			return -1;
+		}
+		return 1;
+	}
+
+	int pair = b2GetLeftChild( node );
+	if ( tree->parents[pair] != nodeIndex || tree->parents[pair + 1] != nodeIndex )
+	{
+		return -1;
+	}
+	if ( b2AABB_Contains( node->aabb, tree->nodes[pair].aabb ) == false ||
+		 b2AABB_Contains( node->aabb, tree->nodes[pair + 1].aabb ) == false )
+	{
+		return -1;
+	}
+
+	int left = CountRebuiltLeaves( tree, pair );
+	int right = CountRebuiltLeaves( tree, pair + 1 );
+	if ( left < 0 || right < 0 )
+	{
+		return -1;
+	}
+	return left + right;
+}
+
+int DynamicTreeRebuildTest( void )
+{
+	b2AABB boxes[8];
+	uint64_t users[8];
+	size_t before = b2GetByteCount();
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	int ids[8];
+	for ( int i = 0; i < 8; ++i )
+	{
+		boxes[i] = { { (float)i, 0.0f }, { (float)i + 0.5f, 1.0f } };
+		users[i] = (uint64_t)( 100 + i );
+		ids[i] = b2CreateTreeProxy( tree, boxes[i], 1, users[i] );
+	}
+
+	int built = b2DynamicTree_Rebuild( tree, true );
+	ENSURE( built == 8 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 8 );
+	ENSURE( CountRebuiltLeaves( tree, B2_ROOT_NODE ) == 8 );
+	for ( int i = 0; i < 8; ++i )
+	{
+		ENSURE( b2DynamicTree_GetUserData( tree, ids[i] ) == users[i] );
+		ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, ids[i] ), boxes[i] ) );
+	}
+	b2DynamicTree_Validate( tree );
+	ENSURE( b2DynamicTree_Rebuild( tree, false ) == 0 );
+
+	b2DynamicTree* empty = b2CreateDynamicTree( 16 );
+	ENSURE( b2DynamicTree_Rebuild( empty, true ) == 0 );
+	b2DestroyDynamicTree( empty );
+	b2DestroyDynamicTree( tree );
+	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
