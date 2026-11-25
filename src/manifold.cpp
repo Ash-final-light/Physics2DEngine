@@ -882,8 +882,8 @@ static b2NormalType b2ClassifyNormal( b2ChainSegmentParams params, b2Vec2 normal
 	return b2_normalSnap;
 }
 
-static b2LocalManifold b2CollideChainSegmentAndPolygon( const b2ChainSegment* segmentA, const b2Polygon* polygonB, b2Transform xf,
-													   b2SimplexCache* cache )
+b2LocalManifold b2CollideChainSegmentAndPolygon( const b2ChainSegment* segmentA, const b2Polygon* polygonB, b2Transform xf,
+												 b2SimplexCache* cache )
 {
 	b2LocalManifold manifold = {};
 	b2Vec2 centroidB = b2TransformPoint( xf, polygonB->centroid );

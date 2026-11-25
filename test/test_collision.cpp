@@ -379,3 +379,48 @@ int ChainCapsuleManifoldTest( void )
 	ENSURE( b2CollideChainSegmentAndCapsule( &turn, &endCap, nextEdge, &cache ).pointCount == 0 );
 	return 0;
 }
+
+int ChainPolygonManifoldTest( void )
+{
+	b2ChainSegment chain = {};
+	chain.ghost1 = { -2.0f, 0.0f };
+	chain.segment.point1 = { 0.0f, 0.0f };
+	chain.segment.point2 = { 2.0f, 0.0f };
+	chain.ghost2 = { 4.0f, 0.0f };
+	b2Polygon box = b2MakeBox( 0.4f, 0.4f );
+	b2SimplexCache cache = b2_emptySimplexCache;
+
+	b2Transform front = { { 1.0f, -0.3f }, b2Rot_identity };
+	b2LocalManifold hit = b2CollideChainSegmentAndPolygon( &chain, &box, front, &cache );
+	ENSURE( hit.pointCount >= 1 );
+	ENSURE( hit.normal.y < -0.9f );
+	ENSURE( b2MinManifoldSeparation( hit ) < 0.0f );
+
+	cache = b2_emptySimplexCache;
+	b2Transform seam = { { 2.0f, -0.3f }, b2Rot_identity };
+	b2LocalManifold smooth = b2CollideChainSegmentAndPolygon( &chain, &box, seam, &cache );
+	ENSURE( smooth.pointCount >= 1 );
+	ENSURE( smooth.normal.y < -0.9f );
+	ENSURE_SMALL( smooth.normal.x, 0.05f );
+
+	cache = b2_emptySimplexCache;
+	b2Transform back = { { 1.0f, 0.8f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndPolygon( &chain, &box, back, &cache ).pointCount == 0 );
+
+	b2ChainSegment turn = {};
+	turn.ghost1 = { -1.0f, 0.0f };
+	turn.segment.point1 = { 0.0f, 0.0f };
+	turn.segment.point2 = { 2.0f, 0.0f };
+	turn.ghost2 = { 2.0f, 1.0f };
+	b2Polygon cornerBox = b2MakeBox( 0.2f, 0.2f );
+	cache = b2_emptySimplexCache;
+	b2Transform ghost = { { 2.15f, 0.15f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndPolygon( &turn, &cornerBox, ghost, &cache ).pointCount == 0 );
+
+	cache = b2_emptySimplexCache;
+	b2Transform owned = { { 1.0f, -0.15f }, b2Rot_identity };
+	b2LocalManifold kept = b2CollideChainSegmentAndPolygon( &turn, &cornerBox, owned, &cache );
+	ENSURE( kept.pointCount >= 1 );
+	ENSURE( kept.normal.y < -0.5f );
+	return 0;
+}

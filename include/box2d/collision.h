@@ -270,3 +270,5 @@ B2_API b2LocalManifold b2CollideSegmentAndPolygon( const b2Segment* segmentA, co
 B2_API b2LocalManifold b2CollideChainSegmentAndCircle( const b2ChainSegment* segmentA, const b2Circle* circleB, b2Transform xf );
 B2_API b2LocalManifold b2CollideChainSegmentAndCapsule( const b2ChainSegment* segmentA, const b2Capsule* capsuleB, b2Transform xf,
 													   b2SimplexCache* cache );
+B2_API b2LocalManifold b2CollideChainSegmentAndPolygon( const b2ChainSegment* segmentA, const b2Polygon* polygonB, b2Transform xf,
+														b2SimplexCache* cache );
