@@ -9,6 +9,14 @@
 /// 凸多边形最多使用的顶点数。
 #define B2_MAX_POLYGON_VERTICES 8
 
+/// 射线检测输入。translation 是从 origin 出发的整段位移，maxFraction 限制实际考虑的比例。
+typedef struct b2RayCastInput
+{
+	b2Vec2 origin;
+	b2Vec2 translation;
+	float maxFraction;
+} b2RayCastInput;
+
 /// 射线检测输出。未命中时 hit 为 false，其余字段为零。
 typedef struct b2CastOutput
 {
@@ -90,3 +98,5 @@ B2_API b2AABB b2ComputeSegmentBounds( const b2Segment* shape, b2WorldTransform t
 B2_API bool b2PointInCircle( const b2Circle* shape, b2Vec2 point );
 B2_API bool b2PointInCapsule( const b2Capsule* shape, b2Vec2 point );
 B2_API bool b2PointInPolygon( const b2Polygon* shape, b2Vec2 point );
+B2_API bool b2IsValidRay( const b2RayCastInput* input );
+B2_API b2CastOutput b2CastRayCircle( const b2Circle* shape, const b2RayCastInput* input );

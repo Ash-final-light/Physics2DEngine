@@ -420,3 +420,51 @@ int PointInPolygonTest( void )
 	ENSURE( b2PointInPolygon( &wider, roundCorner ) == true );
 	return 0;
 }
+
+int RayCastCircleTest( void )
+{
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2RayCastInput input = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 1.0f };
+	ENSURE( b2IsValidRay( &input ) == true );
+
+	b2CastOutput output = b2CastRayCircle( &circle, &input );
+	ENSURE( output.hit == true );
+	ENSURE_SMALL( output.normal.x + 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( output.normal.y, FLT_EPSILON );
+	ENSURE_SMALL( output.fraction - 0.5f, FLT_EPSILON );
+	ENSURE_SMALL( output.point.x, FLT_EPSILON );
+	ENSURE_SMALL( output.point.y, FLT_EPSILON );
+
+	b2RayCastInput miss = { { 1.0f, 3.0f }, { 4.0f, 0.0f }, 1.0f };
+	b2CastOutput missed = b2CastRayCircle( &circle, &miss );
+	ENSURE( missed.hit == false );
+
+	b2RayCastInput down = { { 1.0f, 4.0f }, { 0.0f, -10.0f }, 1.0f };
+	b2CastOutput top = b2CastRayCircle( &circle, &down );
+	ENSURE( top.hit == true );
+	ENSURE_SMALL( top.normal.x, 0.0001f );
+	ENSURE_SMALL( top.normal.y - 1.0f, 0.0001f );
+	ENSURE_SMALL( top.point.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( top.point.y - 1.0f, 0.0001f );
+	ENSURE_SMALL( top.fraction - 0.3f, 0.0001f );
+
+	b2RayCastInput clipped = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 0.25f };
+	b2CastOutput early = b2CastRayCircle( &circle, &clipped );
+	ENSURE( early.hit == false );
+
+	b2RayCastInput inside = { { 1.0f, 0.0f }, { 4.0f, 0.0f }, 1.0f };
+	b2CastOutput overlap = b2CastRayCircle( &circle, &inside );
+	ENSURE( overlap.hit == true );
+	ENSURE( overlap.point.x == 1.0f && overlap.point.y == 0.0f );
+
+	b2RayCastInput still = { { 1.0f, 0.0f }, { 0.0f, 0.0f }, 1.0f };
+	b2CastOutput zero = b2CastRayCircle( &circle, &still );
+	ENSURE( zero.hit == true );
+
+	b2RayCastInput stillOut = { { 4.0f, 4.0f }, { 0.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRayCircle( &circle, &stillOut ).hit == false );
+
+	b2RayCastInput bad = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, -1.0f };
+	ENSURE( b2IsValidRay( &bad ) == false );
+	return 0;
+}

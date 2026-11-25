@@ -3,7 +3,10 @@
 
 #include "geometry.h"
 
+#include "box2d/constants.h"
 #include "box2d/math_functions.h"
+
+#include <math.h>
 
 bool b2IsValidCircle( const b2Circle* circle )
 {
@@ -438,4 +441,60 @@ bool b2PointInPolygon( const b2Polygon* shape, b2Vec2 point )
 	}
 
 	return minDistanceSquared <= shape->radius * shape->radius;
+}
+
+bool b2IsValidRay( const b2RayCastInput* input )
+{
+	return b2IsValidVec2( input->origin ) && b2IsValidVec2( input->translation ) && b2IsValidFloat( input->maxFraction ) &&
+		   0.0f <= input->maxFraction && input->maxFraction < B2_HUGE;
+}
+
+b2CastOutput b2CastRayCircle( const b2Circle* shape, const b2RayCastInput* input )
+{
+	B2_ASSERT( b2IsValidRay( input ) );
+
+	b2Vec2 p = shape->center;
+	b2CastOutput output = {};
+	b2Vec2 s = b2Sub( input->origin, p );
+	float r = shape->radius;
+	float rr = r * r;
+
+	float length;
+	b2Vec2 d = b2GetLengthAndNormalize( &length, input->translation );
+	if ( length == 0.0f )
+	{
+		if ( b2LengthSquared( s ) < rr )
+		{
+			output.point = input->origin;
+			output.hit = true;
+		}
+		return output;
+	}
+
+	float t = -b2Dot( s, d );
+	b2Vec2 c = b2MulAdd( s, t, d );
+	float cc = b2Dot( c, c );
+	if ( cc > rr )
+	{
+		return output;
+	}
+
+	float h = sqrtf( rr - cc );
+	float fraction = t - h;
+	if ( fraction < 0.0f || input->maxFraction * length < fraction )
+	{
+		if ( b2LengthSquared( s ) < rr )
+		{
+			output.point = input->origin;
+			output.hit = true;
+		}
+		return output;
+	}
+
+	b2Vec2 hitPoint = b2MulAdd( s, fraction, d );
+	output.fraction = fraction / length;
+	output.normal = b2Normalize( hitPoint );
+	output.point = b2MulAdd( p, shape->radius, output.normal );
+	output.hit = true;
+	return output;
 }

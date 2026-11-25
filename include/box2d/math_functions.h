@@ -184,6 +184,22 @@ B2_INLINE float b2LengthSquared( b2Vec2 v )
 	return v.x * v.x + v.y * v.y;
 }
 
+/// 若可能则将向量转换为单位向量，否则返回零向量。同时写出长度。
+B2_INLINE b2Vec2 b2GetLengthAndNormalize( float* length, b2Vec2 a )
+{
+	float lengthSquared = a.x * a.x + a.y * a.y;
+	if ( lengthSquared > 1000.0f * FLT_MIN )
+	{
+		*length = sqrtf( lengthSquared );
+		float s = 1.0f / *length;
+		b2Vec2 u = { s * a.x, s * a.y };
+		return u;
+	}
+
+	*length = 0.0f;
+	return B2_LITERAL( b2Vec2 ){ 0.0f, 0.0f };
+}
+
 /// 若可能则将向量转换为单位向量，否则返回零向量。
 B2_FORCE_INLINE b2Vec2 b2Normalize( b2Vec2 a )
 {
