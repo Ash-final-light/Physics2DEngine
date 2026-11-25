@@ -9,11 +9,11 @@
 static void b2IntegrateBodyVelocity( b2World* world, b2Body* body, float h )
 {
     float gravityScale = body->invMass > 0.0f ? body->gravityScale : 0.0f;
-    b2Vec2 delta = b2MulSV( h*gravityScale, world->gravity );
+    b2Vec2 delta = b2Add( b2MulSV( h*body->invMass, body->force ), b2MulSV( h*gravityScale, world->gravity ) );
     float linearDamping = 1.0f / (1.0f+h*body->linearDamping);
     float angularDamping = 1.0f / (1.0f+h*body->angularDamping);
     body->linearVelocity = b2MulAdd( delta, linearDamping, body->linearVelocity );
-    body->angularVelocity = angularDamping*body->angularVelocity;
+    body->angularVelocity = h*body->invInertia*body->torque + angularDamping*body->angularVelocity;
 }
 
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
@@ -34,6 +34,8 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             deltaPosition = b2MulAdd( deltaPosition, h, body->linearVelocity );
             deltaRotation = b2IntegrateRotation( deltaRotation, h*body->angularVelocity );
         }
+        body->force = b2Vec2_zero;
+        body->torque = 0.0f;
         body->center = b2Add( body->center, deltaPosition );
         body->transform.q = b2NormalizeRot( b2MulRot( deltaRotation, body->transform.q ) );
         body->transform.p = b2Sub( body->center, b2RotateVector( body->transform.q, body->localCenter ) );

@@ -610,3 +610,59 @@ float b2Body_GetAngularDamping( b2BodyId id )
     B2_ASSERT( b2Body_IsValid( id ) );
     return b2GetBodyFullId( b2_worlds+id.world0, id )->angularDamping;
 }
+
+
+static b2Body* b2GetBodyForExternalAction( b2BodyId id, bool wake )
+{
+    if ( b2Body_IsValid( id ) == false )
+    {
+        return NULL;
+    }
+    b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+    if ( body->type != b2_dynamicBody || body->isEnabled == false )
+    {
+        return NULL;
+    }
+    if ( wake )
+    {
+        body->isAwake = true;
+    }
+    return body->isAwake ? body : NULL;
+}
+
+void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
+{
+    if ( b2IsValidVec2( force ) == false || b2IsValidVec2( point ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->force = b2Add( body->force, force );
+        body->torque += b2Cross( b2Sub( point, body->center ), force );
+    }
+}
+
+void b2Body_ApplyForceToCenter( b2BodyId id, b2Vec2 force, bool wake )
+{
+    if ( b2IsValidVec2( force ) == false )
+    {
+        return;
+    }
+    b2Body* body = b2GetBodyForExternalAction( id, wake );
+    if ( body != NULL )
+    {
+        body->force = b2Add( body->force, force );
+    }
+}
+
+void b2Body_ClearForces( b2BodyId id )
+{
+    if ( b2Body_IsValid( id ) )
+    {
+        b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
+        body->force = b2Vec2_zero;
+        body->torque = 0.0f;
+    }
+}

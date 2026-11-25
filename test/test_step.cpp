@@ -116,3 +116,32 @@ int BodyDampingTest( void )
     ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.6f, 0.00001f );
     b2DestroyWorld( world ); return 0;
 }
+
+
+int BodyForceTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Body_SetMassData( body, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
+    b2Body_ApplyForceToCenter( body, { 2.0f, 0.0f }, true );
+    b2Body_ApplyForceToCenter( body, { 2.0f, 0.0f }, true );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( body ).x-1.0f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetPosition( body ).x-0.5f, 0.00001f );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( body ).x-1.0f, 0.00001f );
+    b2Body_ApplyForceToCenter( body, { 100.0f, 0.0f }, true );
+    b2Body_ClearForces( body );
+    b2World_Step( world, 0.1f, 1 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( body ).x-1.0f, 0.00001f );
+    b2BodyId offCenter = b2CreateBody( world, &bd );
+    b2Body_SetMassData( offCenter, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
+    b2Body_ApplyForce( offCenter, { 4.0f, 0.0f }, { 0.0f, 1.0f }, true );
+    b2Body_ApplyForce( offCenter, { NAN, 0.0f }, { 0.0f, 1.0f }, true );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( offCenter ).x-1.0f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( offCenter )+0.5f, 0.00001f );
+    b2DestroyWorld( world ); return 0;
+}

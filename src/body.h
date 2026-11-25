@@ -19,6 +19,8 @@ struct b2Body
     float inertia;
     float invMass;
     float invInertia;
+    b2Vec2 force;
+    float torque;
     b2Vec2 localCenter;
     b2Pos center;
     float minExtent;
