@@ -15,6 +15,7 @@ int MemoryTest( void );
 int GrowAllocTest( void );
 int ZeroAllocTest( void );
 int ScalarTest( void );
+int VectorTest( void );
 
 int main( int argc, char** argv )
 {
@@ -79,6 +80,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ScalarTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "VectorTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( VectorTest );
 	}
 
 	if ( ran == 0 )
