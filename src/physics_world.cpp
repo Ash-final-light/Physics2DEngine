@@ -84,3 +84,18 @@ void b2DestroyWorld( b2WorldId worldId )
 	*world = b2World{};
 	world->generation = generation + 1;
 }
+
+bool b2World_IsValid( b2WorldId id )
+{
+	if ( id.index1 < 1 || B2_MAX_WORLDS < id.index1 )
+	{
+		return false;
+	}
+
+	b2World* world = b2_worlds + ( id.index1 - 1 );
+	if ( world->worldId != id.index1 - 1 )
+	{
+		return false;
+	}
+	return id.generation == world->generation;
+}

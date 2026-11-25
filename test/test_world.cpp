@@ -33,3 +33,32 @@ int WorldCreateTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int WorldIdTest( void )
+{
+	b2WorldId empty = {};
+	ENSURE( b2World_IsValid( empty ) == false );
+	b2WorldId tooFar = { 200, 0 };
+	ENSURE( b2World_IsValid( tooFar ) == false );
+
+	b2WorldDef def = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld( &def );
+	ENSURE( b2World_IsValid( worldId ) );
+	uint16_t generation = worldId.generation;
+	b2DestroyWorld( worldId );
+	ENSURE( b2World_IsValid( worldId ) == false );
+
+	b2WorldId reused = b2CreateWorld( &def );
+	ENSURE( reused.index1 == worldId.index1 );
+	ENSURE( reused.generation != generation );
+	ENSURE( b2World_IsValid( reused ) );
+	ENSURE( b2World_IsValid( worldId ) == false );
+	b2WorldId wrongGeneration = reused;
+	wrongGeneration.generation = (uint16_t)( reused.generation + 1 );
+	ENSURE( b2World_IsValid( wrongGeneration ) == false );
+	b2DestroyWorld( worldId );
+	ENSURE( b2World_IsValid( reused ) );
+	b2DestroyWorld( reused );
+	ENSURE( b2World_IsValid( reused ) == false );
+	return 0;
+}
