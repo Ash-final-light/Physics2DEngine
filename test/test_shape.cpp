@@ -227,3 +227,55 @@ int ShapeGeometryEditTest( void )
     b2DestroyWorld( world );
     return 0;
 }
+
+
+int BodyMassFromDensityTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    bd.type = b2_dynamicBody;
+    bd.position = { 10.0f, 20.0f };
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { -2.0f, 0.0f }, 1.0f };
+    b2ShapeId left = b2CreateCircleShape( body, &sd, &circle );
+    ENSURE_SMALL( b2Body_GetMass( body ) - B2_PI, 0.0001f );
+    ENSURE( b2Body_GetLocalCenter( body ).x == -2.0f );
+    ENSURE( b2Body_GetWorldCenter( body ).x == 8.0f );
+    circle.center.x = 2.0f;
+    b2ShapeId right = b2CreateCircleShape( body, &sd, &circle );
+    b2MassData data = b2Body_GetMassData( body );
+    ENSURE_SMALL( data.mass - 2.0f * B2_PI, 0.0001f );
+    ENSURE_SMALL( data.rotationalInertia - 9.0f * B2_PI, 0.0001f );
+    ENSURE_SMALL( data.center.x, 0.00001f );
+    b2Shape_SetDensity( left, 0.0f, true );
+    ENSURE( b2Shape_GetDensity( left ) == 0.0f );
+    ENSURE_SMALL( b2Body_GetMass( body ) - B2_PI, 0.0001f );
+    ENSURE( b2Body_GetLocalCenter( body ).x == 2.0f );
+    ENSURE_SMALL( b2Body_GetRotationalInertia( body ) - 0.5f * B2_PI, 0.0001f );
+    b2Shape_SetDensity( right, -1.0f, true );
+    ENSURE( b2Shape_GetDensity( right ) == 1.0f );
+    b2Shape_SetDensity( right, 2.0f, false );
+    ENSURE_SMALL( b2Body_GetMass( body ) - B2_PI, 0.0001f );
+    b2Body_UpdateMassFromShapes( body );
+    ENSURE_SMALL( b2Body_GetMass( body ) - 2.0f * B2_PI, 0.0001f );
+    b2Body_SetTransform( body, { 1.0f, 2.0f }, { 0.0f, 1.0f } );
+    ENSURE( b2Body_GetWorldCenter( body ).x == 1.0f && b2Body_GetWorldCenter( body ).y == 4.0f );
+    b2DestroyShape( right, true );
+    ENSURE( b2Body_GetMass( body ) == 0.0f );
+    bd.type = b2_staticBody;
+    b2BodyId fixed = b2CreateBody( world, &bd );
+    b2ShapeId shape = b2CreateCircleShape( fixed, &sd, &circle );
+    ENSURE( b2Body_GetMass( fixed ) == 0.0f );
+    ENSURE_SMALL( b2Shape_ComputeMassData( shape ).mass - B2_PI, 0.0001f );
+    bd.type = b2_dynamicBody;
+    bd.motionLocks.angularZ = true;
+    b2BodyId locked = b2CreateBody( world, &bd );
+    b2CreateCircleShape( locked, &sd, &circle );
+    ENSURE( b2Body_GetRotationalInertia( locked ) == 0.0f );
+    b2DestroyWorld( world );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

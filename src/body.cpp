@@ -65,6 +65,8 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 	body->type = def->type;
 	body->transform.p = def->position;
 	body->transform.q = def->rotation;
+	body->center = def->position;
+	body->minExtent = B2_HUGE;
 	body->linearVelocity = def->linearVelocity;
 	body->angularVelocity = def->angularVelocity;
 	body->linearDamping = def->linearDamping;
@@ -259,6 +261,7 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	b2Body* body = b2GetBodyFullId( world, bodyId );
 	body->transform.p = position;
 	body->transform.q = rotation;
+	body->center = b2TransformPoint( body->transform, body->localCenter );
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
         b2UpdateShapeAABB( world->shapes.data + id, body->transform );
@@ -286,4 +289,121 @@ b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
         bounds = b2AABB_Union( bounds, shape->aabb );
     }
     return bounds;
+}
+
+
+void b2UpdateBodyMassData( b2World* world, b2Body* body )
+{
+    body->dirtyMass = false;
+    body->mass = 0.0f;
+    body->inertia = 0.0f;
+    body->invMass = 0.0f;
+    body->invInertia = 0.0f;
+    body->localCenter = b2Vec2_zero;
+    body->minExtent = B2_HUGE;
+    body->maxExtent = 0.0f;
+    if ( body->type != b2_dynamicBody )
+    {
+        body->center = body->transform.p;
+        if ( body->type == b2_kinematicBody )
+        {
+            for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
+            {
+                b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + id, b2Vec2_zero );
+                body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
+                body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+            }
+        }
+        return;
+    }
+    b2MassData* masses = static_cast<b2MassData*>( b2StackAlloc( &world->stack, body->shapeCount * sizeof( b2MassData ), "mass data" ) );
+    b2Vec2 localCenter = b2Vec2_zero;
+    int index = 0;
+    for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
+    {
+        const b2Shape* shape = world->shapes.data + id;
+        if ( shape->density == 0.0f )
+        {
+            masses[index++] = b2MassData{};
+            continue;
+        }
+        b2MassData data = b2ComputeShapeMass( shape );
+        body->mass += data.mass;
+        localCenter = b2MulAdd( localCenter, data.mass, data.center );
+        masses[index++] = data;
+    }
+    if ( body->mass > 0.0f )
+    {
+        body->invMass = 1.0f / body->mass;
+        localCenter = b2MulSV( body->invMass, localCenter );
+    }
+    for ( int i = 0; i < body->shapeCount; ++i )
+    {
+        b2MassData data = masses[i];
+        if ( data.mass == 0.0f )
+        {
+            continue;
+        }
+        b2Vec2 offset = b2Sub( localCenter, data.center );
+        body->inertia += data.rotationalInertia + data.mass * b2Dot( offset, offset );
+    }
+    b2StackFree( &world->stack, masses );
+    if ( body->inertia > 0.0f && body->motionLocks.angularZ == false )
+    {
+        body->invInertia = 1.0f / body->inertia;
+    }
+    else
+    {
+        body->inertia = 0.0f;
+    }
+    b2Pos oldCenter = body->center;
+    body->localCenter = localCenter;
+    body->center = b2TransformPoint( body->transform, localCenter );
+    if ( body->isAwake && body->isEnabled )
+    {
+        b2Vec2 delta = b2CrossSV( body->angularVelocity, b2Sub( body->center, oldCenter ) );
+        body->linearVelocity = b2Add( body->linearVelocity, delta );
+    }
+    for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
+    {
+        b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + id, localCenter );
+        body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
+        body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+    }
+}
+
+b2MassData b2Body_GetMassData( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    b2Body* body = b2GetBodyFullId( b2_worlds + id.world0, id );
+    return b2MassData{ body->mass, body->localCenter, body->inertia };
+}
+
+float b2Body_GetMass( b2BodyId id )
+{
+    return b2Body_GetMassData( id ).mass;
+}
+
+float b2Body_GetRotationalInertia( b2BodyId id )
+{
+    return b2Body_GetMassData( id ).rotationalInertia;
+}
+
+b2Vec2 b2Body_GetLocalCenter( b2BodyId id )
+{
+    return b2Body_GetMassData( id ).center;
+}
+
+b2Pos b2Body_GetWorldCenter( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2GetBodyFullId( b2_worlds + id.world0, id )->center;
+}
+
+void b2Body_UpdateMassFromShapes( b2BodyId id )
+{
+    if ( b2Body_IsValid( id ) && b2_worlds[id.world0].locked == false )
+    {
+        b2UpdateBodyMassData( b2_worlds + id.world0, b2GetBodyFullId( b2_worlds + id.world0, id ) );
+    }
 }

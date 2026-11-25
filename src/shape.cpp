@@ -115,6 +115,10 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     body->headShapeId = id;
     body->shapeCount += 1;
     body->dirtyMass = true;
+    if ( def->updateBodyMass )
+    {
+        b2UpdateBodyMassData( world, body );
+    }
     b2UpdateShapeAABB( shape, body->transform );
     return b2ShapeId{ id + 1, world->worldId, generation };
 }
@@ -145,12 +149,15 @@ void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
         body->headShapeId = shape->nextShapeId;
     }
     body->shapeCount -= 1;
-    body->dirtyMass = body->dirtyMass || updateBodyMass;
     b2FreeId( &world->shapeIdPool, shape->id );
     uint16_t generation = shape->generation;
     *shape = b2Shape{};
     shape->generation = generation;
     shape->id = B2_NULL_INDEX;
+    if ( updateBodyMass )
+    {
+        b2UpdateBodyMassData( world, body );
+    }
 }
 
 
@@ -327,4 +334,112 @@ void b2Shape_SetSegment( b2ShapeId id, const b2Segment* segment )
     {
         b2SetShapeGeometry( id, segment, b2_segmentShape );
     }
+}
+
+
+b2MassData b2ComputeShapeMass( const b2Shape* shape )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleMass( &shape->capsule, shape->density );
+		case b2_circleShape:
+			return b2ComputeCircleMass( &shape->circle, shape->density );
+		case b2_polygonShape:
+			return b2ComputePolygonMass( &shape->polygon, shape->density );
+		default:
+			return b2MassData{};
+	}
+}
+
+b2ShapeExtent b2ComputeShapeExtent( const b2Shape* shape, b2Vec2 localCenter )
+{
+	b2ShapeExtent extent = {};
+
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+		{
+			float radius = shape->capsule.radius;
+			extent.minExtent = radius;
+			b2Vec2 c1 = b2Sub( shape->capsule.center1, localCenter );
+			b2Vec2 c2 = b2Sub( shape->capsule.center2, localCenter );
+			extent.maxExtent =
+				sqrtf( b2MaxFloat( b2LengthSquared( c1 ), b2LengthSquared( c2 ) ) ) + radius;
+		}
+		break;
+
+		case b2_circleShape:
+		{
+			float radius = shape->circle.radius;
+			extent.minExtent = radius;
+			extent.maxExtent = b2Length( b2Sub( shape->circle.center, localCenter ) ) + radius;
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			const b2Polygon* poly = &shape->polygon;
+			float minExtent = B2_HUGE;
+			float maxExtentSqr = 0.0f;
+			int count = poly->count;
+			for ( int i = 0; i < count; ++i )
+			{
+				b2Vec2 v = poly->vertices[i];
+				float planeOffset = b2Dot( poly->normals[i], b2Sub( v, poly->centroid ) );
+				minExtent = b2MinFloat( minExtent, planeOffset );
+
+				float distanceSqr = b2LengthSquared( b2Sub( v, localCenter ) );
+				maxExtentSqr = b2MaxFloat( maxExtentSqr, distanceSqr );
+			}
+
+			extent.minExtent = minExtent + poly->radius;
+			extent.maxExtent = sqrtf( maxExtentSqr ) + poly->radius;
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			extent.minExtent = 0.0f;
+			b2Vec2 c1 = b2Sub( shape->segment.point1, localCenter );
+			b2Vec2 c2 = b2Sub( shape->segment.point2, localCenter );
+			extent.maxExtent = sqrtf( b2MaxFloat( b2LengthSquared( c1 ), b2LengthSquared( c2 ) ) );
+		}
+		break;
+
+		default:
+			break;
+	}
+
+	return extent;
+}
+
+
+void b2Shape_SetDensity( b2ShapeId id, float density, bool updateBodyMass )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    if ( shape == NULL || b2_worlds[id.world0].locked || b2IsValidFloat( density ) == false || density < 0.0f || shape->density == density )
+    {
+        return;
+    }
+    shape->density = density;
+    if ( updateBodyMass )
+    {
+        b2World* world = b2_worlds + id.world0;
+        b2UpdateBodyMassData( world, world->bodies.data + shape->bodyId );
+    }
+}
+
+float b2Shape_GetDensity( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL );
+    return shape->density;
+}
+
+b2MassData b2Shape_ComputeMassData( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL );
+    return b2ComputeShapeMass( shape );
 }

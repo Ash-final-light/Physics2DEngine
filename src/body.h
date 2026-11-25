@@ -14,6 +14,14 @@ struct b2Body
 	int headShapeId;
 	int shapeCount;
 	bool dirtyMass;
+    float mass;
+    float inertia;
+    float invMass;
+    float invInertia;
+    b2Vec2 localCenter;
+    b2Pos center;
+    float minExtent;
+    float maxExtent;
 	uint16_t generation;
 	b2BodyType type;
 	b2WorldTransform transform;
@@ -37,3 +45,5 @@ struct b2Body
 
 struct b2World;
 b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId );
+
+void b2UpdateBodyMassData( b2World* world, b2Body* body );

@@ -94,6 +94,7 @@ int BodyNameTest( void );
 int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
+int BodyMassFromDensityTest( void );
 int CircleShapeLifecycleTest( void );
 int ShapeGeometryEditTest( void );
 int ShapeUserDataTest( void );
@@ -675,6 +676,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ShapeGeometryEditTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyMassFromDensityTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyMassFromDensityTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

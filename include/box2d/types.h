@@ -174,3 +174,14 @@ B2_API b2Segment b2Shape_GetSegment( b2ShapeId shapeId );
 B2_API void b2Shape_SetSegment( b2ShapeId shapeId, const b2Segment* segment );
 
 B2_API b2ShapeType b2Shape_GetType( b2ShapeId shapeId );
+
+
+B2_API b2MassData b2Body_GetMassData( b2BodyId bodyId );
+B2_API float b2Body_GetMass( b2BodyId bodyId );
+B2_API float b2Body_GetRotationalInertia( b2BodyId bodyId );
+B2_API b2Vec2 b2Body_GetLocalCenter( b2BodyId bodyId );
+B2_API b2Pos b2Body_GetWorldCenter( b2BodyId bodyId );
+B2_API void b2Body_UpdateMassFromShapes( b2BodyId bodyId );
+B2_API void b2Shape_SetDensity( b2ShapeId shapeId, float density, bool updateBodyMass );
+B2_API float b2Shape_GetDensity( b2ShapeId shapeId );
+B2_API b2MassData b2Shape_ComputeMassData( b2ShapeId shapeId );

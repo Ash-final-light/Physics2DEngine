@@ -28,3 +28,12 @@ struct b2Shape
 };
 
 void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform );
+
+
+struct b2ShapeExtent
+{
+    float minExtent;
+    float maxExtent;
+};
+b2MassData b2ComputeShapeMass( const b2Shape* shape );
+b2ShapeExtent b2ComputeShapeExtent( const b2Shape* shape, b2Vec2 localCenter );
