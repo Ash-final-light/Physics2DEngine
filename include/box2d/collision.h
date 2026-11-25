@@ -28,3 +28,11 @@ typedef struct b2Segment
 	b2Vec2 point1;
 	b2Vec2 point2;
 } b2Segment;
+
+/// 实心胶囊，由两个半圆和中间矩形组成。
+typedef struct b2Capsule
+{
+	b2Vec2 center1;
+	b2Vec2 center2;
+	float radius;
+} b2Capsule;

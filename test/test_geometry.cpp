@@ -38,3 +38,28 @@ int CircleSegmentTest( void )
 	ENSURE( b2IsValidSegment( &broken ) == false );
 	return 0;
 }
+
+int CapsuleTest( void )
+{
+	b2Capsule capsule = { { 0.0f, 0.0f }, { 0.0f, 2.0f }, 0.25f };
+	ENSURE( capsule.center1.y == 0.0f && capsule.center2.y == 2.0f && capsule.radius == 0.25f );
+	ENSURE( b2IsValidCapsule( &capsule ) == true );
+
+	b2Capsule degenerate = { { 1.0f, 1.0f }, { 1.0f, 1.0f }, 0.5f };
+	ENSURE( b2IsValidCapsule( &degenerate ) == true );
+
+	b2Capsule point = { { -2.0f, 3.0f }, { -2.0f, 3.0f }, 0.0f };
+	ENSURE( b2IsValidCapsule( &point ) == true );
+
+	b2Capsule negative = capsule;
+	negative.radius = -1.0f;
+	ENSURE( b2IsValidCapsule( &negative ) == false );
+
+	b2Capsule bad = capsule;
+	bad.center2.x = NAN;
+	ENSURE( b2IsValidCapsule( &bad ) == false );
+	bad = capsule;
+	bad.radius = INFINITY;
+	ENSURE( b2IsValidCapsule( &bad ) == false );
+	return 0;
+}
