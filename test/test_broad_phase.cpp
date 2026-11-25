@@ -111,3 +111,58 @@ int BroadPhaseMoveTest( void )
     b2DestroyWorld( worldId );
     return 0;
 }
+
+
+int BroadPhaseCandidatesTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId worldId = b2CreateWorld( &wd );
+    b2World* world = b2_worlds + worldId.index1-1;
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 0.75f };
+    uint32_t random = 1234567;
+    for ( int i = 0; i < 45; ++i )
+    {
+        b2BodyDef bd = b2DefaultBodyDef();
+        bd.type = (b2BodyType)(i%3);
+        random = 1664525*random+1013904223;
+        bd.position.x = float((random>>16)%40)*0.1f;
+        random = 1664525*random+1013904223;
+        bd.position.y = float((random>>16)%40)*0.1f;
+        b2CreateCircleShape( b2CreateBody( worldId, &bd ), &sd, &circle );
+    }
+    b2DynamicArray<uint64_t> keys = {};
+    b2CollectCandidatePairs( world, &keys );
+    int expected = 0;
+    for ( int a = 0; a < world->shapes.count; ++a )
+    {
+        for ( int b = a+1; b < world->shapes.count; ++b )
+        {
+            b2BodyType typeA = world->bodies.data[world->shapes.data[a].bodyId].type;
+            b2BodyType typeB = world->bodies.data[world->shapes.data[b].bodyId].type;
+            if ( typeA != b2_dynamicBody && typeB != b2_dynamicBody )
+            {
+                continue;
+            }
+            if ( b2AABB_Overlaps( world->fatAABBs.data[a], world->fatAABBs.data[b] ) )
+            {
+                ++expected;
+                uint64_t key = (uint64_t)(uint32_t)a<<32 | (uint32_t)b;
+                int occurrences = 0;
+                for ( int i = 0; i < keys.count; ++i )
+                {
+                    occurrences += keys.data[i] == key;
+                }
+                ENSURE( occurrences == 1 );
+            }
+        }
+    }
+    ENSURE( expected > 32 && keys.count == expected );
+    b2CollectCandidatePairs( world, &keys );
+    ENSURE( keys.count == 0 );
+    b2Array_Destroy( keys );
+    b2DestroyWorld( worldId );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

@@ -3,6 +3,9 @@
 
 #include "broad_phase.h"
 #include "core.h"
+#include "world.h"
+#include "simd.h"
+#include <bit>
 #include <cstring>
 
 void b2CreateBroadPhase( b2BroadPhase* bp, const b2Capacity* capacity )
@@ -64,4 +67,294 @@ void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb )
     b2BodyType type = B2_PROXY_TYPE( proxyKey );
     int proxyId = B2_PROXY_ID( proxyKey );
     b2DynamicTree_MoveProxyInternal( bp->trees+type, proxyId, aabb, true );
+}
+
+
+static int b2GatherMovedSiblings( const b2DynamicTree* tree, int* pairIndices )
+{
+	const b2TreeNode* nodes = tree->nodes;
+	int nodeEnd = tree->nodeEnd;
+
+	int count = 0;
+
+	// 跳过根。
+	for ( int pair = 2; pair < nodeEnd; pair += 2 )
+	{
+		// 任一兄弟已移动则压入。
+		if ( ( nodes[pair].flagIndex | nodes[pair + 1].flagIndex ) & B2_MOVED_NODE )
+		{
+			pairIndices[count++] = pair;
+		}
+	}
+
+	return count;
+}
+
+#define B2_CANDIDATE_BATCH 32
+
+typedef struct b2Candidate
+{
+	int shapeIdA;
+	int shapeIdB;
+} b2CandidatePair;
+
+typedef struct b2PairContext
+{
+	b2World* world;
+	b2DynamicArray<uint64_t>* pairKeys;
+	b2CandidatePair batch[B2_CANDIDATE_BATCH];
+	int batchCount;
+} b2PairContext;
+
+typedef struct b2NodePair
+{
+	b2TreeNode a;
+	b2TreeNode b;
+} b2NodePair;
+
+typedef struct b2IndexPair
+{
+	int a, b;
+} b2IndexPair;
+
+
+static inline int b2CTZ32( uint32_t value )
+{
+    return std::countr_zero( value );
+}
+
+static void b2FlushCandidatePairs( b2PairContext* context )
+{
+    for ( int i = 0; i < context->batchCount; ++i )
+    {
+        const b2CandidatePair* pair = context->batch+i;
+        b2Array_Push( *context->pairKeys, (uint64_t)(uint32_t)pair->shapeIdA << 32 | (uint32_t)pair->shapeIdB );
+    }
+    context->batchCount = 0;
+}
+
+
+B2_FORCE_INLINE void b2AddCandidatePair( int shapeIdA, int shapeIdB, b2PairContext* context )
+{
+	// 按形状下标顺序。
+	b2CandidatePair* candidate = context->batch + context->batchCount;
+	candidate->shapeIdA = b2MinInt( shapeIdA, shapeIdB );
+	candidate->shapeIdB = b2MaxInt( shapeIdA, shapeIdB );
+	context->batchCount += 1;
+	if ( context->batchCount == B2_CANDIDATE_BATCH )
+	{
+		b2FlushCandidatePairs( context );
+	}
+}
+
+B2_FORCE_INLINE bool b2TestPair( const b2TreeNode* a, const b2TreeNode* b )
+{
+	if ( ( ( a->flagIndex | b->flagIndex ) & B2_MOVED_NODE ) == 0 )
+	{
+		return false;
+	}
+
+	return b2AABB_Overlaps( a->aabb, b->aabb );
+}
+
+static void b2CollideProxyAndSubtree( const b2TreeNode* proxy, const b2TreeNode* nodes, int pair, b2PairContext* context )
+{
+	uint32_t proxyMark = proxy->flagIndex & B2_MOVED_NODE;
+	b2AABBV boxv = b2LoadAABBV( &proxy->aabb );
+	int shapeId = proxy->shapeIndex;
+
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = pair;
+
+	while ( stackCount > 0 )
+	{
+		pair = stack[--stackCount];
+		const b2TreeNode* children = nodes + pair;
+
+		int movedMask = 3;
+		if ( proxyMark == 0 )
+		{
+			movedMask = ( b2IsNodeMoved( children + 0 ) ? 1 : 0 ) | ( b2IsNodeMoved( children + 1 ) ? 2 : 0 );
+		}
+
+		int mask = b2OverlapNodePairMask( boxv, children ) & movedMask;
+		while ( mask != 0 )
+		{
+			int i = (int)b2CTZ32( (uint32_t)mask );
+			mask &= mask - 1;
+
+			const b2TreeNode* node = children + i;
+			if ( b2IsLeaf( node ) )
+			{
+				b2AddCandidatePair( shapeId, node->shapeIndex, context );
+			}
+			else
+			{
+				if ( stackCount < B2_TREE_STACK_SIZE )
+				{
+					stack[stackCount++] = b2GetLeftChild( node );
+				}
+				else
+				{
+					B2_ASSERT( stackCount < B2_TREE_STACK_SIZE );
+				}
+			}
+		}
+	}
+}
+
+B2_FORCE_INLINE void b2ExpandPair( const b2TreeNode* arrayA, const b2TreeNode* arrayB, const b2TreeNode* nodeA,
+								   const b2TreeNode* nodeB, b2IndexPair* stack, int* stackCount, b2PairContext* context )
+{
+	bool leafA = b2IsLeaf( nodeA );
+	bool leafB = b2IsLeaf( nodeB );
+	if ( leafA && leafB )
+	{
+		b2AddCandidatePair( nodeA->shapeIndex, nodeB->shapeIndex, context );
+	}
+	else if ( leafA )
+	{
+		b2CollideProxyAndSubtree( nodeA, arrayB, b2GetLeftChild( nodeB ), context );
+	}
+	else if ( leafB )
+	{
+		b2CollideProxyAndSubtree( nodeB, arrayA, b2GetLeftChild( nodeA ), context );
+	}
+	else
+	{
+		if ( *stackCount < B2_TREE_STACK_SIZE )
+		{
+			stack[*stackCount] = b2IndexPair{ .a = b2GetLeftChild( nodeA ), .b = b2GetLeftChild( nodeB ) };
+			*stackCount += 1;
+		}
+		else
+		{
+			B2_ASSERT( *stackCount < B2_TREE_STACK_SIZE );
+		}
+	}
+}
+
+static void b2CollideCrossPairs( const b2TreeNode* arrayA, const b2TreeNode* arrayB, const b2TreeNode* subtreeA,
+								 const b2TreeNode* subtreeB, b2PairContext* context )
+{
+	b2IndexPair stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+
+	// 初始化栈。
+	if ( b2TestPair( subtreeA, subtreeB ) )
+	{
+		b2ExpandPair( arrayA, arrayB, subtreeA, subtreeB, stack, &stackCount, context );
+	}
+
+	while ( stackCount > 0 )
+	{
+		b2IndexPair pair = stack[--stackCount];
+		const b2TreeNode* pairA = arrayA + pair.a;
+		const b2TreeNode* pairB = arrayB + pair.b;
+
+		int movedA = ( b2IsNodeMoved( pairA + 0 ) ? 0x3 : 0 ) | ( b2IsNodeMoved( pairA + 1 ) ? 0xC : 0 );
+		int movedB = ( b2IsNodeMoved( pairB + 0 ) ? 0x5 : 0 ) | ( b2IsNodeMoved( pairB + 1 ) ? 0xA : 0 );
+
+		int mask = b2OverlapPairMask( pairA, pairB ) & ( movedA | movedB );
+		while ( mask != 0 )
+		{
+			int lane = (int)b2CTZ32( (uint32_t)mask );
+			mask &= mask - 1;
+			b2ExpandPair( arrayA, arrayB, pairA + ( lane >> 1 ), pairB + ( lane & 1 ), stack, &stackCount, context );
+		}
+	}
+}
+
+#define B2_CROSS_SEED_COUNT 64
+
+static int b2GatherCrossSeeds( const b2DynamicTree* treeA, const b2DynamicTree* treeB, b2NodePair* seeds )
+{
+	const b2TreeNode* nodesA = treeA->nodes;
+	const b2TreeNode* nodesB = treeB->nodes;
+
+	// 以两棵树的根作为一对开始广度优先搜索。空树有一个哨兵根，不会产生任何结果。
+	b2NodePair queue[2 * B2_CROSS_SEED_COUNT];
+	int mask = 2 * B2_CROSS_SEED_COUNT - 1;
+	int head = 0;
+	int tail = 0;
+
+	const b2TreeNode* rootA = nodesA + B2_ROOT_NODE;
+	const b2TreeNode* rootB = nodesB + B2_ROOT_NODE;
+	if ( b2TestPair( rootA, rootB ) )
+	{
+		queue[tail & mask] = b2NodePair{ .a = *rootA, .b = *rootB };
+		tail += 1;
+	}
+
+	int seedCount = 0;
+	while ( head < tail && seedCount + ( tail - head ) + 3 < B2_CROSS_SEED_COUNT )
+	{
+		b2NodePair pair = queue[head & mask];
+		head += 1;
+
+		if ( b2IsLeaf( &pair.a ) || b2IsLeaf( &pair.b ) )
+		{
+			seeds[seedCount++] = pair;
+			continue;
+		}
+
+		const b2TreeNode* a = nodesA + b2GetLeftChild( &pair.a );
+		const b2TreeNode* b = nodesB + b2GetLeftChild( &pair.b );
+
+		// 每个节点有两个子节点，共四种组合。
+		for ( int i = 0; i < 2; ++i )
+		{
+			for ( int j = 0; j < 2; ++j )
+			{
+				if ( b2TestPair( a + i, b + j ) )
+				{
+					queue[tail & mask] = b2NodePair{ a[i], b[j] };
+					tail += 1;
+				}
+			}
+		}
+	}
+
+	while ( head < tail )
+	{
+		seeds[seedCount] = queue[head & mask];
+		seedCount += 1;
+		head += 1;
+	}
+
+	return seedCount;
+}
+
+
+void b2CollectCandidatePairs( b2World* world, b2DynamicArray<uint64_t>* pairKeys )
+{
+    b2Array_Clear( *pairKeys );
+    b2BroadPhase* bp = &world->broadPhase;
+    b2PairContext context = { .world = world, .pairKeys = pairKeys };
+    const b2DynamicTree* dynamicTree = bp->trees+b2_dynamicBody;
+    for ( int type = b2_staticBody; type <= b2_kinematicBody; ++type )
+    {
+        const b2DynamicTree* other = bp->trees+type;
+        b2NodePair seeds[B2_CROSS_SEED_COUNT];
+        int count = b2GatherCrossSeeds( dynamicTree, other, seeds );
+        B2_ASSERT( count <= B2_CROSS_SEED_COUNT );
+        for ( int i = 0; i < count; ++i )
+        {
+            b2CollideCrossPairs( dynamicTree->nodes, other->nodes, &seeds[i].a, &seeds[i].b, &context );
+        }
+    }
+    int* siblings = static_cast<int*>( b2StackAlloc( &world->stack, dynamicTree->nodeEnd/2*sizeof(int), "moved pairs" ) );
+    int count = b2GatherMovedSiblings( dynamicTree, siblings );
+    for ( int i = 0; i < count; ++i )
+    {
+        int index = siblings[i];
+        b2CollideCrossPairs( dynamicTree->nodes, dynamicTree->nodes, dynamicTree->nodes+index, dynamicTree->nodes+index+1, &context );
+    }
+    b2FlushCandidatePairs( &context );
+    b2StackFree( &world->stack, siblings );
+    for ( int type = 0; type < b2_bodyTypeCount; ++type )
+    {
+        b2DynamicTree_ClearMoved( bp->trees+type );
+    }
 }

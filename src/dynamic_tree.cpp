@@ -1423,3 +1423,50 @@ void b2DynamicTree_MoveProxy( b2DynamicTree* tree, int proxyId, b2AABB aabb )
 {
     b2DynamicTree_MoveProxyInternal( tree, proxyId, aabb, false );
 }
+
+
+void b2DynamicTree_ClearMoved( b2DynamicTree* tree )
+{
+	b2TreeNode* nodes = tree->nodes;
+
+	b2TreeNode* root = nodes + B2_ROOT_NODE;
+	if ( b2IsNodeMoved( root ) == false )
+	{
+		return;
+	}
+
+	root->flagIndex &= ~B2_MOVED_NODE;
+	if ( b2IsLeaf( root ) )
+	{
+		return;
+	}
+
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = b2GetLeftChild( root );
+
+	while ( stackCount > 0 )
+	{
+		int pair = stack[--stackCount];
+		for ( int i = 0; i < 2; ++i )
+		{
+			b2TreeNode* node = nodes + pair + i;
+			if ( node->flagIndex & B2_MOVED_NODE )
+			{
+				node->flagIndex &= ~B2_MOVED_NODE;
+				if ( b2IsLeaf( node ) == false )
+				{
+					if ( stackCount < B2_TREE_STACK_SIZE )
+					{
+						stack[stackCount++] = b2GetLeftChild( node );
+					}
+					else
+					{
+						// 若不清除已移动标志会发生糟糕的事。
+						B2_ASSERT( stackCount < B2_TREE_STACK_SIZE );
+					}
+				}
+			}
+		}
+	}
+}

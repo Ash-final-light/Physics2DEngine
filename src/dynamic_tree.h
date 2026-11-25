@@ -100,3 +100,5 @@ void b2DestroyDynamicTreeInternal( b2DynamicTree* tree );
 int b2CreateTreeProxyInternal( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData, bool markMoved );
 
 void b2DynamicTree_MoveProxyInternal( b2DynamicTree* tree, int proxyId, b2AABB aabb, bool markMoved );
+
+void b2DynamicTree_ClearMoved( b2DynamicTree* tree );

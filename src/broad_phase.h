@@ -5,6 +5,7 @@
 
 #include "dynamic_tree.h"
 #include "table.h"
+#include "container.h"
 #include "box2d/types.h"
 
 #define B2_PROXY_TYPE( KEY ) ( (b2BodyType)( ( KEY ) & 3 ) )
@@ -27,3 +28,8 @@ int b2BroadPhase_CreateProxy( b2BroadPhase* bp, b2BodyType type, b2AABB aabb, ui
 void b2BroadPhase_DestroyProxy( b2BroadPhase* bp, int proxyKey );
 
 void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb );
+
+
+struct b2World;
+// Emits raw broad-phase candidates. Collision filtering and contacts are separate stages.
+void b2CollectCandidatePairs( b2World* world, b2DynamicArray<uint64_t>* pairKeys );
