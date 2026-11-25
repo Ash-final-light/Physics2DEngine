@@ -57,3 +57,5 @@ struct b2World;
 struct b2BroadPhase;
 void b2CreateShapeProxy( b2World* world, b2Shape* shape, b2BodyType type, b2WorldTransform transform, bool forcePairCreation );
 void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* broadPhase );
+
+void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform );

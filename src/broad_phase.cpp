@@ -57,3 +57,11 @@ void b2BroadPhase_DestroyProxy( b2BroadPhase* bp, int proxyKey )
 	B2_ASSERT( 0 <= proxyType && proxyType < b2_bodyTypeCount );
 	b2DestroyTreeProxy( bp->trees + proxyType, proxyId );
 }
+
+
+void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb )
+{
+    b2BodyType type = B2_PROXY_TYPE( proxyKey );
+    int proxyId = B2_PROXY_ID( proxyKey );
+    b2DynamicTree_MoveProxyInternal( bp->trees+type, proxyId, aabb, true );
+}

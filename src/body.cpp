@@ -270,7 +270,7 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	body->center = b2TransformPoint( body->transform, body->localCenter );
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
-        b2UpdateShapeAABB( world->shapes.data + id, body->transform );
+        b2MoveShapeProxy( world, world->shapes.data + id, body->transform );
     }
 }
 

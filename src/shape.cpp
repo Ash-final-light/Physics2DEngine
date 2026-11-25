@@ -356,8 +356,18 @@ static void b2SetShapeGeometry( b2ShapeId id, const void* geometry, b2ShapeType 
         default: B2_ASSERT( false ); return;
     }
     shape->type = type;
-    b2Body* body = b2_worlds[id.world0].bodies.data + shape->bodyId;
-    b2UpdateShapeAABB( shape, body->transform );
+    b2World* world = b2_worlds + id.world0;
+    b2Body* body = world->bodies.data + shape->bodyId;
+    shape->aabbMargin = b2ComputeShapeMargin( shape );
+    b2DestroyShapeProxy( shape, &world->broadPhase );
+    if ( body->isEnabled )
+    {
+        b2CreateShapeProxy( world, shape, body->type, body->transform, true );
+    }
+    else
+    {
+        b2UpdateShapeAABB( shape, body->transform );
+    }
 }
 
 b2Circle b2Shape_GetCircle( b2ShapeId id )
@@ -777,5 +787,21 @@ void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* bp )
     {
         b2BroadPhase_DestroyProxy( bp, shape->proxyKey );
         shape->proxyKey = B2_NULL_INDEX;
+    }
+}
+
+
+void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform )
+{
+    b2UpdateShapeAABB( shape, transform );
+    b2AABB* fat = world->fatAABBs.data + shape->id;
+    if ( b2AABB_Contains( *fat, shape->aabb ) == false )
+    {
+        b2Vec2 margin = { shape->aabbMargin, shape->aabbMargin };
+        *fat = b2AABB{ b2Sub( shape->aabb.lowerBound, margin ), b2Add( shape->aabb.upperBound, margin ) };
+        if ( shape->proxyKey != B2_NULL_INDEX )
+        {
+            b2BroadPhase_MoveProxy( &world->broadPhase, shape->proxyKey, *fat );
+        }
     }
 }
