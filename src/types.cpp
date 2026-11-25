@@ -25,3 +25,19 @@ b2WorldDef b2DefaultWorldDef( void )
 	def.internalValue = B2_SECRET_COOKIE;
 	return def;
 }
+
+b2BodyDef b2DefaultBodyDef( void )
+{
+	b2BodyDef def = {};
+	def.type = b2_staticBody;
+	def.rotation = b2Rot_identity;
+	def.gravityScale = 1.0f;
+	def.sleepThreshold = 0.05f * b2GetLengthUnitsPerMeter();
+	def.safetyFactor = 0.5f;
+	def.enableSleep = true;
+	def.isAwake = true;
+	def.isEnabled = true;
+	def.enableContactRecycling = true;
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}

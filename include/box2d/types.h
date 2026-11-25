@@ -47,3 +47,46 @@ B2_API void b2DestroyWorld( b2WorldId worldId );
 B2_API bool b2World_IsValid( b2WorldId id );
 B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
 B2_API void* b2World_GetUserData( b2WorldId worldId );
+
+typedef enum b2BodyType
+{
+	b2_staticBody = 0,
+	b2_kinematicBody = 1,
+	b2_dynamicBody = 2,
+	b2_bodyTypeCount
+} b2BodyType;
+
+typedef struct b2MotionLocks
+{
+	bool linearX;
+	bool linearY;
+	bool angularZ;
+} b2MotionLocks;
+
+typedef struct b2BodyDef
+{
+	b2BodyType type;
+	b2Pos position;
+	b2Rot rotation;
+	b2Vec2 linearVelocity;
+	float angularVelocity;
+	float linearDamping;
+	float angularDamping;
+	float gravityScale;
+	float sleepThreshold;
+	float safetyFactor;
+	const char* name;
+	void* userData;
+	b2MotionLocks motionLocks;
+	bool enableSleep;
+	bool isAwake;
+	bool isBullet;
+	bool isEnabled;
+	bool allowFastRotation;
+	bool enableContactRecycling;
+	int internalValue;
+} b2BodyDef;
+
+B2_API b2BodyDef b2DefaultBodyDef( void );
+B2_API b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def );
+B2_API void b2DestroyBody( b2BodyId bodyId );

@@ -4,7 +4,11 @@
 #pragma once
 
 #include "arena_allocator.h"
+#include "body.h"
+#include "container.h"
+#include "id_pool.h"
 
+#include "box2d/constants.h"
 #include "box2d/types.h"
 
 struct b2World
@@ -29,4 +33,8 @@ struct b2World
 	int workerCount;
 	void* userData;
 	b2Stack stack;
+	b2IdPool bodyIdPool;
+	b2DynamicArray<b2Body> bodies;
 };
+
+extern b2World b2_worlds[B2_MAX_WORLDS];

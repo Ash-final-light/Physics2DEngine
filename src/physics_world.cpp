@@ -13,7 +13,7 @@
 
 static_assert( B2_MAX_WORLDS > 0, "must be 1 or more" );
 static_assert( B2_MAX_WORLDS < UINT16_MAX, "B2_MAX_WORLDS limit exceeded" );
-static b2World b2_worlds[B2_MAX_WORLDS];
+b2World b2_worlds[B2_MAX_WORLDS];
 
 b2WorldId b2CreateWorld( const b2WorldDef* def )
 {
@@ -63,6 +63,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->enableContinuous = def->enableContinuous;
 	world->workerCount = 1;
 	world->userData = def->userData;
+	world->bodyIdPool = b2CreateIdPool();
+	b2Array_Create( world->bodies );
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -80,6 +82,8 @@ void b2DestroyWorld( b2WorldId worldId )
 	}
 
 	b2DestroyStack( &world->stack );
+	b2Array_Destroy( world->bodies );
+	b2DestroyIdPool( &world->bodyIdPool );
 	uint16_t generation = world->generation;
 	*world = b2World{};
 	world->generation = generation + 1;

@@ -83,3 +83,30 @@ int WorldUserDataTest( void )
 	b2DestroyWorld( second );
 	return 0;
 }
+
+int BodyCreateTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld( &worldDef );
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	ENSURE( bodyDef.type == b2_staticBody );
+	ENSURE( bodyDef.gravityScale == 1.0f );
+	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+	ENSURE( bodyId.index1 == 1 );
+	ENSURE( bodyId.world0 == 0 );
+	ENSURE( bodyId.generation == 1 );
+
+	b2BodyDef bad = bodyDef;
+	bad.position.x = NAN;
+	b2BodyId invalid = b2CreateBody( worldId, &bad );
+	ENSURE( invalid.index1 == 0 );
+
+	b2BodyId second = b2CreateBody( worldId, &bodyDef );
+	ENSURE( second.index1 == 2 );
+	b2DestroyBody( bodyId );
+	b2DestroyBody( second );
+	b2DestroyWorld( worldId );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

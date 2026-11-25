@@ -19,4 +19,5 @@
 #endif
 
 #define B2_MAX_WORLDS 128
+#define B2_NAME_LENGTH 10
 #define B2_MAX_RESTITUTION_ITERATIONS 63
