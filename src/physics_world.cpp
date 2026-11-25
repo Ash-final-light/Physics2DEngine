@@ -228,3 +228,14 @@ float b2World_GetContactRecycleDistance(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL?world->contactRecycleDistance:0.0f;
 }
+
+void b2World_SetRestitutionThreshold(b2WorldId id,float value)
+{
+    if(!b2IsValidFloat(value)) { return; }b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || world->locked) { return; }world->restitutionThreshold=b2ClampFloat(value,0.0f,FLT_MAX);
+}
+
+float b2World_GetRestitutionThreshold(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->restitutionThreshold:0.0f;
+}

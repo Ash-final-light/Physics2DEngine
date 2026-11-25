@@ -236,6 +236,8 @@ B2_API void b2World_EnableWarmStarting(b2WorldId worldId,bool flag);
 B2_API bool b2World_IsWarmStartingEnabled(b2WorldId worldId);
 B2_API void b2World_SetContactRecycleDistance(b2WorldId worldId,float recycleDistance);
 B2_API float b2World_GetContactRecycleDistance(b2WorldId worldId);
+B2_API void b2World_SetRestitutionThreshold(b2WorldId worldId,float value);
+B2_API float b2World_GetRestitutionThreshold(b2WorldId worldId);
 B2_API void b2Body_EnableContactRecycling(b2BodyId bodyId,bool flag);
 B2_API bool b2Body_IsContactRecyclingEnabled(b2BodyId bodyId);
 B2_API void b2Shape_SetFriction(b2ShapeId shapeId,float friction);

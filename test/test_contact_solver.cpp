@@ -436,3 +436,25 @@ int ContactRestitutionTest(void)
     b2World_Step(id,0.001f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y+4,0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactRestitutionThresholdTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    const float incoming[4]={0.5f,1,2,0.5f};
+    for(int run=0;run<4;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* w=b2_worlds+id.index1-1;
+        b2World_SetRestitutionThreshold(id,run==3?0.0f:1.0f);
+        float expectedThreshold=run==3?0.0f:1.0f;
+        b2World_SetRestitutionThreshold(id,NAN);w->locked=true;b2World_SetRestitutionThreshold(id,10);w->locked=false;
+        ENSURE(b2World_GetRestitutionThreshold(id)==expectedThreshold);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-incoming[run]};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.restitution=1;b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+        bd.type=b2_staticBody;bd.position={0,-2};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+        b2World_Step(id,0.01f,1);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-(run>=2?incoming[run]:0.0f),0.0001f);
+        b2World_SetRestitutionThreshold(id,-1);ENSURE(b2World_GetRestitutionThreshold(id)==0);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    return 0;
+}
