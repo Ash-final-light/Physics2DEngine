@@ -6,6 +6,7 @@ add_library(box2d
 	distance.cpp
 	manifold.cpp
 	chain_builder.cpp
+	dynamic_tree.cpp
 	hull.cpp
 	bitset.cpp
 	id_pool.cpp

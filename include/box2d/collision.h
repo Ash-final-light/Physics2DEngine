@@ -295,3 +295,8 @@ typedef struct b2ChainResult
 
 B2_API b2ChainResult b2ComputeChains( const b2Polygon* polygons, int polygonCount, float weldTolerance );
 B2_API void b2FreeChains( b2ChainResult* result );
+
+typedef struct b2DynamicTree b2DynamicTree;
+
+B2_API b2DynamicTree* b2CreateDynamicTree( int proxyCapacity );
+B2_API void b2DestroyDynamicTree( b2DynamicTree* tree );
