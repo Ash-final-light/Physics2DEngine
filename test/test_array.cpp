@@ -127,3 +127,27 @@ int ArrayPopTest( void )
 	b2Array_Destroy( values );
 	return 0;
 }
+
+int ArrayRemoveSwapTest( void )
+{
+	b2Array( int ) values;
+	b2Array_Create( values );
+	b2Array_Push( values, 100 );
+	b2Array_Push( values, 200 );
+	b2Array_Push( values, 300 );
+	b2Array_Push( values, 400 );
+
+	int moved = b2Array_RemoveSwap( values, 1 );
+	ENSURE( moved == 3 && values.count == 3 );
+	ENSURE( values.data[0] == 100 && values.data[1] == 400 && values.data[2] == 300 );
+
+	int tail = b2Array_RemoveSwap( values, 2 );
+	ENSURE( tail == B2_NULL_INDEX && values.count == 2 );
+	ENSURE( values.data[0] == 100 && values.data[1] == 400 );
+
+	b2Array_RemoveSwap( values, 0 );
+	ENSURE( values.count == 1 && values.data[0] == 400 );
+	ENSURE( b2Array_RemoveSwap( values, 0 ) == B2_NULL_INDEX && values.count == 0 );
+	b2Array_Destroy( values );
+	return 0;
+}

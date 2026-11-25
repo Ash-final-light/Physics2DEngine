@@ -48,6 +48,8 @@
 #endif
 #endif
 
+#define B2_NULL_INDEX ( -1 )
+
 /// 版本编号方案。
 typedef struct b2Version
 {

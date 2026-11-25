@@ -25,6 +25,7 @@ int ArrayReserveTest( void );
 int ArrayPushTest( void );
 int ArrayIndexTest( void );
 int ArrayPopTest( void );
+int ArrayRemoveSwapTest( void );
 
 int main( int argc, char** argv )
 {
@@ -149,6 +150,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ArrayPopTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ArrayRemoveSwapTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ArrayRemoveSwapTest );
 	}
 
 	if ( ran == 0 )

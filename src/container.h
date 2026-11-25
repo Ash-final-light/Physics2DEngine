@@ -5,6 +5,7 @@
 
 #include "core.h"
 
+#include <cstring>
 #include <type_traits>
 
 // 描述符本身没有所有权钩子。创建和销毁显式配对。
@@ -101,6 +102,19 @@ inline T b2Array_Pop( b2DynamicArray<T>& a )
 {
 	B2_ASSERT( a.count > 0 );
 	return a.data[--a.count];
+}
+
+template <typename T>
+inline int b2Array_RemoveSwap( b2DynamicArray<T>& a, int index )
+{
+	B2_ASSERT( 0 <= index && index < a.count );
+	--a.count;
+	if ( index != a.count )
+	{
+		std::memcpy( a.data + index, a.data + a.count, sizeof( T ) );
+		return a.count;
+	}
+	return B2_NULL_INDEX;
 }
 
 b2DeclareArrayNative( int );
