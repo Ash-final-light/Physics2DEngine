@@ -26,8 +26,10 @@
 
 #ifdef __cplusplus
 #define B2_API extern "C" BOX2D_EXPORT
+#define B2_INLINE inline
 #else
 #define B2_API BOX2D_EXPORT
+#define B2_INLINE static inline
 #endif
 
 /// 版本编号方案。
@@ -104,4 +106,16 @@ B2_API int b2InternalAssert( const char* condition, const char* fileName, int li
 			  ( b2InternalAssert( #condition, __FILE__, (int)( __LINE__ ) ), 0 ) ) )
 #else
 #define B2_ASSERT( ... ) ( (void)0 )
+#endif
+
+#if defined( BOX2D_VALIDATE ) && !defined( NDEBUG )
+#define B2_ENABLE_VALIDATION 1
+#else
+#define B2_ENABLE_VALIDATION 0
+#endif
+
+#if B2_ENABLE_VALIDATION
+#define B2_VALIDATE( condition ) B2_ASSERT( condition )
+#else
+#define B2_VALIDATE( ... ) ( (void)0 )
 #endif

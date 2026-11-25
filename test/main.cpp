@@ -14,6 +14,7 @@ int LengthUnitsTest( void );
 int MemoryTest( void );
 int GrowAllocTest( void );
 int ZeroAllocTest( void );
+int ScalarTest( void );
 
 int main( int argc, char** argv )
 {
@@ -72,6 +73,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ZeroAllocTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ScalarTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ScalarTest );
 	}
 
 	if ( ran == 0 )

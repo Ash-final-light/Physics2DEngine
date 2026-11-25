@@ -5,7 +5,6 @@
 
 #include "box2d/math_functions.h"
 
-#include <cmath>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -88,10 +87,10 @@ float b2_lengthUnitsPerMeter = 1.0f;
 
 void b2SetLengthUnitsPerMeter( float lengthUnits )
 {
-	if ( std::isfinite( lengthUnits ) == false || lengthUnits <= 0.0f )
+	if ( b2IsValidFloat( lengthUnits ) == false || lengthUnits <= 0.0f )
 	{
 		b2Log( "invalid input: lengthUnits in %s\n", __func__ );
-		B2_ASSERT( std::isfinite( lengthUnits ) && lengthUnits > 0.0f );
+		B2_ASSERT( b2IsValidFloat( lengthUnits ) && lengthUnits > 0.0f );
 		return;
 	}
 
