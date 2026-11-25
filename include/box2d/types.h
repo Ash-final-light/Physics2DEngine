@@ -185,3 +185,5 @@ B2_API void b2Body_UpdateMassFromShapes( b2BodyId bodyId );
 B2_API void b2Shape_SetDensity( b2ShapeId shapeId, float density, bool updateBodyMass );
 B2_API float b2Shape_GetDensity( b2ShapeId shapeId );
 B2_API b2MassData b2Shape_ComputeMassData( b2ShapeId shapeId );
+
+B2_API void b2Body_SetMassData( b2BodyId bodyId, b2MassData massData );

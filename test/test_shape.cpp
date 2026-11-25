@@ -279,3 +279,45 @@ int BodyMassFromDensityTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int BodyExplicitMassTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    bd.type = b2_dynamicBody;
+    bd.position = { 10.0f, 20.0f };
+    bd.rotation = { 0.0f, 1.0f };
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2ShapeId shape = b2CreateCircleShape( body, &sd, &circle );
+    b2MassData custom = { 3.0f, { 2.0f, 3.0f }, 8.0f };
+    b2Body_SetMassData( body, custom );
+    b2MassData actual = b2Body_GetMassData( body );
+    ENSURE( actual.mass == 3.0f && actual.rotationalInertia == 8.0f );
+    ENSURE( actual.center.x == 2.0f && actual.center.y == 3.0f );
+    ENSURE( b2Body_GetWorldCenter( body ).x == 7.0f && b2Body_GetWorldCenter( body ).y == 22.0f );
+    ENSURE( b2Body_GetPosition( body ).x == 10.0f );
+    ENSURE( b2Shape_GetDensity( shape ) == 1.0f );
+    b2MassData bad = custom;
+    bad.mass = -1.0f;
+    b2Body_SetMassData( body, bad );
+    bad = custom;
+    bad.rotationalInertia = NAN;
+    b2Body_SetMassData( body, bad );
+    bad = custom;
+    bad.center.x = INFINITY;
+    b2Body_SetMassData( body, bad );
+    ENSURE( b2Body_GetMass( body ) == 3.0f && b2Body_GetRotationalInertia( body ) == 8.0f );
+    b2Body_UpdateMassFromShapes( body );
+    ENSURE_SMALL( b2Body_GetMass( body ) - B2_PI, 0.0001f );
+    ENSURE( b2Body_GetLocalCenter( body ).x == 0.0f );
+    bd.motionLocks.angularZ = true;
+    b2BodyId locked = b2CreateBody( world, &bd );
+    b2Body_SetMassData( locked, custom );
+    ENSURE( b2Body_GetMass( locked ) == 3.0f && b2Body_GetRotationalInertia( locked ) == 0.0f );
+    b2DestroyWorld( world );
+    return 0;
+}

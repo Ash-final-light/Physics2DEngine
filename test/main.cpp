@@ -94,6 +94,7 @@ int BodyNameTest( void );
 int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
+int BodyExplicitMassTest( void );
 int BodyMassFromDensityTest( void );
 int CircleShapeLifecycleTest( void );
 int ShapeGeometryEditTest( void );
@@ -682,6 +683,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BodyMassFromDensityTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyExplicitMassTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyExplicitMassTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

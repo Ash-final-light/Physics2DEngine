@@ -407,3 +407,42 @@ void b2Body_UpdateMassFromShapes( b2BodyId id )
         b2UpdateBodyMassData( b2_worlds + id.world0, b2GetBodyFullId( b2_worlds + id.world0, id ) );
     }
 }
+
+
+void b2Body_SetMassData( b2BodyId id, b2MassData data )
+{
+    if ( b2IsValidFloat( data.mass ) == false || data.mass < 0.0f ||
+         b2IsValidFloat( data.rotationalInertia ) == false || data.rotationalInertia < 0.0f ||
+         b2IsValidVec2( data.center ) == false || b2Body_IsValid( id ) == false || b2_worlds[id.world0].locked )
+    {
+        return;
+    }
+    b2World* world = b2_worlds + id.world0;
+    b2Body* body = b2GetBodyFullId( world, id );
+    body->mass = data.mass;
+    body->inertia = data.rotationalInertia;
+    body->localCenter = data.center;
+    b2Pos oldCenter = body->center;
+    body->center = b2TransformPoint( body->transform, data.center );
+    if ( body->type != b2_staticBody && body->isAwake && body->isEnabled )
+    {
+        b2Vec2 delta = b2CrossSV( body->angularVelocity, b2Sub( body->center, oldCenter ) );
+        body->linearVelocity = b2Add( body->linearVelocity, delta );
+    }
+    body->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
+    body->invInertia = body->inertia > 0.0f ? 1.0f / body->inertia : 0.0f;
+    body->minExtent = B2_HUGE;
+    body->maxExtent = 0.0f;
+    for ( int shapeId = body->headShapeId; shapeId != B2_NULL_INDEX; shapeId = world->shapes.data[shapeId].nextShapeId )
+    {
+        b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + shapeId, data.center );
+        body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
+        body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+    }
+    if ( body->motionLocks.angularZ )
+    {
+        body->inertia = 0.0f;
+        body->invInertia = 0.0f;
+    }
+    body->dirtyMass = false;
+}
