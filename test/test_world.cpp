@@ -245,3 +245,27 @@ int BodySetTransformTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int BodyBoundsTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &worldDef );
+	b2BodyDef def = b2DefaultBodyDef();
+	b2BodyId body = b2CreateBody( world, &def );
+	b2AABB bounds = b2Body_ComputeBounds( body );
+	ENSURE( bounds.lowerBound.x == 0.0f && bounds.upperBound.y == 0.0f );
+	b2Body_SetTransform( body, { 25.5f, -17.25f }, { 0.0f, 1.0f } );
+	bounds = b2Body_ComputeBounds( body );
+	ENSURE( bounds.lowerBound.x == 25.5f && bounds.upperBound.x == 25.5f );
+	ENSURE( bounds.lowerBound.y == -17.25f && bounds.upperBound.y == -17.25f );
+	b2Body_SetTransform( body, { -250000.0f, 300000.0f }, b2Rot_identity );
+	bounds = b2Body_ComputeBounds( body );
+	ENSURE( bounds.lowerBound.x == -250000.0f && bounds.upperBound.y == 300000.0f );
+	b2DestroyBody( body );
+	bounds = b2Body_ComputeBounds( body );
+	ENSURE( bounds.lowerBound.x == 0.0f && bounds.upperBound.x == 0.0f );
+	b2DestroyWorld( world );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

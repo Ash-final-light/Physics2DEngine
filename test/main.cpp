@@ -93,6 +93,7 @@ int BodyIdTest( void );
 int BodyNameTest( void );
 int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
+int BodyBoundsTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -626,6 +627,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BodySetTransformTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyBoundsTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyBoundsTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

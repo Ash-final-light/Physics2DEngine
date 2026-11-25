@@ -252,3 +252,14 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	body->transform.p = position;
 	body->transform.q = rotation;
 }
+
+b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
+{
+	if ( b2Body_IsValid( bodyId ) == false || b2_worlds[bodyId.world0].locked )
+	{
+		return b2AABB{};
+	}
+	// Bodies in this stage have no attached shapes: bound the body origin.
+	b2Pos position = b2Body_GetPosition( bodyId );
+	return b2AABB{ position, position };
+}
