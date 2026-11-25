@@ -10,10 +10,25 @@
 
 void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform )
 {
-    B2_ASSERT( shape->type == b2_circleShape );
-    b2Circle expanded = shape->circle;
-    expanded.radius += B2_SPECULATIVE_DISTANCE;
-    shape->aabb = b2ComputeCircleBounds( &expanded, transform );
+    switch ( shape->type )
+    {
+        case b2_circleShape:
+        {
+            b2Circle expanded = shape->circle;
+            expanded.radius += B2_SPECULATIVE_DISTANCE;
+            shape->aabb = b2ComputeCircleBounds( &expanded, transform );
+        }
+        break;
+        case b2_capsuleShape:
+        {
+            b2Capsule expanded = shape->capsule;
+            expanded.radius += B2_SPECULATIVE_DISTANCE;
+            shape->aabb = b2ComputeCapsuleBounds( &expanded, transform );
+        }
+        break;
+        default:
+            B2_ASSERT( false );
+    }
 }
 
 bool b2Shape_IsValid( b2ShapeId id )
@@ -39,12 +54,10 @@ static bool b2IsValidMaterial( const b2SurfaceMaterial* material )
            b2IsValidFloat( material->tangentSpeed );
 }
 
-b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle )
+static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const void* geometry, b2ShapeType type )
 {
     B2_CHECK_DEF( def );
-    if ( circle == NULL || b2IsValidVec2( circle->center ) == false ||
-         b2IsValidFloat( circle->radius ) == false || circle->radius < 0.0f ||
-         b2IsValidFloat( def->density ) == false || def->density < 0.0f ||
+    if ( b2IsValidFloat( def->density ) == false || def->density < 0.0f ||
          b2IsValidMaterial( &def->material ) == false || b2Body_IsValid( bodyId ) == false )
     {
         return b2_nullShapeId;
@@ -66,8 +79,13 @@ b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2C
     shape->id = id;
     shape->generation = generation;
     shape->bodyId = body->id;
-    shape->type = b2_circleShape;
-    shape->circle = *circle;
+    shape->type = type;
+    switch ( type )
+    {
+        case b2_circleShape: shape->circle = *(const b2Circle*)geometry; break;
+        case b2_capsuleShape: shape->capsule = *(const b2Capsule*)geometry; break;
+        default: B2_ASSERT( false ); break;
+    }
     shape->density = def->density;
     shape->material = def->material;
     shape->filter = def->filter;
@@ -117,4 +135,26 @@ void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
     *shape = b2Shape{};
     shape->generation = generation;
     shape->id = B2_NULL_INDEX;
+}
+
+
+b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle )
+{
+    if ( circle == NULL || b2IsValidVec2( circle->center ) == false ||
+         b2IsValidFloat( circle->radius ) == false || circle->radius < 0.0f )
+    {
+        return b2_nullShapeId;
+    }
+    return b2CreateShape( bodyId, def, circle, b2_circleShape );
+}
+
+b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule )
+{
+    if ( capsule == NULL || b2IsValidVec2( capsule->center1 ) == false ||
+         b2IsValidVec2( capsule->center2 ) == false || b2IsValidFloat( capsule->radius ) == false ||
+         capsule->radius < 0.0f || b2DistanceSquared( capsule->center1, capsule->center2 ) <= B2_LINEAR_SLOP * B2_LINEAR_SLOP )
+    {
+        return b2_nullShapeId;
+    }
+    return b2CreateShape( bodyId, def, capsule, b2_capsuleShape );
 }

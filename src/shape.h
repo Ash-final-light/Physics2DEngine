@@ -17,7 +17,11 @@ struct b2Shape
     b2AABB aabb;
     b2Filter filter;
     void* userData;
-    b2Circle circle;
+    union
+    {
+        b2Circle circle;
+        b2Capsule capsule;
+    };
     uint16_t generation;
 };
 

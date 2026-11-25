@@ -63,3 +63,34 @@ int CircleShapeLifecycleTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int CapsuleShapeLifecycleTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Capsule capsule = { { -2.0f, 0.0f }, { 2.0f, 0.0f }, 0.5f };
+    b2ShapeId shape = b2CreateCapsuleShape( body, &sd, &capsule );
+    ENSURE( b2Shape_IsValid( shape ) );
+    b2AABB bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.x - (2.5f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    b2Body_SetTransform( body, { 5.0f, 3.0f }, { 0.0f, 1.0f } );
+    bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.y - (5.5f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    b2DestroyShape( shape, true );
+    ENSURE( b2Shape_IsValid( shape ) == false );
+    capsule.center2 = capsule.center1;
+    ENSURE( b2CreateCapsuleShape( body, &sd, &capsule ).index1 == 0 );
+    capsule.center2 = { 2.0f, 0.0f };
+    capsule.radius = -1.0f;
+    ENSURE( b2CreateCapsuleShape( body, &sd, &capsule ).index1 == 0 );
+    capsule.radius = 0.0f;
+    ENSURE( b2Shape_IsValid( b2CreateCapsuleShape( body, &sd, &capsule ) ) );
+    b2DestroyWorld( world );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

@@ -151,3 +151,5 @@ B2_API b2ShapeDef b2DefaultShapeDef( void );
 B2_API b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle );
 B2_API void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass );
 B2_API bool b2Shape_IsValid( b2ShapeId shapeId );
+
+B2_API b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule );
