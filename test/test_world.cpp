@@ -213,3 +213,35 @@ int BodyTransformQueryTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int BodySetTransformTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &worldDef );
+	b2BodyDef def = b2DefaultBodyDef();
+	b2BodyId body = b2CreateBody( world, &def );
+	b2BodyId other = b2CreateBody( world, &def );
+	b2Body_SetTransform( body, { 7.0f, -2.0f }, { 0.0f, 1.0f } );
+	b2WorldTransform transform = b2Body_GetTransform( body );
+	ENSURE( transform.p.x == 7.0f && transform.p.y == -2.0f );
+	ENSURE( transform.q.c == 0.0f && transform.q.s == 1.0f );
+	b2Pos point = b2Body_GetWorldPoint( body, { 3.0f, 1.0f } );
+	ENSURE( point.x == 6.0f && point.y == 1.0f );
+	ENSURE( b2Body_GetPosition( other ).x == 0.0f );
+
+	b2Body_SetTransform( body, { NAN, 4.0f }, b2Rot_identity );
+	b2Body_SetTransform( body, { 1.0f, 2.0f }, { 0.0f, 0.0f } );
+	b2Body_SetTransform( body, { 1.0f, 2.0f }, { INFINITY, 0.0f } );
+	ENSURE( b2Body_GetPosition( body ).x == 7.0f );
+	ENSURE( b2Body_GetRotation( body ).s == 1.0f );
+
+	b2DestroyBody( body );
+	b2BodyId replacement = b2CreateBody( world, &def );
+	b2Body_SetTransform( body, { 9.0f, 9.0f }, b2Rot_identity );
+	ENSURE( b2Body_GetPosition( replacement ).x == 0.0f );
+	b2Body_SetTransform( b2_nullBodyId, { 0.0f, 0.0f }, b2Rot_identity );
+	b2DestroyWorld( world );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

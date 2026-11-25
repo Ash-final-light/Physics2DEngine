@@ -235,3 +235,20 @@ b2Vec2 b2Body_GetWorldVector( b2BodyId bodyId, b2Vec2 localVector )
 {
 	return b2RotateVector( b2GetBodyTransformFromId( bodyId ).q, localVector );
 }
+
+void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
+{
+	if ( b2IsValidVec2( position ) == false || b2IsValidRot( rotation ) == false ||
+		 b2Body_IsValid( bodyId ) == false )
+	{
+		return;
+	}
+	b2World* world = b2_worlds + bodyId.world0;
+	if ( world->locked )
+	{
+		return;
+	}
+	b2Body* body = b2GetBody( world, bodyId );
+	body->transform.p = position;
+	body->transform.q = rotation;
+}
