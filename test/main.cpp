@@ -8,6 +8,7 @@
 
 extern int ToolchainTest( void );
 extern "C" int VersionCTest( void );
+extern "C" int AssertCallbackTest( void );
 
 int main( int argc, char** argv )
 {
@@ -30,6 +31,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( VersionCTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "AssertCallbackTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( AssertCallbackTest );
 	}
 
 	if ( ran == 0 )

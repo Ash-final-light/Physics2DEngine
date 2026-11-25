@@ -37,6 +37,7 @@ if(BUILD_TESTING)
 		test/main.cpp
 		test/test_toolchain.cpp
 		test/test_version.c
+		test/test_assert.c
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/test")

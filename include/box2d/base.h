@@ -55,3 +55,28 @@ B2_API b2Version b2GetVersion( void );
 
 /// @return 若库以 BOX2D_DOUBLE_PRECISION（大世界模式）构建则为 true
 B2_API bool b2IsDoublePrecision( void );
+
+/// 用户断言回调原型。返回 0 可跳过调试器中断。
+typedef int b2AssertCallbackFcn( const char* condition, const char* fileName, int lineNumber );
+
+/// 覆盖默认断言函数
+/// @param assertFcn 非空的断言回调
+B2_API void b2SetAssertCallback( b2AssertCallbackFcn* assertFcn );
+
+#if defined( _MSC_VER )
+#define B2_BREAKPOINT __debugbreak()
+#elif defined( __GNUC__ ) || defined( __clang__ )
+#define B2_BREAKPOINT __builtin_trap()
+#else
+#include <assert.h>
+#define B2_BREAKPOINT assert( 0 )
+#endif
+
+#if !defined( NDEBUG ) || defined( B2_ENABLE_ASSERT )
+B2_API int b2InternalAssert( const char* condition, const char* fileName, int lineNumber );
+#define B2_ASSERT( condition )                                                                     \
+	( (void)( ( !!( condition ) ) ||                                                               \
+			  ( b2InternalAssert( #condition, __FILE__, (int)( __LINE__ ) ), 0 ) ) )
+#else
+#define B2_ASSERT( ... ) ( (void)0 )
+#endif
