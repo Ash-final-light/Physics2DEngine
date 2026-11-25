@@ -33,3 +33,26 @@ int ArrayCreateTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int ArrayReserveTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2Array( int ) values;
+	b2Array_Create( values );
+	b2Array_Reserve( values, 4 );
+	ENSURE( values.capacity == 4 && values.count == 0 );
+	values.data[0] = 7;
+	int* saved = values.data;
+	b2Array_Reserve( values, 2 );
+	b2Array_Reserve( values, 4 );
+	ENSURE( values.capacity == 4 && values.data == saved && values.data[0] == 7 );
+
+	b2Array_Grow( values, 5 );
+	ENSURE( values.capacity == 8 && values.data[0] == 7 );
+	b2Array_Grow( values, 8 );
+	ENSURE( values.capacity == 8 );
+	ENSURE( b2GetByteCount() == before + 8 * sizeof( int ) );
+	b2Array_Destroy( values );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

@@ -40,4 +40,24 @@ inline void b2Array_Destroy( b2DynamicArray<T>& a )
 	a = {};
 }
 
+template <typename T>
+inline void b2Array_Reserve( b2DynamicArray<T>& a, int n )
+{
+	B2_ASSERT( n >= 0 );
+	if ( a.capacity < n )
+	{
+		a.data = static_cast<T*>( b2GrowAlloc( a.data, a.capacity * sizeof( T ), n * sizeof( T ) ) );
+		a.capacity = n;
+	}
+}
+
+template <typename T>
+inline void b2Array_Grow( b2DynamicArray<T>& a, int n )
+{
+	if ( a.capacity < n )
+	{
+		b2Array_Reserve( a, 2 * a.capacity > n ? 2 * a.capacity : n );
+	}
+}
+
 b2DeclareArrayNative( int );
