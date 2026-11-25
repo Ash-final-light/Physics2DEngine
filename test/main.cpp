@@ -118,6 +118,7 @@ int ContactPersistenceTest( void );
 int ContactManifoldUpdateTest( void );
 int BodyTypeChangeTest( void );
 int BodyMotionLocksTest( void );
+int BodyEnableDisableTest( void );
 int BodyTypesTest( void );
 int BodyTargetTransformTest( void );
 int BodyAngularImpulseTest( void );
@@ -914,6 +915,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ContactRestitutionControlTest")==0) { ran=1; RUN_TEST(ContactRestitutionControlTest); }
 	if(filter==NULL || strcmp(filter,"ContactMaterialCallbackTest")==0) { ran=1; RUN_TEST(ContactMaterialCallbackTest); }
 	if(filter==NULL || strcmp(filter,"BodyMotionLocksTest")==0) { ran=1; RUN_TEST(BodyMotionLocksTest); }
+	if(filter==NULL || strcmp(filter,"BodyEnableDisableTest")==0) { ran=1; RUN_TEST(BodyEnableDisableTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

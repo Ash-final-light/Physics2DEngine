@@ -916,3 +916,41 @@ b2MotionLocks b2Body_GetMotionLocks(b2BodyId id)
     B2_ASSERT(b2Body_IsValid(id));uint32_t flags=b2GetBodyFullId(b2_worlds+id.world0,id)->flags;
     return b2MotionLocks{(flags&b2_lockLinearX)!=0,(flags&b2_lockLinearY)!=0,(flags&b2_lockAngularZ)!=0};
 }
+
+void b2Body_Disable(b2BodyId id)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    if(body->setIndex==b2_disabledSet) { return; }
+    // Removing support must wake connected bodies, including when this body is static.
+    int key=body->headContactKey;
+    while(key!=B2_NULL_INDEX)
+    {
+        b2Contact* contact=world->contacts.data+(key>>1);int edge=key&1;
+        key=contact->edges[edge].nextKey;
+        b2WakeBody(world,world->bodies.data+contact->edges[edge^1].bodyId);
+    }
+    b2DestroyBodyContacts(world,body);
+    for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+    { b2DestroyShapeProxy(world->shapes.data+shapeId,&world->broadPhase); }
+    b2RemoveBodyFromIsland(world,body);
+    b2TransferBody(world,world->solverSets.data+b2_disabledSet,world->solverSets.data+body->setIndex,body);
+}
+
+void b2Body_Enable(b2BodyId id)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    if(body->setIndex!=b2_disabledSet) { return; }
+    int target=body->type==b2_staticBody?b2_staticSet:b2_awakeSet;
+    b2TransferBody(world,world->solverSets.data+target,world->solverSets.data+b2_disabledSet,body);
+    b2WorldTransform transform=b2GetBodySim(world,body)->transform;
+    for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+    { b2CreateShapeProxy(world,world->shapes.data+shapeId,body->type,transform,true); }
+    if(target!=b2_staticSet) { b2CreateIslandForBody(world,target,body); }
+}
+
+bool b2Body_IsEnabled(b2BodyId id)
+{
+    return b2Body_IsValid(id) && b2GetBodyFullId(b2_worlds+id.world0,id)->setIndex!=b2_disabledSet;
+}

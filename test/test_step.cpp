@@ -344,3 +344,39 @@ int BodyMotionLocksTest(void)
     b2World_Step(id,0.1f,4);ENSURE(b2Body_GetPosition(body).x==0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int BodyEnableDisableTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);
+    bd.type=b2_staticBody;bd.position={1.5f,0};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);ENSURE(world->broadPhase.pairSet.count==1);
+    b2Body_SetLinearVelocity(body,{2,3});float mass=b2Body_GetMass(body);
+    world->locked=true;b2Body_Disable(body);world->locked=false;ENSURE(b2Body_IsEnabled(body));
+    b2Body_Disable(body);b2Body_Disable(body);
+    ENSURE(!b2Body_IsEnabled(body) && b2Body_IsValid(body) && b2Shape_IsValid(shape));
+    ENSURE(world->bodies.data[body.index1-1].islandId==B2_NULL_INDEX);
+    ENSURE(world->broadPhase.pairSet.count==0 && b2DynamicTree_GetProxyCount(world->broadPhase.trees+b2_dynamicBody)==0);
+    b2Pos position=b2Body_GetPosition(body);b2World_Step(id,0.1f,4);ENSURE(b2Body_GetPosition(body).x==position.x && b2Body_GetPosition(body).y==position.y);
+    world->locked=true;b2Body_Enable(body);world->locked=false;ENSURE(!b2Body_IsEnabled(body));
+    b2Body_Enable(body);b2Body_Enable(body);ENSURE(b2Body_IsEnabled(body));
+    ENSURE(b2Body_GetMass(body)==mass && b2Body_GetLinearVelocity(body).x==0 && b2Body_GetLinearVelocity(body).y==0);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);ENSURE(world->broadPhase.pairSet.count==1);
+    b2Body_Disable(ground);ENSURE(world->broadPhase.pairSet.count==0 && !b2Body_IsEnabled(ground));
+    b2Body_Enable(ground);b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);ENSURE(world->broadPhase.pairSet.count==1);
+    for(int i=0;i<100;++i)
+    {
+        b2Body_Disable(body);ENSURE(world->broadPhase.pairSet.count==0);
+        b2Body_Enable(body);b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);ENSURE(world->broadPhase.pairSet.count==1);
+    }
+    // An initially sleeping body loses its empty sleeping set on disabling.
+    bd.type=b2_dynamicBody;bd.isAwake=false;bd.position={20,0};b2BodyId sleeping=b2CreateBody(id,&bd);b2CreateCircleShape(sleeping,&sd,&c);
+    int oldSet=world->bodies.data[sleeping.index1-1].setIndex;ENSURE(oldSet>=b2_firstSleepingSet);
+    b2Body_Disable(sleeping);ENSURE(world->solverSets.data[oldSet].setIndex==B2_NULL_INDEX);
+    b2Body_SetType(sleeping,b2_kinematicBody);b2Body_Enable(sleeping);
+    ENSURE(b2Body_GetType(sleeping)==b2_kinematicBody && world->bodies.data[sleeping.index1-1].setIndex==b2_awakeSet);
+    b2Body_SetLinearVelocity(sleeping,{2,0});b2World_Step(id,0.1f,1);ENSURE_SMALL(b2Body_GetPosition(sleeping).x-20.2f,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
