@@ -6,6 +6,7 @@
 void b2PrepareContactConstraints(b2StepContext* context)
 {
     b2World* world=context->world;
+    context->anyRestitution=false;
     float warmStartScale=world->enableWarmStarting?1.0f:0.0f;
     float contactHertz=b2MinFloat(world->contactHertz,0.125f*context->inv_h);
     b2Softness contactSoftness=b2MakeSoft(contactHertz,world->contactDampingRatio,context->h);
@@ -39,6 +40,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->normal=manifold->normal;
             constraint->friction=sim->friction;
             constraint->restitution=sim->restitution;
+            context->anyRestitution|=sim->restitution>0.0f;
             constraint->tangentSpeed=sim->tangentSpeed;
             constraint->rollingResistance=sim->rollingResistance;
             constraint->rollingImpulse=warmStartScale*manifold->rollingImpulse;
@@ -255,7 +257,7 @@ static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )
 
 	float threshold = world->restitutionThreshold;
 	float inv_h = context->inv_h;
-	bool propagate = false;
+	bool propagate = world->enableRestitutionPropagation;
 
 	b2BodyState dummyState = b2_identityBodyState;
 
@@ -362,6 +364,10 @@ static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )
 
 void b2ApplyContactRestitution(b2StepContext* context)
 {
-    b2ApplyRestitutionColor(context,B2_OVERFLOW_INDEX);
-    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2ApplyRestitutionColor(context,i); }
+    if(!context->anyRestitution) { return; }
+    for(int iteration=0;iteration<context->world->restitutionIterations;++iteration)
+    {
+        b2ApplyRestitutionColor(context,B2_OVERFLOW_INDEX);
+        for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2ApplyRestitutionColor(context,i); }
+    }
 }

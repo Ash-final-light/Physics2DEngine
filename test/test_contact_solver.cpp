@@ -458,3 +458,47 @@ int ContactRestitutionThresholdTest(void)
     }
     return 0;
 }
+
+int ContactRestitutionControlTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int run=0;run<2;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        ENSURE(b2World_GetRestitutionIterations(id)==wd.restitutionIterations);
+        ENSURE(!b2World_IsRestitutionPropagationEnabled(id));
+        b2World_SetRestitutionIterations(id,1000);ENSURE(b2World_GetRestitutionIterations(id)==B2_MAX_RESTITUTION_ITERATIONS);
+        b2World_SetRestitutionIterations(id,-1);ENSURE(b2World_GetRestitutionIterations(id)==B2_MAX_RESTITUTION_ITERATIONS);
+        b2World_SetRestitutionIterations(id,run?2:0);
+        world->locked=true;b2World_SetRestitutionIterations(id,3);b2World_EnableRestitutionPropagation(id,true);world->locked=false;
+        ENSURE(b2World_GetRestitutionIterations(id)==(run?2:0));ENSURE(!b2World_IsRestitutionPropagationEnabled(id));
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-4};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.restitution=1;b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+        bd.type=b2_staticBody;bd.position={0,-2};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+        b2World_Step(id,0.01f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-(run?4.0f:0.0f),0.0001f);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    float finalVelocity[2][4];
+    for(int propagate=0;propagate<2;++propagate)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World_EnableRestitutionPropagation(id,propagate!=0);
+        b2World_SetRestitutionIterations(id,16);b2BodyId bodies[4];
+        for(int i=0;i<4;++i)
+        {
+            b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={2.0f*i,0};bd.linearVelocity={i==0?8.0f:0.0f,0};
+            bodies[i]=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.restitution=i==0?1.0f:0.0f;
+            b2Circle c={{0,0},1};b2CreateCircleShape(bodies[i],&sd,&c);b2Body_SetMassData(bodies[i],b2MassData{1,{0,0},1});
+        }
+        b2World_Step(id,0.001f,1);
+        float momentum=0,energy=0;
+        for(int i=0;i<4;++i)
+        { float v=b2Body_GetLinearVelocity(bodies[i]).x;finalVelocity[propagate][i]=v;momentum+=v;energy+=v*v; }
+        ENSURE_SMALL(momentum-8,0.0001f);ENSURE(energy<=64.0001f);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    float difference=0;for(int i=0;i<4;++i) { difference+=b2AbsFloat(finalVelocity[0][i]-finalVelocity[1][i]); }
+    ENSURE(difference>0.1f);
+    // Propagation resolves the approach at the last zero-restitution contact.
+    ENSURE(finalVelocity[1][3]-finalVelocity[1][2]>-0.001f);
+    return 0;
+}

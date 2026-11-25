@@ -61,5 +61,6 @@ struct b2StepContext
     b2BodyState* states;
     float h;
     float inv_h;
+    bool anyRestitution;
 };
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount );

@@ -239,3 +239,24 @@ float b2World_GetRestitutionThreshold(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL?world->restitutionThreshold:0.0f;
 }
+
+void b2World_SetRestitutionIterations(b2WorldId id,int iterations)
+{
+    if(iterations<0) { return; }b2World* world=b2GetWorldFromId(id);
+    if(world==NULL || world->locked) { return; }world->restitutionIterations=b2ClampInt(iterations,0,B2_MAX_RESTITUTION_ITERATIONS);
+}
+
+int b2World_GetRestitutionIterations(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->restitutionIterations:0;
+}
+
+void b2World_EnableRestitutionPropagation(b2WorldId id,bool flag)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->enableRestitutionPropagation=flag;
+}
+
+bool b2World_IsRestitutionPropagationEnabled(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableRestitutionPropagation;
+}
