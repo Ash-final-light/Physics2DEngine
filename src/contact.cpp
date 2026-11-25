@@ -290,6 +290,7 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
                       b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB )
 {
     (void)world;
+    sim->friction=sqrtf(a->material.friction*b->material.friction);
     b2Manifold old = sim->manifold;
     b2Transform relative = b2InvMulTransforms(transformA,transformB);
     b2ManifoldFcn* function = b2_contactRegistry[a->type][b->type].fcn;

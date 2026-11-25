@@ -238,6 +238,8 @@ B2_API void b2World_SetContactRecycleDistance(b2WorldId worldId,float recycleDis
 B2_API float b2World_GetContactRecycleDistance(b2WorldId worldId);
 B2_API void b2Body_EnableContactRecycling(b2BodyId bodyId,bool flag);
 B2_API bool b2Body_IsContactRecyclingEnabled(b2BodyId bodyId);
+B2_API void b2Shape_SetFriction(b2ShapeId shapeId,float friction);
+B2_API float b2Shape_GetFriction(b2ShapeId shapeId);
 B2_API void b2World_SetContactTuning(b2WorldId worldId,float hertz,float dampingRatio,float pushSpeed);
 B2_API void b2World_GetContactTuning(b2WorldId worldId,float* hertz,float* dampingRatio,float* pushSpeed);
 

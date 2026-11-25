@@ -11,6 +11,8 @@ struct b2ContactConstraintPoint
     float normalImpulse;
     float totalNormalImpulse;
     float normalMass;
+    float tangentImpulse;
+    float tangentMass;
 };
 
 struct b2ContactConstraint
@@ -21,6 +23,7 @@ struct b2ContactConstraint
     b2Vec2 normal;
     float invMassA, invMassB;
     float invIA, invIB;
+    float friction;
     b2Softness softness;
     int pointCount;
 };

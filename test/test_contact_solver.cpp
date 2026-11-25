@@ -58,7 +58,7 @@ int ContactNormalSolveTest(void)
     b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
     b2WorldId id=b2CreateWorld(&wd);
     b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={3,2};
-    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=0;b2Circle c={{0,0},1};
     b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
     bd.type=b2_staticBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
     SolveHardNormal(id);
@@ -282,4 +282,47 @@ int ContactTuningTest(void)
     ENSURE_SMALL(actual.massScale-expected.massScale,0.00001f);
     ENSURE_SMALL(actual.impulseScale-expected.impulseScale,0.00001f);
     b2ReleaseContactConstraints(&context);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int ContactFrictionTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int run=0;run<2;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2World_SetContactRecycleDistance(id,0);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={10,-2};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=run?0.25f:0;
+        b2Circle c={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);b2Body_SetMassData(body,b2MassData{1,{0,0},0});
+        bd.type=b2_staticBody;bd.position={0,-2};sd.material.friction=1;
+        b2BodyId ground=b2CreateBody(id,&bd);b2ShapeId fixed=b2CreateCircleShape(ground,&sd,&c);
+        SolveHardNormal(id);
+        b2Contact* contact=world->contacts.data;b2ContactSim* sim=b2GetContactSim(world,contact);
+        ENSURE(sim->friction==(run?0.5f:0.0f));
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-(run?9.0f:10.0f),0.00001f);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).y,0.00001f);
+        ENSURE_SMALL(b2AbsFloat(sim->manifold.points[0].tangentImpulse)-(run?1.0f:0.0f),0.00001f);
+        ENSURE(b2AbsFloat(sim->manifold.points[0].tangentImpulse)<=sim->friction*sim->manifold.points[0].normalImpulse+0.00001f);
+        b2Shape_SetFriction(shape,0.36f);b2Shape_SetFriction(shape,-1);b2Shape_SetFriction(shape,NAN);
+        ENSURE(b2Shape_GetFriction(shape)==0.36f);world->locked=true;b2Shape_SetFriction(shape,2);world->locked=false;
+        ENSURE(b2Shape_GetFriction(shape)==0.36f);
+        b2UpdateContacts(world);sim=b2GetContactSim(world,contact);ENSURE_SMALL(sim->friction-0.6f,0.00001f);
+        ENSURE(b2Shape_GetFriction(fixed)==1);
+        // Cached tangent impulse is loaded and applied by warm starting.
+        b2Body_SetLinearVelocity(body,{0,0});b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100};
+        b2PrepareContactConstraints(&context);b2WarmStartContacts(&context);
+        ENSURE_SMALL(b2AbsFloat(b2Body_GetLinearVelocity(body).x)-(run?1.0f:0.0f),0.00001f);
+        b2ReleaseContactConstraints(&context);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    // On flat ground, mu=0.5 produces approximately 5 units/s deceleration in one second.
+    wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={10,0};bd.enableContactRecycling=false;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=0.25f;
+    b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);b2Body_SetMassData(body,b2MassData{1,{0,0},0});
+    bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);
+    sd.material.friction=1;b2Polygon floor=b2MakeBox(100,0.5f);b2CreatePolygonShape(ground,&sd,&floor);
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-5,0.05f);
+    ENSURE_SMALL(b2Body_GetAngularVelocity(body),0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

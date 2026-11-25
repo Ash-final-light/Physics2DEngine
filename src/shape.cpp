@@ -869,3 +869,14 @@ int b2Shape_GetContactData( b2ShapeId id, b2ContactData* output, int capacity )
     }
     return count;
 }
+
+void b2Shape_SetFriction(b2ShapeId id,float friction)
+{
+    if(!b2IsValidFloat(friction) || friction<0.0f || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2GetShapeFromId(id)->material.friction=friction;
+}
+
+float b2Shape_GetFriction(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.friction:0.0f;
+}

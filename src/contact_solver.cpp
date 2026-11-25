@@ -37,6 +37,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->indexA=b2DecodeAwakeIndex(sim->encodedBodySimA)+1;
             constraint->indexB=b2DecodeAwakeIndex(sim->encodedBodySimB)+1;
             constraint->normal=manifold->normal;
+            constraint->friction=sim->friction;
             constraint->softness=(constraint->indexA==0 || constraint->indexB==0)?staticSoftness:contactSoftness;
             constraint->pointCount=manifold->pointCount;
             float mA=sim->invMassA,iA=sim->invIA,mB=sim->invMassB,iB=sim->invIB;
@@ -49,10 +50,15 @@ void b2PrepareContactConstraints(b2StepContext* context)
                 b2Vec2 rA=mp->anchorA,rB=mp->anchorB;
                 cp->anchorA=rA;cp->anchorB=rB;
                 cp->normalImpulse=warmStartScale*mp->normalImpulse;
+                cp->tangentImpulse=warmStartScale*mp->tangentImpulse;
                 cp->baseSeparation=mp->separation-b2Dot(b2Sub(rB,rA),constraint->normal);
                 float rnA=b2Cross(rA,constraint->normal),rnB=b2Cross(rB,constraint->normal);
                 float kNormal=mA+mB+iA*rnA*rnA+iB*rnB*rnB;
                 cp->normalMass=kNormal>0.0f?1.0f/kNormal:0.0f;
+                b2Vec2 tangent=b2RightPerp(constraint->normal);
+                float rtA=b2Cross(rA,tangent),rtB=b2Cross(rB,tangent);
+                float kTangent=mA+mB+iA*rtA*rtA+iB*rtB*rtB;
+                cp->tangentMass=kTangent>0.0f?1.0f/kTangent:0.0f;
             }
         }
     }
@@ -86,6 +92,9 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBia
         b2Vec2 dp=b2Sub(stateB->deltaPosition,stateA->deltaPosition);
         b2Vec2 normal=constraint->normal;
         float vnc=b2Dot(b2Sub(vB,vA),normal);
+        b2Vec2 tangent=b2RightPerp(normal);
+        float vtc=b2Dot(b2Sub(vB,vA),tangent);
+        float tangentImpulses[2]={0,0},rtA[2],rtB[2];
         float impulses[2]={0,0},rnA[2],rnB[2];
         float normalImpulse=0,angularA=0,angularB=0;
         for(int j=0;j<constraint->pointCount;++j)
@@ -93,6 +102,7 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBia
             b2ContactConstraintPoint* cp=constraint->points+j;
             b2Vec2 rA=cp->anchorA,rB=cp->anchorB;
             rnA[j]=b2Cross(rA,normal);rnB[j]=b2Cross(rB,normal);
+            rtA[j]=b2Cross(rA,tangent);rtB[j]=b2Cross(rB,tangent);
             b2Vec2 ds=b2Add(dp,b2Sub(b2RotateVector(stateB->deltaRotation,rB),b2RotateVector(stateA->deltaRotation,rA)));
             float s=cp->baseSeparation+b2Dot(ds,normal);
             float velocityBias=s>0.0f?s*context->inv_h:0.0f;
@@ -113,7 +123,24 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBia
             impulses[j]=impulse;
             normalImpulse+=impulse;angularA+=impulse*rnA[j];angularB+=impulse*rnB[j];
         }
-        b2Vec2 P=b2MulSV(normalImpulse,normal);
+        float tangentImpulse=0.0f;
+        if(!useBias)
+        {
+            for(int j=0;j<constraint->pointCount;++j)
+            {
+                b2ContactConstraintPoint* cp=constraint->points+j;
+                float vt=vtc+wB*rtB[j]-wA*rtA[j];
+                for(int k=0;k<constraint->pointCount;++k)
+                { vt+=(iA*rtA[j]*rnA[k]+iB*rtB[j]*rnB[k])*impulses[k]; }
+                for(int k=0;k<j;++k)
+                { vt+=(mA+mB+iA*rtA[k]*rtA[j]+iB*rtB[k]*rtB[j])*tangentImpulses[k]; }
+                float maxFriction=constraint->friction*cp->normalImpulse;
+                float impulse=b2ClampFloat(-cp->tangentMass*vt,-maxFriction-cp->tangentImpulse,maxFriction-cp->tangentImpulse);
+                cp->tangentImpulse+=impulse;tangentImpulses[j]=impulse;
+                tangentImpulse+=impulse;angularA+=impulse*rtA[j];angularB+=impulse*rtB[j];
+            }
+        }
+        b2Vec2 P=b2Add(b2MulSV(normalImpulse,normal),b2MulSV(tangentImpulse,tangent));
         vA=b2MulSub(vA,mA,P);wA-=iA*angularA;
         vB=b2MulAdd(vB,mB,P);wB+=iB*angularB;
         if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
@@ -141,6 +168,7 @@ void b2StoreContactImpulses(b2StepContext* context)
             for(int j=0;j<manifold->pointCount;++j)
             {
                 manifold->points[j].normalImpulse=constraint->points[j].normalImpulse;
+                manifold->points[j].tangentImpulse=constraint->points[j].tangentImpulse;
                 manifold->points[j].totalNormalImpulse=constraint->points[j].totalNormalImpulse;
             }
         }
@@ -171,7 +199,7 @@ void b2WarmStartContacts(b2StepContext* context)
             for(int j=0;j<constraint->pointCount;++j)
             {
                 b2ContactConstraintPoint* cp=constraint->points+j;
-                b2Vec2 P=b2MulSV(cp->normalImpulse,constraint->normal);
+                b2Vec2 P=b2Add(b2MulSV(cp->normalImpulse,constraint->normal),b2MulSV(cp->tangentImpulse,b2RightPerp(constraint->normal)));
                 cp->totalNormalImpulse+=cp->normalImpulse;
                 wA-=constraint->invIA*b2Cross(cp->anchorA,P);vA=b2MulAdd(vA,-constraint->invMassA,P);
                 wB+=constraint->invIB*b2Cross(cp->anchorB,P);vB=b2MulAdd(vB,constraint->invMassB,P);
