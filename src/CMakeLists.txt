@@ -4,6 +4,7 @@ add_library(box2d
 	bitset.cpp
 	id_pool.cpp
 	table.cpp
+	arena_allocator.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

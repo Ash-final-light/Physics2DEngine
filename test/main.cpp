@@ -35,6 +35,7 @@ int IdPoolTest( void );
 int HashSetInsertTest( void );
 int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
+int StackAllocatorTest( void );
 
 int main( int argc, char** argv )
 {
@@ -219,6 +220,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( HashSetGrowTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "StackAllocatorTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( StackAllocatorTest );
 	}
 
 	if ( ran == 0 )
