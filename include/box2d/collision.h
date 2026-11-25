@@ -206,3 +206,31 @@ typedef struct b2Sweep
 } b2Sweep;
 
 B2_API b2Transform b2GetSweepTransform( const b2Sweep* sweep, float time );
+
+typedef struct b2TOIInput
+{
+	b2ShapeProxy proxyA;
+	b2ShapeProxy proxyB;
+	b2Sweep sweepA;
+	b2Sweep sweepB;
+	float maxFraction;
+} b2TOIInput;
+
+typedef enum b2TOIState
+{
+	b2_toiStateUnknown,
+	b2_toiStateFailed,
+	b2_toiStateOverlapped,
+	b2_toiStateHit,
+	b2_toiStateSeparated
+} b2TOIState;
+
+typedef struct b2TOIOutput
+{
+	b2TOIState state;
+	b2Vec2 point;
+	b2Vec2 normal;
+	float fraction;
+} b2TOIOutput;
+
+B2_API b2TOIOutput b2ComputeTimeOfImpact( const b2TOIInput* input );

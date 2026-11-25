@@ -293,3 +293,34 @@ int SweepTransformTest( void )
 	ENSURE_SMALL( shifted.p.y, 0.0001f );
 	return 0;
 }
+
+int TimeOfImpactTest( void )
+{
+	b2Vec2 box[4] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+	b2Vec2 edge[2] = { { 2.0f, -1.0f }, { 2.0f, 1.0f } };
+
+	b2TOIInput input;
+	input.proxyA = b2MakeProxy( box, 4, 0.0f );
+	input.proxyB = b2MakeProxy( edge, 2, 0.0f );
+	input.sweepA = { b2Vec2_zero, b2Vec2_zero, b2Vec2_zero, b2Rot_identity, b2Rot_identity };
+	input.sweepB = { b2Vec2_zero, b2Vec2_zero, { -2.0f, 0.0f }, b2Rot_identity, b2Rot_identity };
+	input.maxFraction = 1.0f;
+
+	b2TOIOutput output = b2ComputeTimeOfImpact( &input );
+	ENSURE( output.state == b2_toiStateHit );
+	ENSURE_SMALL( output.fraction - 0.5f, 0.005f );
+	ENSURE( output.normal.x > 0.0f );
+
+	input.sweepB.c2 = { 2.0f, 0.0f };
+	b2TOIOutput apart = b2ComputeTimeOfImpact( &input );
+	ENSURE( apart.state == b2_toiStateSeparated );
+	ENSURE_SMALL( apart.fraction - 1.0f, FLT_EPSILON );
+
+	input.proxyB = b2MakeProxy( box, 4, 0.0f );
+	input.sweepB.c1 = b2Vec2_zero;
+	input.sweepB.c2 = b2Vec2_zero;
+	b2TOIOutput overlap = b2ComputeTimeOfImpact( &input );
+	ENSURE( overlap.state == b2_toiStateOverlapped );
+	ENSURE_SMALL( overlap.fraction, FLT_EPSILON );
+	return 0;
+}

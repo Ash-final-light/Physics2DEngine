@@ -547,3 +547,337 @@ b2Transform b2GetSweepTransform( const b2Sweep* sweep, float time )
 	xf.p = b2Sub( xf.p, b2RotateVector( xf.q, sweep->localCenter ) );
 	return xf;
 }
+
+typedef enum b2SeparationType
+{
+	b2_pointsType,
+	b2_faceAType,
+	b2_faceBType
+} b2SeparationType;
+
+typedef struct b2SeparationFunction
+{
+	const b2ShapeProxy* proxyA;
+	const b2ShapeProxy* proxyB;
+	b2Sweep sweepA, sweepB;
+	b2Vec2 localPoint;
+	b2Vec2 axis;
+	b2SeparationType type;
+} b2SeparationFunction;
+
+static b2SeparationFunction b2MakeSeparationFunction( b2SimplexCache cache, const b2ShapeProxy* proxyA, const b2Sweep* sweepA,
+													  const b2ShapeProxy* proxyB, const b2Sweep* sweepB, float t1 )
+{
+	b2SeparationFunction f;
+	f.proxyA = proxyA;
+	f.proxyB = proxyB;
+	int count = cache.count;
+	B2_ASSERT( 0 < count && count < 3 );
+
+	f.sweepA = *sweepA;
+	f.sweepB = *sweepB;
+
+	b2Transform xfA = b2GetSweepTransform( sweepA, t1 );
+	b2Transform xfB = b2GetSweepTransform( sweepB, t1 );
+
+	if ( count == 1 )
+	{
+		f.type = b2_pointsType;
+		b2Vec2 localPointA = proxyA->points[cache.indexA[0]];
+		b2Vec2 localPointB = proxyB->points[cache.indexB[0]];
+		b2Vec2 pointA = b2TransformPoint( xfA, localPointA );
+		b2Vec2 pointB = b2TransformPoint( xfB, localPointB );
+		f.axis = b2Normalize( b2Sub( pointB, pointA ) );
+		f.localPoint = b2Vec2_zero;
+		return f;
+	}
+
+	if ( cache.indexA[0] == cache.indexA[1] )
+	{
+		f.type = b2_faceBType;
+		b2Vec2 localPointB1 = proxyB->points[cache.indexB[0]];
+		b2Vec2 localPointB2 = proxyB->points[cache.indexB[1]];
+		f.axis = b2CrossVS( b2Sub( localPointB2, localPointB1 ), 1.0f );
+		f.axis = b2Normalize( f.axis );
+		b2Vec2 normal = b2RotateVector( xfB.q, f.axis );
+		f.localPoint = b2Vec2{ 0.5f * ( localPointB1.x + localPointB2.x ), 0.5f * ( localPointB1.y + localPointB2.y ) };
+		b2Vec2 pointB = b2TransformPoint( xfB, f.localPoint );
+		b2Vec2 localPointA = proxyA->points[cache.indexA[0]];
+		b2Vec2 pointA = b2TransformPoint( xfA, localPointA );
+		float s = b2Dot( b2Sub( pointA, pointB ), normal );
+		if ( s < 0.0f )
+		{
+			f.axis = b2Neg( f.axis );
+		}
+		return f;
+	}
+
+	f.type = b2_faceAType;
+	b2Vec2 localPointA1 = proxyA->points[cache.indexA[0]];
+	b2Vec2 localPointA2 = proxyA->points[cache.indexA[1]];
+	f.axis = b2CrossVS( b2Sub( localPointA2, localPointA1 ), 1.0f );
+	f.axis = b2Normalize( f.axis );
+	b2Vec2 normal = b2RotateVector( xfA.q, f.axis );
+	f.localPoint = b2Vec2{ 0.5f * ( localPointA1.x + localPointA2.x ), 0.5f * ( localPointA1.y + localPointA2.y ) };
+	b2Vec2 pointA = b2TransformPoint( xfA, f.localPoint );
+	b2Vec2 localPointB = proxyB->points[cache.indexB[0]];
+	b2Vec2 pointB = b2TransformPoint( xfB, localPointB );
+	float s = b2Dot( b2Sub( pointB, pointA ), normal );
+	if ( s < 0.0f )
+	{
+		f.axis = b2Neg( f.axis );
+	}
+	return f;
+}
+
+static float b2FindMinSeparation( const b2SeparationFunction* f, int* indexA, int* indexB, float t )
+{
+	b2Transform xfA = b2GetSweepTransform( &f->sweepA, t );
+	b2Transform xfB = b2GetSweepTransform( &f->sweepB, t );
+
+	switch ( f->type )
+	{
+		case b2_pointsType:
+		{
+			b2Vec2 axisA = b2InvRotateVector( xfA.q, f->axis );
+			b2Vec2 axisB = b2InvRotateVector( xfB.q, b2Neg( f->axis ) );
+			*indexA = b2FindSupport( f->proxyA, axisA );
+			*indexB = b2FindSupport( f->proxyB, axisB );
+			b2Vec2 pointA = b2TransformPoint( xfA, f->proxyA->points[*indexA] );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->proxyB->points[*indexB] );
+			return b2Dot( b2Sub( pointB, pointA ), f->axis );
+		}
+
+		case b2_faceAType:
+		{
+			b2Vec2 normal = b2RotateVector( xfA.q, f->axis );
+			b2Vec2 pointA = b2TransformPoint( xfA, f->localPoint );
+			b2Vec2 axisB = b2InvRotateVector( xfB.q, b2Neg( normal ) );
+			*indexA = -1;
+			*indexB = b2FindSupport( f->proxyB, axisB );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->proxyB->points[*indexB] );
+			return b2Dot( b2Sub( pointB, pointA ), normal );
+		}
+
+		case b2_faceBType:
+		{
+			b2Vec2 normal = b2RotateVector( xfB.q, f->axis );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->localPoint );
+			b2Vec2 axisA = b2InvRotateVector( xfA.q, b2Neg( normal ) );
+			*indexB = -1;
+			*indexA = b2FindSupport( f->proxyA, axisA );
+			b2Vec2 pointA = b2TransformPoint( xfA, f->proxyA->points[*indexA] );
+			return b2Dot( b2Sub( pointA, pointB ), normal );
+		}
+
+		default:
+			B2_ASSERT( false );
+			*indexA = -1;
+			*indexB = -1;
+			return 0.0f;
+	}
+}
+
+static float b2EvaluateSeparation( const b2SeparationFunction* f, int indexA, int indexB, float t )
+{
+	b2Transform xfA = b2GetSweepTransform( &f->sweepA, t );
+	b2Transform xfB = b2GetSweepTransform( &f->sweepB, t );
+
+	switch ( f->type )
+	{
+		case b2_pointsType:
+		{
+			b2Vec2 pointA = b2TransformPoint( xfA, f->proxyA->points[indexA] );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->proxyB->points[indexB] );
+			return b2Dot( b2Sub( pointB, pointA ), f->axis );
+		}
+
+		case b2_faceAType:
+		{
+			b2Vec2 normal = b2RotateVector( xfA.q, f->axis );
+			b2Vec2 pointA = b2TransformPoint( xfA, f->localPoint );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->proxyB->points[indexB] );
+			return b2Dot( b2Sub( pointB, pointA ), normal );
+		}
+
+		case b2_faceBType:
+		{
+			b2Vec2 normal = b2RotateVector( xfB.q, f->axis );
+			b2Vec2 pointB = b2TransformPoint( xfB, f->localPoint );
+			b2Vec2 pointA = b2TransformPoint( xfA, f->proxyA->points[indexA] );
+			return b2Dot( b2Sub( pointA, pointB ), normal );
+		}
+
+		default:
+			B2_ASSERT( false );
+			return 0.0f;
+	}
+}
+
+b2TOIOutput b2ComputeTimeOfImpact( const b2TOIInput* input )
+{
+	b2TOIOutput output = {};
+	output.state = b2_toiStateUnknown;
+	output.fraction = input->maxFraction;
+
+	b2Sweep sweepA = input->sweepA;
+	b2Sweep sweepB = input->sweepB;
+	B2_ASSERT( b2IsNormalizedRot( sweepA.q1 ) && b2IsNormalizedRot( sweepA.q2 ) );
+	B2_ASSERT( b2IsNormalizedRot( sweepB.q1 ) && b2IsNormalizedRot( sweepB.q2 ) );
+
+	const b2ShapeProxy* proxyA = &input->proxyA;
+	const b2ShapeProxy* proxyB = &input->proxyB;
+	float tMax = input->maxFraction;
+	float totalRadius = proxyA->radius + proxyB->radius;
+	float target = b2MaxFloat( B2_LINEAR_SLOP, totalRadius - B2_LINEAR_SLOP );
+	float tolerance = 0.25f * B2_LINEAR_SLOP;
+	B2_ASSERT( target > tolerance );
+
+	float t1 = 0.0f;
+	const int k_maxIterations = 20;
+	int distanceIterations = 0;
+	b2SimplexCache cache = {};
+	b2DistanceInput distanceInput = {};
+	distanceInput.proxyA = input->proxyA;
+	distanceInput.proxyB = input->proxyB;
+	distanceInput.useRadii = false;
+
+	for ( ;; )
+	{
+		b2Transform xfA = b2GetSweepTransform( &sweepA, t1 );
+		b2Transform xfB = b2GetSweepTransform( &sweepB, t1 );
+		distanceInput.transform = b2InvMulTransforms( xfA, xfB );
+		b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+		b2Vec2 worldNormal = b2RotateVector( xfA.q, distanceOutput.normal );
+		b2Vec2 worldPointA = b2TransformPoint( xfA, distanceOutput.pointA );
+		b2Vec2 worldPointB = b2TransformPoint( xfA, distanceOutput.pointB );
+
+		distanceIterations += 1;
+
+		if ( distanceOutput.distance <= 0.0f )
+		{
+			output.state = b2_toiStateOverlapped;
+			output.fraction = 0.0f;
+			break;
+		}
+
+		if ( distanceOutput.distance <= target + tolerance )
+		{
+			output.state = b2_toiStateHit;
+			b2Vec2 pA = b2MulAdd( worldPointA, proxyA->radius, worldNormal );
+			b2Vec2 pB = b2MulAdd( worldPointB, -proxyB->radius, worldNormal );
+			output.point = b2Lerp( pA, pB, 0.5f );
+			output.normal = worldNormal;
+			output.fraction = t1;
+			break;
+		}
+
+		b2SeparationFunction fcn = b2MakeSeparationFunction( cache, proxyA, &sweepA, proxyB, &sweepB, t1 );
+		bool done = false;
+		float t2 = tMax;
+		int pushBackIterations = 0;
+		for ( ;; )
+		{
+			int indexA, indexB;
+			float s2 = b2FindMinSeparation( &fcn, &indexA, &indexB, t2 );
+			if ( s2 > target + tolerance )
+			{
+				output.state = b2_toiStateSeparated;
+				output.fraction = tMax;
+				done = true;
+				break;
+			}
+
+			if ( s2 > target - tolerance )
+			{
+				t1 = t2;
+				break;
+			}
+
+			float s1 = b2EvaluateSeparation( &fcn, indexA, indexB, t1 );
+			if ( s1 < target - tolerance )
+			{
+				output.state = b2_toiStateFailed;
+				output.fraction = t1;
+				done = true;
+				break;
+			}
+
+			if ( s1 <= target + tolerance )
+			{
+				output.state = b2_toiStateHit;
+				b2Vec2 pA = b2MulAdd( worldPointA, proxyA->radius, worldNormal );
+				b2Vec2 pB = b2MulAdd( worldPointB, -proxyB->radius, worldNormal );
+				output.point = b2Lerp( pA, pB, 0.5f );
+				output.normal = worldNormal;
+				output.fraction = t1;
+				done = true;
+				break;
+			}
+
+			int rootIterationCount = 0;
+			float a1 = t1, a2 = t2;
+			for ( ;; )
+			{
+				float t;
+				if ( rootIterationCount & 1 )
+				{
+					t = a1 + ( target - s1 ) * ( a2 - a1 ) / ( s2 - s1 );
+				}
+				else
+				{
+					t = 0.5f * ( a1 + a2 );
+				}
+
+				rootIterationCount += 1;
+				float s = b2EvaluateSeparation( &fcn, indexA, indexB, t );
+				if ( b2AbsFloat( s - target ) < tolerance )
+				{
+					t2 = t;
+					break;
+				}
+
+				if ( s > target )
+				{
+					a1 = t;
+					s1 = s;
+				}
+				else
+				{
+					a2 = t;
+					s2 = s;
+				}
+
+				if ( rootIterationCount == 50 )
+				{
+					break;
+				}
+			}
+
+			pushBackIterations += 1;
+			if ( pushBackIterations == B2_MAX_POLYGON_VERTICES )
+			{
+				break;
+			}
+		}
+
+		if ( done )
+		{
+			break;
+		}
+
+		if ( distanceIterations == k_maxIterations )
+		{
+			output.state = b2_toiStateFailed;
+			b2Vec2 pA = b2MulAdd( worldPointA, proxyA->radius, worldNormal );
+			b2Vec2 pB = b2MulAdd( worldPointB, -proxyB->radius, worldNormal );
+			output.point = b2Lerp( pA, pB, 0.5f );
+			output.normal = worldNormal;
+			output.fraction = t1;
+			break;
+		}
+	}
+
+	return output;
+}
