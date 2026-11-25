@@ -245,3 +245,32 @@ int BodyTargetTransformTest( void )
     ENSURE(b2Body_GetLinearVelocity(asleep).x==1.0f);
     b2DestroyWorld(world);return 0;
 }
+
+
+int BodyTypesTest( void )
+{
+    b2WorldDef wd=b2DefaultWorldDef();
+    b2WorldId world=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.linearVelocity={2.0f,0.0f};
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0.0f,0.0f},1.0f};
+    b2BodyId bodies[b2_bodyTypeCount];
+    for(int type=0;type<b2_bodyTypeCount;++type)
+    {
+        bd.type=(b2BodyType)type;bodies[type]=b2CreateBody(world,&bd);
+        b2CreateCircleShape(bodies[type],&sd,&circle);
+        ENSURE(b2Body_GetType(bodies[type])==type);
+    }
+    ENSURE(b2Body_GetMass(bodies[b2_staticBody])==0.0f);
+    ENSURE(b2Body_GetMass(bodies[b2_kinematicBody])==0.0f);
+    ENSURE(b2Body_GetMass(bodies[b2_dynamicBody])>0.0f);
+    b2Body_ApplyForceToCenter(bodies[b2_kinematicBody],{1000.0f,0.0f},true);
+    b2Body_ApplyLinearImpulseToCenter(bodies[b2_staticBody],{1000.0f,0.0f},true);
+    b2World_Step(world,1.0f,2);
+    ENSURE(b2Body_GetPosition(bodies[b2_staticBody]).x==0.0f);
+    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_kinematicBody]).x-2.0f,0.00001f);
+    ENSURE(b2Body_GetPosition(bodies[b2_kinematicBody]).y==0.0f);
+    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_dynamicBody]).y+7.5f,0.00001f);
+    bd.type=(b2BodyType)b2_bodyTypeCount;
+    ENSURE(b2CreateBody(world,&bd).index1==0);
+    b2DestroyWorld(world);return 0;
+}

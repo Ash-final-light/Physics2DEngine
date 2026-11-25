@@ -29,7 +29,7 @@ b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId )
 b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 {
 	B2_CHECK_DEF( def );
-	if ( b2IsValidVec2( def->position ) == false || b2IsValidRot( def->rotation ) == false ||
+	if ( def->type < b2_staticBody || def->type >= b2_bodyTypeCount || b2IsValidVec2( def->position ) == false || b2IsValidRot( def->rotation ) == false ||
 		 b2IsValidVec2( def->linearVelocity ) == false || b2IsValidFloat( def->angularVelocity ) == false ||
 		 b2IsValidFloat( def->linearDamping ) == false || def->linearDamping < 0.0f ||
 		 b2IsValidFloat( def->angularDamping ) == false || def->angularDamping < 0.0f ||
@@ -761,4 +761,11 @@ void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float time
     }
     body->linearVelocity=velocity;
     body->angularVelocity=angularVelocity;
+}
+
+
+b2BodyType b2Body_GetType( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid(id) );
+    return b2GetBodyFullId(b2_worlds+id.world0,id)->type;
 }

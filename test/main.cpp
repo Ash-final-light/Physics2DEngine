@@ -95,6 +95,7 @@ int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int FreeBodyStepTest( void );
+int BodyTypesTest( void );
 int BodyTargetTransformTest( void );
 int BodyAngularImpulseTest( void );
 int BodyLinearImpulseTest( void );
@@ -829,6 +830,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BodyTargetTransformTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BodyTypesTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BodyTypesTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
