@@ -65,5 +65,10 @@ typedef struct b2Polygon
 } b2Polygon;
 
 B2_API b2Polygon b2MakePolygon( const b2Hull* hull, float radius );
+B2_API b2Polygon b2MakeOffsetPolygon( const b2Hull* hull, b2Vec2 position, b2Rot rotation );
+B2_API b2Polygon b2MakeOffsetRoundedPolygon( const b2Hull* hull, b2Vec2 position, b2Rot rotation, float radius );
 B2_API b2Polygon b2MakeBox( float halfWidth, float halfHeight );
 B2_API b2Polygon b2MakeSquare( float halfWidth );
+B2_API b2Polygon b2MakeRoundedBox( float halfWidth, float halfHeight, float radius );
+B2_API b2Polygon b2MakeOffsetBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation );
+B2_API b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation, float radius );

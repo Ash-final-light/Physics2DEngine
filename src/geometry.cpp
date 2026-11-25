@@ -101,3 +101,72 @@ b2Polygon b2MakePolygon( const b2Hull* hull, float radius )
 	shape.centroid = b2ComputePolygonCentroid( shape.vertices, shape.count );
 	return shape;
 }
+
+b2Polygon b2MakeOffsetRoundedPolygon( const b2Hull* hull, b2Vec2 position, b2Rot rotation, float radius )
+{
+	B2_ASSERT( b2ValidateHull( hull ) );
+
+	if ( hull->count < 3 )
+	{
+		return b2MakeSquare( 0.5f );
+	}
+
+	b2Transform transform = { position, rotation };
+	b2Polygon shape = {};
+	shape.count = hull->count;
+	shape.radius = radius;
+	for ( int i = 0; i < shape.count; ++i )
+	{
+		shape.vertices[i] = b2TransformPoint( transform, hull->points[i] );
+	}
+
+	for ( int i = 0; i < shape.count; ++i )
+	{
+		int i2 = i + 1 < shape.count ? i + 1 : 0;
+		b2Vec2 edge = b2Sub( shape.vertices[i2], shape.vertices[i] );
+		B2_ASSERT( b2Dot( edge, edge ) > FLT_EPSILON * FLT_EPSILON );
+		shape.normals[i] = b2Normalize( b2CrossVS( edge, 1.0f ) );
+	}
+
+	shape.centroid = b2ComputePolygonCentroid( shape.vertices, shape.count );
+	return shape;
+}
+
+b2Polygon b2MakeOffsetPolygon( const b2Hull* hull, b2Vec2 position, b2Rot rotation )
+{
+	return b2MakeOffsetRoundedPolygon( hull, position, rotation, 0.0f );
+}
+
+b2Polygon b2MakeRoundedBox( float halfWidth, float halfHeight, float radius )
+{
+	B2_ASSERT( b2IsValidFloat( radius ) && radius >= 0.0f );
+	b2Polygon shape = b2MakeBox( halfWidth, halfHeight );
+	shape.radius = radius;
+	return shape;
+}
+
+b2Polygon b2MakeOffsetBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation )
+{
+	b2Transform xf = { center, rotation };
+	b2Polygon shape = {};
+	shape.count = 4;
+	shape.vertices[0] = b2TransformPoint( xf, { -halfWidth, -halfHeight } );
+	shape.vertices[1] = b2TransformPoint( xf, { halfWidth, -halfHeight } );
+	shape.vertices[2] = b2TransformPoint( xf, { halfWidth, halfHeight } );
+	shape.vertices[3] = b2TransformPoint( xf, { -halfWidth, halfHeight } );
+	shape.normals[0] = b2RotateVector( xf.q, { 0.0f, -1.0f } );
+	shape.normals[1] = b2RotateVector( xf.q, { 1.0f, 0.0f } );
+	shape.normals[2] = b2RotateVector( xf.q, { 0.0f, 1.0f } );
+	shape.normals[3] = b2RotateVector( xf.q, { -1.0f, 0.0f } );
+	shape.radius = 0.0f;
+	shape.centroid = xf.p;
+	return shape;
+}
+
+b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation, float radius )
+{
+	B2_ASSERT( b2IsValidFloat( radius ) && radius >= 0.0f );
+	b2Polygon shape = b2MakeOffsetBox( halfWidth, halfHeight, center, rotation );
+	shape.radius = radius;
+	return shape;
+}

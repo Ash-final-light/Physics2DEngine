@@ -104,3 +104,52 @@ int PolygonTest( void )
 	ENSURE( fallback.vertices[0].x == -0.5f && fallback.vertices[2].x == 0.5f );
 	return 0;
 }
+
+int OffsetPolygonTest( void )
+{
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 0.5f, 0.2f );
+	b2Polygon plain = b2MakeBox( 1.0f, 0.5f );
+	ENSURE( rounded.count == 4 && rounded.radius == 0.2f );
+	ENSURE( rounded.centroid.x == 0.0f && rounded.centroid.y == 0.0f );
+	ENSURE( rounded.vertices[0].x == plain.vertices[0].x && rounded.vertices[2].y == plain.vertices[2].y );
+	ENSURE( rounded.normals[0].y == -1.0f && rounded.normals[1].x == 1.0f );
+
+	b2Vec2 center = { 2.0f, 3.0f };
+	b2Polygon shifted = b2MakeOffsetBox( 1.0f, 0.5f, center, b2Rot_identity );
+	ENSURE( shifted.radius == 0.0f );
+	ENSURE( shifted.centroid.x == 2.0f && shifted.centroid.y == 3.0f );
+	ENSURE( shifted.vertices[0].x == 1.0f && shifted.vertices[0].y == 2.5f );
+	ENSURE( shifted.vertices[2].x == 3.0f && shifted.vertices[2].y == 3.5f );
+	ENSURE( shifted.normals[0].x == 0.0f && shifted.normals[0].y == -1.0f );
+
+	b2Rot quarter = { 0.0f, 1.0f };
+	b2Polygon turned = b2MakeOffsetRoundedBox( 1.0f, 0.5f, center, quarter, 0.3f );
+	ENSURE( turned.radius == 0.3f );
+	ENSURE( turned.centroid.x == 2.0f && turned.centroid.y == 3.0f );
+	ENSURE_SMALL( turned.normals[0].x - 1.0f, 0.0001f );
+	ENSURE_SMALL( turned.normals[0].y, 0.0001f );
+	ENSURE_SMALL( turned.normals[1].x, 0.0001f );
+	ENSURE_SMALL( turned.normals[1].y - 1.0f, 0.0001f );
+	b2Vec2 local = { -1.0f, -0.5f };
+	b2Vec2 expected = b2TransformPoint( { center, quarter }, local );
+	ENSURE_SMALL( turned.vertices[0].x - expected.x, 0.0001f );
+	ENSURE_SMALL( turned.vertices[0].y - expected.y, 0.0001f );
+
+	b2Vec2 triangle[3] = { { 0.0f, 0.0f }, { 2.0f, 0.0f }, { 0.0f, 2.0f } };
+	b2Hull hull = b2ComputeHull( triangle, 3 );
+	b2Polygon moved = b2MakeOffsetRoundedPolygon( &hull, center, b2Rot_identity, 0.4f );
+	b2Polygon sharp = b2MakeOffsetPolygon( &hull, center, b2Rot_identity );
+	ENSURE( moved.count == 3 && moved.radius == 0.4f );
+	ENSURE( sharp.radius == 0.0f && sharp.count == 3 );
+	ENSURE_SMALL( moved.centroid.x - ( 2.0f / 3.0f + 2.0f ), 0.0001f );
+	ENSURE_SMALL( moved.centroid.y - ( 2.0f / 3.0f + 3.0f ), 0.0001f );
+	ENSURE_SMALL( sharp.centroid.x - moved.centroid.x, 0.0001f );
+	ENSURE_SMALL( moved.vertices[0].x - ( hull.points[0].x + 2.0f ), 0.0001f );
+	ENSURE_SMALL( moved.vertices[0].y - ( hull.points[0].y + 3.0f ), 0.0001f );
+
+	b2Hull empty = {};
+	b2Polygon bad = b2MakeOffsetRoundedPolygon( &empty, center, quarter, 1.0f );
+	ENSURE( bad.count == 4 && bad.radius == 0.0f );
+	ENSURE( bad.vertices[0].x == -0.5f && bad.centroid.x == 0.0f );
+	return 0;
+}
