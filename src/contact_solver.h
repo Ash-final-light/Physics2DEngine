@@ -24,6 +24,7 @@ struct b2ContactConstraint
     float invMassA, invMassB;
     float invIA, invIB;
     float friction;
+    float tangentSpeed;
     float rollingResistance;
     float rollingMass;
     float rollingImpulse;

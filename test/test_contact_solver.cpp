@@ -358,3 +358,38 @@ int ContactRollingResistanceTest(void)
     }
     return 0;
 }
+
+int ContactTangentSpeedTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int run=0;run<2;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;b2World_SetContactRecycleDistance(id,0);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-2};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=run?10.0f:0.0f;sd.material.tangentSpeed=1;
+        b2Circle c={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);b2Body_SetMassData(body,b2MassData{1,{0,0},0});
+        bd.type=b2_staticBody;bd.position={0,-1.5f};b2BodyId ground=b2CreateBody(id,&bd);sd.material.tangentSpeed=2;
+        b2Polygon floor=b2MakeBox(100,0.5f);b2ShapeId fixed=b2CreatePolygonShape(ground,&sd,&floor);
+        SolveHardNormal(id);b2ContactSim* sim=b2GetContactSim(world,world->contacts.data);
+        ENSURE(sim->tangentSpeed==3);ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-(run?3.0f:0.0f),0.00001f);
+        b2SurfaceMaterial material=b2Shape_GetSurfaceMaterial(fixed);ENSURE(material.tangentSpeed==2);
+        material.tangentSpeed=-4;b2Shape_SetSurfaceMaterial(fixed,&material);
+        ENSURE(b2Shape_GetSurfaceMaterial(fixed).tangentSpeed==-4);
+        material.tangentSpeed=NAN;b2Shape_SetSurfaceMaterial(fixed,&material);ENSURE(b2Shape_GetSurfaceMaterial(fixed).tangentSpeed==-4);
+        b2UpdateContacts(world);ENSURE(b2GetContactSim(world,world->contacts.data)->tangentSpeed==-3);
+        ENSURE(b2Shape_GetSurfaceMaterial(shape).tangentSpeed==1);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2World_SetContactRecycleDistance(id,0);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2BodyId body=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=1;b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+    b2Body_SetMassData(body,b2MassData{1,{0,0},0});bd.type=b2_staticBody;bd.position={0,-1.5f};
+    b2BodyId ground=b2CreateBody(id,&bd);sd.material.tangentSpeed=2;b2Polygon floor=b2MakeBox(100,0.5f);
+    b2ShapeId fixed=b2CreatePolygonShape(ground,&sd,&floor);
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-2,0.0001f);
+    b2SurfaceMaterial material=b2Shape_GetSurfaceMaterial(fixed);material.tangentSpeed=-1;b2Shape_SetSurfaceMaterial(fixed,&material);
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE_SMALL(b2Body_GetLinearVelocity(body).x+1,0.0001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

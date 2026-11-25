@@ -38,6 +38,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->indexB=b2DecodeAwakeIndex(sim->encodedBodySimB)+1;
             constraint->normal=manifold->normal;
             constraint->friction=sim->friction;
+            constraint->tangentSpeed=sim->tangentSpeed;
             constraint->rollingResistance=sim->rollingResistance;
             constraint->rollingImpulse=warmStartScale*manifold->rollingImpulse;
             constraint->softness=(constraint->indexA==0 || constraint->indexB==0)?staticSoftness:contactSoftness;
@@ -96,7 +97,7 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBia
         b2Vec2 normal=constraint->normal;
         float vnc=b2Dot(b2Sub(vB,vA),normal);
         b2Vec2 tangent=b2RightPerp(normal);
-        float vtc=b2Dot(b2Sub(vB,vA),tangent);
+        float vtc=b2Dot(b2Sub(vB,vA),tangent)-constraint->tangentSpeed;
         float tangentImpulses[2]={0,0},rtA[2],rtB[2];
         float impulses[2]={0,0},rnA[2],rnB[2];
         float normalImpulse=0,angularA=0,angularB=0;

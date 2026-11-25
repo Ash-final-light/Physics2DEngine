@@ -880,3 +880,14 @@ float b2Shape_GetFriction(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.friction:0.0f;
 }
+
+void b2Shape_SetSurfaceMaterial(b2ShapeId id,const b2SurfaceMaterial* material)
+{
+    if(material==NULL || !b2IsValidMaterial(material) || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2GetShapeFromId(id)->material=*material;
+}
+
+b2SurfaceMaterial b2Shape_GetSurfaceMaterial(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material:b2SurfaceMaterial{};
+}
