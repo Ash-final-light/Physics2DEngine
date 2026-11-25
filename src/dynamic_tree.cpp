@@ -1087,3 +1087,68 @@ void b2DynamicTree_Refit( b2DynamicTree* tree )
 		}
 	}
 }
+
+static int b2GetRootPair( const b2TreeNode* nodes )
+{
+	const b2TreeNode* root = nodes + B2_ROOT_NODE;
+	return b2IsLeaf( root ) ? B2_ROOT_NODE : b2GetLeftChild( root );
+}
+
+static b2TreeStats b2QueryAABB( const b2DynamicTree* tree, b2AABB aabb, uint64_t maskBits, bool useMask,
+								b2TreeQueryCallbackFcn* callback, void* context )
+{
+	b2TreeStats result = {};
+	if ( tree->proxyCount == 0 )
+	{
+		return result;
+	}
+
+	const b2TreeNode* nodes = tree->nodes;
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = b2GetRootPair( nodes );
+	while ( stackCount > 0 )
+	{
+		int pair = stack[--stackCount];
+		result.nodeVisits += 1;
+		for ( int i = 0; i < 2; ++i )
+		{
+			const b2TreeNode* node = nodes + pair + i;
+			if ( b2IsEmptyNode( node ) || b2AABB_Overlaps( node->aabb, aabb ) == false )
+			{
+				continue;
+			}
+			if ( b2IsLeaf( node ) )
+			{
+				int proxyId = b2GetProxyId( node );
+				const b2TreeProxy* proxy = tree->proxies + proxyId;
+				if ( useMask && ( proxy->categoryBits & maskBits ) == 0 )
+				{
+					continue;
+				}
+				bool proceed = callback( proxyId, proxy->userData, context );
+				result.leafVisits += 1;
+				if ( proceed == false )
+				{
+					return result;
+				}
+			}
+			else if ( stackCount < B2_TREE_STACK_SIZE - 1 )
+			{
+				stack[stackCount++] = b2GetLeftChild( node );
+			}
+		}
+	}
+	return result;
+}
+
+b2TreeStats b2DynamicTree_OverlapAABB( const b2DynamicTree* tree, b2AABB aabb, uint64_t maskBits, b2TreeQueryCallbackFcn* callback,
+									   void* context )
+{
+	return b2QueryAABB( tree, aabb, maskBits, true, callback, context );
+}
+
+b2TreeStats b2DynamicTree_OverlapAABBAll( const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback, void* context )
+{
+	return b2QueryAABB( tree, aabb, 0, false, callback, context );
+}

@@ -217,3 +217,56 @@ int DynamicTreeRefitTest( void )
 	b2DestroyDynamicTree( tree );
 	return 0;
 }
+
+static bool CollectOverlap( int proxyId, uint64_t userData, void* context )
+{
+	(void)userData;
+	int* hits = static_cast<int*>( context );
+	hits[proxyId] = 1;
+	return true;
+}
+
+int DynamicTreeOverlapTest( void )
+{
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	b2AABB boxes[3] = {
+		{ { 0.0f, 0.0f }, { 1.0f, 1.0f } },
+		{ { 0.5f, 0.5f }, { 1.5f, 1.5f } },
+		{ { 4.0f, 4.0f }, { 5.0f, 5.0f } },
+	};
+	uint64_t categories[3] = { 0x1ull, 0x2ull, 0x4ull };
+	int ids[3];
+	for ( int i = 0; i < 3; ++i )
+	{
+		ids[i] = b2CreateTreeProxy( tree, boxes[i], categories[i], (uint64_t)i );
+	}
+
+	b2AABB query = { { 0.2f, 0.2f }, { 1.2f, 1.2f } };
+	int hits[16] = {};
+	b2TreeStats stats = b2DynamicTree_OverlapAABB( tree, query, 0xFFFFFFFFull, CollectOverlap, hits );
+	ENSURE( stats.leafVisits == 2 );
+	for ( int i = 0; i < 3; ++i )
+	{
+		bool overlaps = b2AABB_Overlaps( boxes[i], query );
+		ENSURE( ( hits[ids[i]] == 1 ) == overlaps );
+	}
+
+	int filtered[16] = {};
+	stats = b2DynamicTree_OverlapAABB( tree, query, 0x1ull, CollectOverlap, filtered );
+	ENSURE( filtered[ids[0]] == 1 );
+	ENSURE( filtered[ids[1]] == 0 );
+	ENSURE( stats.leafVisits == 1 );
+
+	int allHits[16] = {};
+	b2AABB wide = { { -1.0f, -1.0f }, { 6.0f, 6.0f } };
+	stats = b2DynamicTree_OverlapAABBAll( tree, wide, CollectOverlap, allHits );
+	ENSURE( stats.leafVisits == 3 );
+	ENSURE( allHits[ids[0]] == 1 && allHits[ids[1]] == 1 && allHits[ids[2]] == 1 );
+
+	b2DynamicTree* empty = b2CreateDynamicTree( 16 );
+	stats = b2DynamicTree_OverlapAABB( empty, query, 0xFFFFFFFFull, CollectOverlap, hits );
+	ENSURE( stats.nodeVisits == 0 && stats.leafVisits == 0 );
+	b2DestroyDynamicTree( empty );
+	b2DestroyDynamicTree( tree );
+	return 0;
+}
