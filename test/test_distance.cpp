@@ -257,3 +257,39 @@ int ShapeCastDispatchTest( void )
 	ENSURE( b2CastShapePolygon( &box, &input ).hit == false );
 	return 0;
 }
+
+int SweepTransformTest( void )
+{
+	b2Sweep sweep = {};
+	sweep.localCenter = b2Vec2_zero;
+	sweep.c1 = { 0.0f, 0.0f };
+	sweep.c2 = { 4.0f, 2.0f };
+	sweep.q1 = b2Rot_identity;
+	sweep.q2 = { 0.0f, 1.0f };
+
+	b2Transform start = b2GetSweepTransform( &sweep, 0.0f );
+	ENSURE_SMALL( start.p.x, FLT_EPSILON );
+	ENSURE_SMALL( start.p.y, FLT_EPSILON );
+	ENSURE_SMALL( start.q.c - 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( start.q.s, FLT_EPSILON );
+
+	b2Transform end = b2GetSweepTransform( &sweep, 1.0f );
+	ENSURE_SMALL( end.p.x - 4.0f, FLT_EPSILON );
+	ENSURE_SMALL( end.p.y - 2.0f, FLT_EPSILON );
+	ENSURE_SMALL( end.q.c, 0.0001f );
+	ENSURE_SMALL( end.q.s - 1.0f, 0.0001f );
+
+	b2Transform mid = b2GetSweepTransform( &sweep, 0.5f );
+	ENSURE_SMALL( mid.p.x - 2.0f, 0.0001f );
+	ENSURE_SMALL( mid.p.y - 1.0f, 0.0001f );
+	float half = 0.70710678f;
+	ENSURE_SMALL( mid.q.c - half, 0.0001f );
+	ENSURE_SMALL( mid.q.s - half, 0.0001f );
+
+	sweep.localCenter = { 1.0f, 0.0f };
+	sweep.q2 = b2Rot_identity;
+	b2Transform shifted = b2GetSweepTransform( &sweep, 0.0f );
+	ENSURE_SMALL( shifted.p.x + 1.0f, 0.0001f );
+	ENSURE_SMALL( shifted.p.y, 0.0001f );
+	return 0;
+}

@@ -195,3 +195,14 @@ B2_API b2CastOutput b2CastShapeCircle( const b2Circle* shape, const b2ShapeCastI
 B2_API b2CastOutput b2CastShapeCapsule( const b2Capsule* shape, const b2ShapeCastInput* input );
 B2_API b2CastOutput b2CastShapeSegment( const b2Segment* shape, const b2ShapeCastInput* input );
 B2_API b2CastOutput b2CastShapePolygon( const b2Polygon* shape, const b2ShapeCastInput* input );
+
+typedef struct b2Sweep
+{
+	b2Vec2 localCenter;
+	b2Vec2 c1;
+	b2Vec2 c2;
+	b2Rot q1;
+	b2Rot q2;
+} b2Sweep;
+
+B2_API b2Transform b2GetSweepTransform( const b2Sweep* sweep, float time );

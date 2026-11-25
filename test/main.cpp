@@ -59,6 +59,7 @@ int ShapeProxyTest( void );
 int ShapeDistanceTest( void );
 int ShapeCastTest( void );
 int ShapeCastDispatchTest( void );
+int SweepTransformTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -388,6 +389,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ShapeCastDispatchTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "SweepTransformTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( SweepTransformTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

@@ -533,3 +533,17 @@ b2CastOutput b2CastShape( const b2ShapeCastPairInput* input )
 
 	return output;
 }
+
+b2Transform b2GetSweepTransform( const b2Sweep* sweep, float time )
+{
+	b2Transform xf;
+	xf.p = b2Add( b2MulSV( 1.0f - time, sweep->c1 ), b2MulSV( time, sweep->c2 ) );
+
+	b2Rot q = {
+		( 1.0f - time ) * sweep->q1.c + time * sweep->q2.c,
+		( 1.0f - time ) * sweep->q1.s + time * sweep->q2.s,
+	};
+	xf.q = b2NormalizeRot( q );
+	xf.p = b2Sub( xf.p, b2RotateVector( xf.q, sweep->localCenter ) );
+	return xf;
+}
