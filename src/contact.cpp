@@ -194,6 +194,9 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
 
 void b2DestroyContact( b2World* world, b2Contact* contact )
 {
+    bool touching=(contact->flags&b2_contactTouchingFlag)!=0;
+    b2Body* bodyA=world->bodies.data+contact->edges[0].bodyId;
+    b2Body* bodyB=world->bodies.data+contact->edges[1].bodyId;
     if(contact->islandId!=B2_NULL_INDEX) { b2UnlinkContact(world,contact); }
     uint64_t key = B2_SHAPE_PAIR_KEY(contact->shapeIdA,contact->shapeIdB);
     b2RemoveKey(&world->broadPhase.pairSet,key);
@@ -232,6 +235,7 @@ void b2DestroyContact( b2World* world, b2Contact* contact )
     *contact = b2Contact{};
     contact->contactId = B2_NULL_INDEX;
     contact->generation = generation;
+    if(touching) { b2WakeBody(world,bodyA);b2WakeBody(world,bodyB); }
 }
 
 void b2DestroyBodyContacts( b2World* world, b2Body* body )

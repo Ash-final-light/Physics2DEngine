@@ -107,3 +107,36 @@ int IslandSleepTest(void)
     }
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int IslandWakeTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+id.index1-1;b2BodyDef bd=b2DefaultBodyDef();bd.position={0,-1};
+    b2BodyId ground=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Polygon floor=b2MakeBox(20,0.5f);
+    b2ShapeId support=b2CreatePolygonShape(ground,&sd,&floor);
+    bd.type=b2_dynamicBody;bd.position={-3,0};b2Circle c={{0,0},0.5f};
+    b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.position={3,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    ENSURE(world->bodies.data[a.index1-1].islandId!=world->bodies.data[b.index1-1].islandId);
+    world->locked=true;b2Body_WakeTouching(ground);world->locked=false;
+    ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    b2Body_WakeTouching(ground);ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b) && !b2Body_IsAwake(ground));
+    b2Body_SetAwake(a,false);b2Body_SetAwake(b,false);
+    b2DestroyShape(support,false);ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    ENSURE(world->broadPhase.pairSet.count==0);
+    b2World_Step(id,0.1f,4);ENSURE(b2Body_GetLinearVelocity(a).y<0 && b2Body_GetLinearVelocity(b).y<0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    wd.gravity=b2Vec2_zero;id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={1,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);b2Body_SetAwake(a,false);
+    b2Body_ApplyLinearImpulseToCenter(a,{1,0},false);ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    b2Body_ApplyLinearImpulseToCenter(a,{1,0},true);ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    b2Contact* contact=world->contacts.data;ENSURE(contact->colorIndex!=B2_NULL_INDEX);
+    b2ContactSim* sim=b2GetContactSim(world,contact);
+    ENSURE(sim->encodedBodySimA==b2EncodeBodySimIndex(world->bodies.data+contact->edges[0].bodyId));
+    ENSURE(sim->encodedBodySimB==b2EncodeBodySimIndex(world->bodies.data+contact->edges[1].bodyId));
+    b2Body_SetAwake(a,false);b2DestroyBody(a);ENSURE(b2Body_IsAwake(b));
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

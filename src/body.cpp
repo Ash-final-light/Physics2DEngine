@@ -971,3 +971,16 @@ void b2Body_SetAwake(b2BodyId id,bool awake)
         b2TrySleepIsland(world,body->islandId);
     }
 }
+
+void b2Body_WakeTouching(b2BodyId id)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    int key=body->headContactKey;
+    while(key!=B2_NULL_INDEX)
+    {
+        b2Contact* contact=world->contacts.data+(key>>1);int edge=key&1;
+        key=contact->edges[edge].nextKey;
+        b2WakeBody(world,world->bodies.data+contact->edges[edge^1].bodyId);
+    }
+}
