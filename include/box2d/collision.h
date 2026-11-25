@@ -244,6 +244,61 @@ typedef struct b2TOIOutput
 
 B2_API b2TOIOutput b2ComputeTimeOfImpact( const b2TOIInput* input );
 
+typedef struct b2ManifoldPoint
+{
+	/// 接触点相对刚体 A 质心在世界空间中的位置。可使用以下方式转换为世界点：
+	/// b2Pos worldPointA = b2OffsetPos(b2Body_GetWorldCenter(myBodyIdA), anchorA);
+	b2Vec2 anchorA;
+
+	/// 刚体 B 类似。
+	b2Vec2 anchorB;
+
+	/// 接触点的分离量，穿透时为负
+	float separation;
+
+	/// 沿流形法向量的冲量。
+	float normalImpulse;
+
+	/// 摩擦冲量
+	float tangentImpulse;
+
+	/// 跨子步与恢复系数施加的法向冲量总和。这对于识别在该时间步发生相互作用的
+	/// 预测性接触点很重要。包括热启动冲量、子步增量冲量以及恢复冲量。
+	float totalNormalImpulse;
+
+	/// 求解前的相对法向速度。接近时为负。仅在启用命中事件时计算。
+	/// 作为 SIMD 打包的副作用也可能被计算，但不保证。
+	float normalVelocity;
+
+	/// 用于接触回收的缓存分离量
+	float baseSeparation;
+
+	/// 唯一标识两个形状之间的接触点
+	uint16_t id;
+
+	/// 该接触点在上一时间步是否存在？
+	bool persisted;
+} b2ManifoldPoint;
+
+/// 接触流形描述碰撞形状之间的接触点。
+/// @note Box2D 使用预测性碰撞，因此部分接触点可能是分离的。
+typedef struct b2Manifold
+{
+	/// 世界空间中的单位法向量，从形状 A 指向形状 B。
+	b2Vec2 normal;
+
+	/// 为滚动阻力施加的角冲量。N * m * s = kg * m^2 / s
+	float rollingImpulse;
+
+	/// 流形点，二维中最多两个。
+	b2ManifoldPoint points[2];
+
+	/// 接触点数，为 0、1 或 2。
+	int pointCount;
+
+} b2Manifold;
+
+
 typedef struct b2LocalManifoldPoint
 {
 	b2Vec2 point;

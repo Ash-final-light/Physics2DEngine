@@ -24,6 +24,7 @@ struct b2World
 	b2BroadPhase broadPhase;
 	b2IdPool contactIdPool;
 	b2DynamicArray<b2Contact> contacts;
+	b2DynamicArray<b2ContactSim> contactSims;
 	float restitutionThreshold;
 	int restitutionIterations;
 	bool enableRestitutionPropagation;

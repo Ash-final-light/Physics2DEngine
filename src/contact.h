@@ -100,3 +100,50 @@ void b2DestroyContact( b2World* world, b2Contact* contact );
 void b2DestroyBodyContacts( b2World* world, b2Body* body );
 void b2DestroyShapeContacts( b2World* world, const b2Shape* shape );
 void b2UpdateBroadPhaseContacts( b2World* world );
+
+
+typedef struct b2ContactSim
+{
+	int contactId;
+
+	// 接触回收缓存。
+	b2Rot cachedRotationA;
+	b2Rot cachedRotationB;
+	b2Transform cachedRelativePose;
+
+#if B2_ENABLE_VALIDATION
+	int bodyIdA;
+	int bodyIdB;
+#endif
+
+	int encodedBodySimA;
+	int encodedBodySimB;
+
+	// b2ContactFlags
+	uint32_t simFlags;
+
+	int shapeIdA;
+	int shapeIdB;
+
+	float invMassA;
+	float invIA;
+
+	float invMassB;
+	float invIB;
+
+	b2Manifold manifold;
+
+	// 混合摩擦和恢复系数
+	float friction;
+	float restitution;
+	float rollingResistance;
+	float tangentSpeed;
+
+	b2SimplexCache cache;
+} b2ContactSim;
+
+
+b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact );
+bool b2UpdateContact( b2World* world, b2ContactSim* contactSim, b2Shape* a, b2WorldTransform transformA,
+                      b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB );
+void b2UpdateContacts( b2World* world );

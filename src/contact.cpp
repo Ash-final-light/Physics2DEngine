@@ -6,19 +6,107 @@
 #include "body.h"
 #include "shape.h"
 
-static constexpr bool b2_primary[5][5] = {
-    { true, false, false, false, false },
-    { true, true, false, false, false },
-    { true, true, false, true, false },
-    { true, true, false, true, false },
-    { true, true, false, true, false }
+typedef b2LocalManifold b2ManifoldFcn( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf, b2SimplexCache* cache );
+
+struct b2ContactRegister
+{
+	b2ManifoldFcn* fcn;
+	bool primary;
+};
+
+static b2LocalManifold b2CircleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf, b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideCircles( &shapeA->circle, &shapeB->circle, xf );
+}
+
+static b2LocalManifold b2CapsuleAndCircleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+												   b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideCapsuleAndCircle( &shapeA->capsule, &shapeB->circle, xf );
+}
+
+static b2LocalManifold b2CapsuleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf, b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideCapsules( &shapeA->capsule, &shapeB->capsule, xf );
+}
+
+static b2LocalManifold b2PolygonAndCircleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+												   b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollidePolygonAndCircle( &shapeA->polygon, &shapeB->circle, xf );
+}
+
+static b2LocalManifold b2PolygonAndCapsuleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+													b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollidePolygonAndCapsule( &shapeA->polygon, &shapeB->capsule, xf );
+}
+
+static b2LocalManifold b2PolygonManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf, b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollidePolygons( &shapeA->polygon, &shapeB->polygon, xf );
+}
+
+static b2LocalManifold b2SegmentAndCircleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+												   b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideSegmentAndCircle( &shapeA->segment, &shapeB->circle, xf );
+}
+
+static b2LocalManifold b2SegmentAndCapsuleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+													b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideSegmentAndCapsule( &shapeA->segment, &shapeB->capsule, xf );
+}
+
+static b2LocalManifold b2SegmentAndPolygonManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+													b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideSegmentAndPolygon( &shapeA->segment, &shapeB->polygon, xf );
+}
+
+static b2LocalManifold b2ChainSegmentAndCircleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+														b2SimplexCache* cache )
+{
+	(void)cache;
+	return b2CollideChainSegmentAndCircle( &shapeA->chainSegment, &shapeB->circle, xf );
+}
+
+static b2LocalManifold b2ChainSegmentAndCapsuleManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+														 b2SimplexCache* cache )
+{
+	return b2CollideChainSegmentAndCapsule( &shapeA->chainSegment, &shapeB->capsule, xf, cache );
+}
+
+static b2LocalManifold b2ChainSegmentAndPolygonManifold( const b2Shape* shapeA, const b2Shape* shapeB, b2Transform xf,
+														 b2SimplexCache* cache )
+{
+	return b2CollideChainSegmentAndPolygon( &shapeA->chainSegment, &shapeB->polygon, xf, cache );
+}
+
+// 支持 DLL 热重载。
+static_assert( b2_circleShape == 0 && b2_capsuleShape == 1 && b2_segmentShape == 2 &&
+               b2_polygonShape == 3 && b2_chainSegmentShape == 4 && b2_shapeTypeCount == 5 );
+static constexpr b2ContactRegister b2_contactRegistry[b2_shapeTypeCount][b2_shapeTypeCount] = {
+    { { .fcn = b2CircleManifold, .primary = true }, { .fcn = b2CapsuleAndCircleManifold, .primary = false }, { .fcn = b2SegmentAndCircleManifold, .primary = false }, { .fcn = b2PolygonAndCircleManifold, .primary = false }, { .fcn = b2ChainSegmentAndCircleManifold, .primary = false } },
+    { { .fcn = b2CapsuleAndCircleManifold, .primary = true }, { .fcn = b2CapsuleManifold, .primary = true }, { .fcn = b2SegmentAndCapsuleManifold, .primary = false }, { .fcn = b2PolygonAndCapsuleManifold, .primary = false }, { .fcn = b2ChainSegmentAndCapsuleManifold, .primary = false } },
+    { { .fcn = b2SegmentAndCircleManifold, .primary = true }, { .fcn = b2SegmentAndCapsuleManifold, .primary = true }, {}, { .fcn = b2SegmentAndPolygonManifold, .primary = true }, {} },
+    { { .fcn = b2PolygonAndCircleManifold, .primary = true }, { .fcn = b2PolygonAndCapsuleManifold, .primary = true }, { .fcn = b2SegmentAndPolygonManifold, .primary = false }, { .fcn = b2PolygonManifold, .primary = true }, { .fcn = b2ChainSegmentAndPolygonManifold, .primary = false } },
+    { { .fcn = b2ChainSegmentAndCircleManifold, .primary = true }, { .fcn = b2ChainSegmentAndCapsuleManifold, .primary = true }, {}, { .fcn = b2ChainSegmentAndPolygonManifold, .primary = true }, {} },
 };
 
 bool b2CanCollide( b2ShapeType a, b2ShapeType b )
 {
-    bool edgeA = a == b2_segmentShape || a == b2_chainSegmentShape;
-    bool edgeB = b == b2_segmentShape || b == b2_chainSegmentShape;
-    return edgeA == false || edgeB == false;
+    return b2_contactRegistry[a][b].fcn != NULL;
 }
 
 bool b2Contact_IsValid( b2ContactId id )
@@ -42,7 +130,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     {
         return;
     }
-    if ( b2_primary[a->type][b->type] == false )
+    if ( b2_contactRegistry[a->type][b->type].primary == false )
     {
         b2CreateContact(world,b,a);
         return;
@@ -51,6 +139,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     if ( id == world->contacts.count )
     {
         b2Array_Push(world->contacts,b2Contact{});
+        b2Array_Push(world->contactSims,b2ContactSim{});
     }
     b2Contact* contact = world->contacts.data+id;
     uint32_t generation = contact->generation+1;
@@ -63,7 +152,14 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     contact->islandIndex = B2_NULL_INDEX;
     contact->setIndex = B2_NULL_INDEX;
     contact->colorIndex = B2_NULL_INDEX;
-    contact->localIndex = B2_NULL_INDEX;
+    contact->localIndex = id;
+    b2ContactSim* sim = world->contactSims.data+id;
+    *sim = b2ContactSim{};
+    sim->contactId = id;
+    sim->shapeIdA = a->id;
+    sim->shapeIdB = b->id;
+    sim->encodedBodySimA = B2_NULL_INDEX;
+    sim->encodedBodySimB = B2_NULL_INDEX;
     int bodyIds[2] = { a->bodyId,b->bodyId };
     for ( int edge = 0; edge < 2; ++edge )
     {
@@ -108,6 +204,7 @@ void b2DestroyContact( b2World* world, b2Contact* contact )
         }
         body->contactCount -= 1;
     }
+    world->contactSims.data[contact->localIndex] = b2ContactSim{};
     b2FreeId(&world->contactIdPool,contact->contactId);
     uint32_t generation = contact->generation;
     *contact = b2Contact{};
@@ -157,4 +254,55 @@ void b2UpdateBroadPhaseContacts( b2World* world )
         b2CreateContact(world,world->shapes.data+a,world->shapes.data+b);
     }
     b2Array_Destroy(keys);
+}
+
+
+b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact )
+{
+    return world->contactSims.data+contact->localIndex;
+}
+
+bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTransform transformA,
+                      b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB )
+{
+    (void)world;
+    b2Transform relative = b2InvMulTransforms(transformA,transformB);
+    b2ManifoldFcn* function = b2_contactRegistry[a->type][b->type].fcn;
+    b2LocalManifold local = function(a,b,relative,&sim->cache);
+    sim->manifold = b2Manifold{};
+    sim->manifold.normal = b2RotateVector(transformA.q,local.normal);
+    sim->manifold.pointCount = local.pointCount;
+    b2Vec2 originDelta = b2Sub(transformA.p,transformB.p);
+    for ( int i = 0; i < local.pointCount; ++i )
+    {
+        b2ManifoldPoint* point = sim->manifold.points+i;
+        point->anchorA = b2Sub(b2RotateVector(transformA.q,local.points[i].point),centerOffsetA);
+        point->anchorB = b2Sub(b2Add(b2RotateVector(transformA.q,local.points[i].point),originDelta),centerOffsetB);
+        point->separation = local.points[i].separation;
+        point->id = local.points[i].id;
+    }
+    bool touching = local.pointCount > 0;
+    if ( touching ) { sim->simFlags |= b2_simTouchingFlag; }
+    else { sim->simFlags &= ~b2_simTouchingFlag; }
+    return touching;
+}
+
+void b2UpdateContacts( b2World* world )
+{
+    for ( int i = 0; i < world->contacts.count; ++i )
+    {
+        b2Contact* contact = world->contacts.data+i;
+        if ( contact->contactId == B2_NULL_INDEX )
+        {
+            continue;
+        }
+        b2Shape* a = world->shapes.data+contact->shapeIdA;
+        b2Shape* b = world->shapes.data+contact->shapeIdB;
+        b2Body* bodyA = world->bodies.data+a->bodyId;
+        b2Body* bodyB = world->bodies.data+b->bodyId;
+        bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,bodyA->transform,
+            b2Sub(bodyA->center,bodyA->transform.p),b,bodyB->transform,b2Sub(bodyB->center,bodyB->transform.p));
+        if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
+        else { contact->flags &= ~b2_contactTouchingFlag; }
+    }
 }
