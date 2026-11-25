@@ -74,7 +74,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	b2CreateBroadPhase( &world->broadPhase, &def->capacity );
 	world->contactIdPool = b2CreateIdPool();
 	b2Array_Create( world->contacts );
-	b2Array_Create( world->contactSims );
+	b2CreateSolverSets( world );
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -93,7 +93,7 @@ void b2DestroyWorld( b2WorldId worldId )
 
 	b2DestroyBroadPhase( &world->broadPhase );
 	b2Array_Destroy( world->contacts );
-	b2Array_Destroy( world->contactSims );
+	b2DestroySolverSets( world );
 	b2DestroyIdPool( &world->contactIdPool );
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );

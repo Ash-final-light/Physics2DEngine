@@ -7,6 +7,7 @@
 #include "body.h"
 #include "broad_phase.h"
 #include "contact.h"
+#include "solver_set.h"
 #include "container.h"
 #include "id_pool.h"
 #include "shape.h"
@@ -24,7 +25,8 @@ struct b2World
 	b2BroadPhase broadPhase;
 	b2IdPool contactIdPool;
 	b2DynamicArray<b2Contact> contacts;
-	b2DynamicArray<b2ContactSim> contactSims;
+	b2IdPool solverSetIdPool;
+	b2DynamicArray<b2SolverSet> solverSets;
 	float restitutionThreshold;
 	int restitutionIterations;
 	bool enableRestitutionPropagation;

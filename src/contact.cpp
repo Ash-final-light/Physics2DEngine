@@ -139,7 +139,6 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     if ( id == world->contacts.count )
     {
         b2Array_Push(world->contacts,b2Contact{});
-        b2Array_Push(world->contactSims,b2ContactSim{});
     }
     b2Contact* contact = world->contacts.data+id;
     uint32_t generation = contact->generation+1;
@@ -150,16 +149,23 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     contact->shapeIdB = b->id;
     contact->islandId = B2_NULL_INDEX;
     contact->islandIndex = B2_NULL_INDEX;
-    contact->setIndex = B2_NULL_INDEX;
+    b2Body* bodyA=world->bodies.data+a->bodyId;
+    b2Body* bodyB=world->bodies.data+b->bodyId;
+    contact->setIndex=(bodyA->setIndex==b2_awakeSet || bodyB->setIndex==b2_awakeSet)?b2_awakeSet:b2_disabledSet;
     contact->colorIndex = B2_NULL_INDEX;
-    contact->localIndex = id;
-    b2ContactSim* sim = world->contactSims.data+id;
+    b2SolverSet* set=world->solverSets.data+contact->setIndex;
+    contact->localIndex=set->contactSims.count;
+    b2ContactSim* sim=b2Array_Emplace(set->contactSims);
     *sim = b2ContactSim{};
     sim->contactId = id;
     sim->shapeIdA = a->id;
     sim->shapeIdB = b->id;
-    sim->encodedBodySimA = B2_NULL_INDEX;
-    sim->encodedBodySimB = B2_NULL_INDEX;
+#if B2_ENABLE_VALIDATION
+    sim->bodyIdA=a->bodyId;
+    sim->bodyIdB=b->bodyId;
+#endif
+    sim->encodedBodySimA=b2EncodeBodySimIndex(bodyA);
+    sim->encodedBodySimB=b2EncodeBodySimIndex(bodyB);
     int bodyIds[2] = { a->bodyId,b->bodyId };
     for ( int edge = 0; edge < 2; ++edge )
     {
@@ -204,7 +210,11 @@ void b2DestroyContact( b2World* world, b2Contact* contact )
         }
         body->contactCount -= 1;
     }
-    world->contactSims.data[contact->localIndex] = b2ContactSim{};
+    b2SolverSet* set=world->solverSets.data+contact->setIndex;
+    int index=contact->localIndex;
+    int moved=b2Array_RemoveSwap(set->contactSims,index);
+    if(moved!=B2_NULL_INDEX)
+    { world->contacts.data[set->contactSims.data[index].contactId].localIndex=index; }
     b2FreeId(&world->contactIdPool,contact->contactId);
     uint32_t generation = contact->generation;
     *contact = b2Contact{};
@@ -259,7 +269,7 @@ void b2UpdateBroadPhaseContacts( b2World* world )
 
 b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact )
 {
-    return world->contactSims.data+contact->localIndex;
+    return world->solverSets.data[contact->setIndex].contactSims.data+contact->localIndex;
 }
 
 bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTransform transformA,
@@ -319,8 +329,8 @@ void b2UpdateContacts( b2World* world )
         b2Shape* b = world->shapes.data+contact->shapeIdB;
         b2Body* bodyA = world->bodies.data+a->bodyId;
         b2Body* bodyB = world->bodies.data+b->bodyId;
-        bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,bodyA->transform,
-            b2Sub(bodyA->center,bodyA->transform.p),b,bodyB->transform,b2Sub(bodyB->center,bodyB->transform.p));
+        bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,b2GetBodySim(world,bodyA)->transform,
+            b2Sub(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2Sub(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
         if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
         else { contact->flags &= ~b2_contactTouchingFlag; }
     }

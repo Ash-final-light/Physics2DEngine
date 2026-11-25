@@ -178,16 +178,17 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     body->shapeCount += 1;
     if ( type != b2_chainSegmentShape )
     {
-        body->dirtyMass = true;
+        body->flags |= b2_dirtyMass;
+        b2SyncBodyFlags(b2_worlds+bodyId.world0,body);
         if ( def->updateBodyMass )
         {
             b2UpdateBodyMassData( world, body );
         }
     }
-    b2UpdateShapeAABB( shape, body->transform );
-    if ( body->isEnabled )
+    b2UpdateShapeAABB( shape, b2GetBodySim(world,body)->transform );
+    if ( (body->setIndex != b2_disabledSet) )
     {
-        b2CreateShapeProxy( world, shape, body->type, body->transform, def->invokeContactCreation );
+        b2CreateShapeProxy( world, shape, body->type, b2GetBodySim(world,body)->transform, def->invokeContactCreation );
     }
     return b2ShapeId{ id + 1, world->worldId, generation };
 }
@@ -363,13 +364,13 @@ static void b2SetShapeGeometry( b2ShapeId id, const void* geometry, b2ShapeType 
     b2Body* body = world->bodies.data + shape->bodyId;
     shape->aabbMargin = b2ComputeShapeMargin( shape );
     b2DestroyShapeProxy( shape, &world->broadPhase );
-    if ( body->isEnabled )
+    if ( (body->setIndex != b2_disabledSet) )
     {
-        b2CreateShapeProxy( world, shape, body->type, body->transform, true );
+        b2CreateShapeProxy( world, shape, body->type, b2GetBodySim(world,body)->transform, true );
     }
     else
     {
-        b2UpdateShapeAABB( shape, body->transform );
+        b2UpdateShapeAABB( shape, b2GetBodySim(world,body)->transform );
     }
 }
 
@@ -830,9 +831,9 @@ void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
     b2DestroyShapeContacts(world,shape);
     shape->filter = filter;
     b2DestroyShapeProxy( shape, &world->broadPhase );
-    if ( body->isEnabled )
+    if ( (body->setIndex != b2_disabledSet) )
     {
-        b2CreateShapeProxy( world, shape, body->type, body->transform, true );
+        b2CreateShapeProxy( world, shape, body->type, b2GetBodySim(world,body)->transform, true );
     }
 }
 

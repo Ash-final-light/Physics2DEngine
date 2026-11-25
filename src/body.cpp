@@ -29,68 +29,56 @@ b2Body* b2GetBodyFullId( b2World* world, b2BodyId bodyId )
 
 b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 {
-	B2_CHECK_DEF( def );
-	if ( def->type < b2_staticBody || def->type >= b2_bodyTypeCount || b2IsValidVec2( def->position ) == false || b2IsValidRot( def->rotation ) == false ||
-		 b2IsValidVec2( def->linearVelocity ) == false || b2IsValidFloat( def->angularVelocity ) == false ||
-		 b2IsValidFloat( def->linearDamping ) == false || def->linearDamping < 0.0f ||
-		 b2IsValidFloat( def->angularDamping ) == false || def->angularDamping < 0.0f ||
-		 b2IsValidFloat( def->sleepThreshold ) == false || def->sleepThreshold < 0.0f ||
-		 b2IsValidFloat( def->safetyFactor ) == false || def->safetyFactor < 0.0f || b2IsValidFloat( def->gravityScale ) == false )
-	{
-		return b2_nullBodyId;
-	}
-
-	if ( b2World_IsValid( worldId ) == false )
-	{
-		return b2_nullBodyId;
-	}
-
-	b2World* world = b2_worlds + ( worldId.index1 - 1 );
-	if ( world->locked )
-	{
-		return b2_nullBodyId;
-	}
-
-	int bodyId = b2AllocId( &world->bodyIdPool );
-	if ( bodyId == world->bodies.count )
-	{
-		b2Array_Push( world->bodies, b2Body{} );
-	}
-
-	b2Body* body = world->bodies.data + bodyId;
-	uint16_t generation = (uint16_t)( body->generation + 1 );
-	*body = b2Body{};
-	body->generation = generation;
-	body->id = bodyId;
-	body->headShapeId = B2_NULL_INDEX;
-	body->headContactKey = B2_NULL_INDEX;
-	body->headChainId = B2_NULL_INDEX;
-	body->type = def->type;
-	body->transform.p = def->position;
-	body->transform.q = def->rotation;
-	body->center = def->position;
-	body->minExtent = B2_HUGE;
-	body->linearVelocity = def->linearVelocity;
-	body->angularVelocity = def->angularVelocity;
-	body->linearDamping = def->linearDamping;
-	body->angularDamping = def->angularDamping;
-	body->gravityScale = def->gravityScale;
-	body->sleepThreshold = def->sleepThreshold;
-	body->safetyFactor = def->safetyFactor;
-	body->userData = def->userData;
-	body->motionLocks = def->motionLocks;
-	body->enableSleep = def->enableSleep;
-	body->isAwake = def->isAwake;
-	body->isEnabled = def->isEnabled;
-	body->isBullet = def->isBullet;
-	body->allowFastRotation = def->allowFastRotation;
-	body->enableContactRecycling = def->enableContactRecycling;
-	if ( def->name != NULL )
-	{
-		strncpy_s( body->name, sizeof( body->name ), def->name, B2_NAME_LENGTH );
-	}
-
-	return b2BodyId{ bodyId + 1, world->worldId, body->generation };
+    B2_CHECK_DEF(def);
+    if(def->type<b2_staticBody || def->type>=b2_bodyTypeCount || b2IsValidVec2(def->position)==false ||
+       b2IsValidRot(def->rotation)==false || b2IsValidVec2(def->linearVelocity)==false ||
+       b2IsValidFloat(def->angularVelocity)==false || b2IsValidFloat(def->linearDamping)==false || def->linearDamping<0.0f ||
+       b2IsValidFloat(def->angularDamping)==false || def->angularDamping<0.0f || b2IsValidFloat(def->gravityScale)==false ||
+       b2IsValidFloat(def->sleepThreshold)==false || def->sleepThreshold<0.0f || b2IsValidFloat(def->safetyFactor)==false || def->safetyFactor<0.0f ||
+       b2World_IsValid(worldId)==false)
+    { return b2_nullBodyId; }
+    b2World* world=b2_worlds+worldId.index1-1;
+    if(world->locked || world->inUse==false) { return b2_nullBodyId; }
+    int id=b2AllocId(&world->bodyIdPool);
+    if(id==world->bodies.count) { b2Array_Push(world->bodies,b2Body{}); }
+    b2Body* body=world->bodies.data+id;
+    uint16_t generation=(uint16_t)(body->generation+1);
+    *body=b2Body{};
+    body->id=id;body->generation=generation;body->type=def->type;
+    body->headShapeId=B2_NULL_INDEX;body->headChainId=B2_NULL_INDEX;
+    body->headContactKey=B2_NULL_INDEX;body->headJointKey=B2_NULL_INDEX;
+    body->islandId=B2_NULL_INDEX;body->islandIndex=B2_NULL_INDEX;
+    body->bodyMoveIndex=B2_NULL_INDEX;
+    body->sleepThreshold=def->sleepThreshold;body->safetyFactor=def->safetyFactor;
+    body->userData=def->userData;
+    body->flags=(def->motionLocks.linearX?b2_lockLinearX:0) |
+                (def->motionLocks.linearY?b2_lockLinearY:0) |
+                (def->motionLocks.angularZ?b2_lockAngularZ:0) |
+                (def->isBullet?b2_isBullet:0) |
+                (def->allowFastRotation?b2_allowFastRotation:0) |
+                (def->enableSleep?b2_enableSleep:0) |
+                (def->enableContactRecycling?b2_bodyEnableContactRecycling:0) |
+                (def->type==b2_dynamicBody?b2_dynamicFlag:0);
+    int setIndex;
+    if(def->isEnabled==false) { setIndex=b2_disabledSet; }
+    else if(def->type==b2_staticBody) { setIndex=b2_staticSet; }
+    else if(def->type==b2_dynamicBody && def->isAwake==false && def->enableSleep) { setIndex=b2CreateSolverSet(world); }
+    else { setIndex=b2_awakeSet; }
+    b2SolverSet* set=world->solverSets.data+setIndex;
+    body->setIndex=setIndex;body->localIndex=set->bodySims.count;
+    b2BodySim* sim=b2Array_Emplace(set->bodySims);*sim=b2BodySim{};
+    sim->bodyId=id;sim->transform={def->position,def->rotation};sim->center=def->position;
+    sim->center0=sim->center;sim->rotation0=def->rotation;sim->minExtent=B2_HUGE;
+    sim->linearDamping=def->linearDamping;sim->angularDamping=def->angularDamping;
+    sim->gravityScale=def->gravityScale;sim->flags=body->flags;
+    if(setIndex==b2_awakeSet)
+    {
+        b2BodyState state=b2_identityBodyState;
+        state.linearVelocity=def->linearVelocity;state.angularVelocity=def->angularVelocity;state.flags=body->flags;
+        b2Array_Push(set->bodyStates,state);
+    }
+    if(def->name!=NULL) { strncpy_s(body->name,sizeof(body->name),def->name,B2_NAME_LENGTH); }
+    return b2BodyId{id+1,world->worldId,generation};
 }
 
 void b2DestroyBody( b2BodyId bodyId )
@@ -119,6 +107,7 @@ void b2DestroyBody( b2BodyId bodyId )
         b2Shape* shape = world->shapes.data + body->headShapeId;
         b2DestroyShape( b2ShapeId{ shape->id + 1, world->worldId, shape->generation }, false );
     }
+    b2RemoveBodyFromSolverSet(world,body);
 	b2FreeId( &world->bodyIdPool, body->id );
 	uint16_t generation = body->generation;
 	*body = b2Body{};
@@ -217,7 +206,7 @@ static b2WorldTransform b2GetBodyTransformFromId( b2BodyId bodyId )
 {
 	B2_ASSERT( b2Body_IsValid( bodyId ) );
 	b2Body* body = b2GetBodyFullId( b2_worlds + bodyId.world0, bodyId );
-	return body->transform;
+	return b2GetBodySim(b2_worlds+bodyId.world0,body)->transform;
 }
 
 b2Pos b2Body_GetPosition( b2BodyId bodyId )
@@ -268,12 +257,12 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 		return;
 	}
 	b2Body* body = b2GetBodyFullId( world, bodyId );
-	body->transform.p = position;
-	body->transform.q = rotation;
-	body->center = b2TransformPoint( body->transform, body->localCenter );
+	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p = position;
+	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.q = rotation;
+	b2GetBodySim(b2_worlds+bodyId.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+bodyId.world0,body)->transform, b2GetBodySim(b2_worlds+bodyId.world0,body)->localCenter );
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
-        b2MoveShapeProxy( world, world->shapes.data + id, body->transform );
+        b2MoveShapeProxy( world, world->shapes.data + id, b2GetBodySim(b2_worlds+bodyId.world0,body)->transform );
     }
 }
 
@@ -287,7 +276,7 @@ b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
     b2Body* body = b2GetBodyFullId( world, bodyId );
     if ( body->headShapeId == B2_NULL_INDEX )
     {
-        b2Pos position = body->transform.p;
+        b2Pos position = b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p;
         return b2AABB{ position, position };
     }
     b2Shape* shape = world->shapes.data + body->headShapeId;
@@ -303,24 +292,25 @@ b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
 
 void b2UpdateBodyMassData( b2World* world, b2Body* body )
 {
-    body->dirtyMass = false;
+    body->flags &= ~b2_dirtyMass;
+    b2SyncBodyFlags(world,body);
     body->mass = 0.0f;
     body->inertia = 0.0f;
-    body->invMass = 0.0f;
-    body->invInertia = 0.0f;
-    body->localCenter = b2Vec2_zero;
-    body->minExtent = B2_HUGE;
-    body->maxExtent = 0.0f;
+    b2GetBodySim(world,body)->invMass = 0.0f;
+    b2GetBodySim(world,body)->invInertia = 0.0f;
+    b2GetBodySim(world,body)->localCenter = b2Vec2_zero;
+    b2GetBodySim(world,body)->minExtent = B2_HUGE;
+    b2GetBodySim(world,body)->maxExtent = 0.0f;
     if ( body->type != b2_dynamicBody )
     {
-        body->center = body->transform.p;
+        b2GetBodySim(world,body)->center = b2GetBodySim(world,body)->transform.p;
         if ( body->type == b2_kinematicBody )
         {
             for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
             {
                 b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + id, b2Vec2_zero );
-                body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
-                body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+                b2GetBodySim(world,body)->minExtent = b2MinFloat( b2GetBodySim(world,body)->minExtent, extent.minExtent );
+                b2GetBodySim(world,body)->maxExtent = b2MaxFloat( b2GetBodySim(world,body)->maxExtent, extent.maxExtent );
             }
         }
         return;
@@ -343,8 +333,8 @@ void b2UpdateBodyMassData( b2World* world, b2Body* body )
     }
     if ( body->mass > 0.0f )
     {
-        body->invMass = 1.0f / body->mass;
-        localCenter = b2MulSV( body->invMass, localCenter );
+        b2GetBodySim(world,body)->invMass = 1.0f / body->mass;
+        localCenter = b2MulSV( b2GetBodySim(world,body)->invMass, localCenter );
     }
     for ( int i = 0; i < body->shapeCount; ++i )
     {
@@ -357,27 +347,27 @@ void b2UpdateBodyMassData( b2World* world, b2Body* body )
         body->inertia += data.rotationalInertia + data.mass * b2Dot( offset, offset );
     }
     b2StackFree( &world->stack, masses );
-    if ( body->inertia > 0.0f && body->motionLocks.angularZ == false )
+    if ( body->inertia > 0.0f && ((body->flags & b2_lockAngularZ) != 0) == false )
     {
-        body->invInertia = 1.0f / body->inertia;
+        b2GetBodySim(world,body)->invInertia = 1.0f / body->inertia;
     }
     else
     {
         body->inertia = 0.0f;
     }
-    b2Pos oldCenter = body->center;
-    body->localCenter = localCenter;
-    body->center = b2TransformPoint( body->transform, localCenter );
-    if ( body->isAwake && body->isEnabled )
+    b2Pos oldCenter = b2GetBodySim(world,body)->center;
+    b2GetBodySim(world,body)->localCenter = localCenter;
+    b2GetBodySim(world,body)->center = b2TransformPoint( b2GetBodySim(world,body)->transform, localCenter );
+    if ( (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
-        b2Vec2 delta = b2CrossSV( body->angularVelocity, b2Sub( body->center, oldCenter ) );
-        body->linearVelocity = b2Add( body->linearVelocity, delta );
+        b2Vec2 delta = b2CrossSV( b2GetBodyState(world,body)->angularVelocity, b2Sub( b2GetBodySim(world,body)->center, oldCenter ) );
+        b2GetBodyState(world,body)->linearVelocity = b2Add( b2GetBodyState(world,body)->linearVelocity, delta );
     }
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
         b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + id, localCenter );
-        body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
-        body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+        b2GetBodySim(world,body)->minExtent = b2MinFloat( b2GetBodySim(world,body)->minExtent, extent.minExtent );
+        b2GetBodySim(world,body)->maxExtent = b2MaxFloat( b2GetBodySim(world,body)->maxExtent, extent.maxExtent );
     }
 }
 
@@ -385,7 +375,7 @@ b2MassData b2Body_GetMassData( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
     b2Body* body = b2GetBodyFullId( b2_worlds + id.world0, id );
-    return b2MassData{ body->mass, body->localCenter, body->inertia };
+    return b2MassData{ body->mass, b2GetBodySim(b2_worlds+id.world0,body)->localCenter, body->inertia };
 }
 
 float b2Body_GetMass( b2BodyId id )
@@ -406,7 +396,7 @@ b2Vec2 b2Body_GetLocalCenter( b2BodyId id )
 b2Pos b2Body_GetWorldCenter( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
-    return b2GetBodyFullId( b2_worlds + id.world0, id )->center;
+    return b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds + id.world0, id ))->center;
 }
 
 void b2Body_UpdateMassFromShapes( b2BodyId id )
@@ -430,30 +420,31 @@ void b2Body_SetMassData( b2BodyId id, b2MassData data )
     b2Body* body = b2GetBodyFullId( world, id );
     body->mass = data.mass;
     body->inertia = data.rotationalInertia;
-    body->localCenter = data.center;
-    b2Pos oldCenter = body->center;
-    body->center = b2TransformPoint( body->transform, data.center );
-    if ( body->type != b2_staticBody && body->isAwake && body->isEnabled )
+    b2GetBodySim(b2_worlds+id.world0,body)->localCenter = data.center;
+    b2Pos oldCenter = b2GetBodySim(b2_worlds+id.world0,body)->center;
+    b2GetBodySim(b2_worlds+id.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+id.world0,body)->transform, data.center );
+    if ( body->type != b2_staticBody && (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
-        b2Vec2 delta = b2CrossSV( body->angularVelocity, b2Sub( body->center, oldCenter ) );
-        body->linearVelocity = b2Add( body->linearVelocity, delta );
+        b2Vec2 delta = b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2Sub( b2GetBodySim(b2_worlds+id.world0,body)->center, oldCenter ) );
+        b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, delta );
     }
-    body->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
-    body->invInertia = body->inertia > 0.0f ? 1.0f / body->inertia : 0.0f;
-    body->minExtent = B2_HUGE;
-    body->maxExtent = 0.0f;
+    b2GetBodySim(b2_worlds+id.world0,body)->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
+    b2GetBodySim(b2_worlds+id.world0,body)->invInertia = body->inertia > 0.0f ? 1.0f / body->inertia : 0.0f;
+    b2GetBodySim(b2_worlds+id.world0,body)->minExtent = B2_HUGE;
+    b2GetBodySim(b2_worlds+id.world0,body)->maxExtent = 0.0f;
     for ( int shapeId = body->headShapeId; shapeId != B2_NULL_INDEX; shapeId = world->shapes.data[shapeId].nextShapeId )
     {
         b2ShapeExtent extent = b2ComputeShapeExtent( world->shapes.data + shapeId, data.center );
-        body->minExtent = b2MinFloat( body->minExtent, extent.minExtent );
-        body->maxExtent = b2MaxFloat( body->maxExtent, extent.maxExtent );
+        b2GetBodySim(b2_worlds+id.world0,body)->minExtent = b2MinFloat( b2GetBodySim(b2_worlds+id.world0,body)->minExtent, extent.minExtent );
+        b2GetBodySim(b2_worlds+id.world0,body)->maxExtent = b2MaxFloat( b2GetBodySim(b2_worlds+id.world0,body)->maxExtent, extent.maxExtent );
     }
-    if ( body->motionLocks.angularZ )
+    if ( ((body->flags & b2_lockAngularZ) != 0) )
     {
         body->inertia = 0.0f;
-        body->invInertia = 0.0f;
+        b2GetBodySim(b2_worlds+id.world0,body)->invInertia = 0.0f;
     }
-    body->dirtyMass = false;
+    body->flags &= ~b2_dirtyMass;
+    b2SyncBodyFlags(b2_worlds+id.world0,body);
 }
 
 
@@ -488,21 +479,21 @@ int b2Body_GetShapes( b2BodyId id, b2ShapeId* output, int capacity )
 
 static bool b2HasBodyMotionState( const b2Body* body )
 {
-    return body->type != b2_staticBody && body->isEnabled && body->isAwake;
+    return body->setIndex==b2_awakeSet;
 }
 
 b2Vec2 b2Body_GetLinearVelocity( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-    return b2HasBodyMotionState( body ) ? body->linearVelocity : b2Vec2_zero;
+    return b2HasBodyMotionState( body ) ? b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity : b2Vec2_zero;
 }
 
 float b2Body_GetAngularVelocity( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-    return b2HasBodyMotionState( body ) ? body->angularVelocity : 0.0f;
+    return b2HasBodyMotionState( body ) ? b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity : 0.0f;
 }
 
 void b2Body_SetLinearVelocity( b2BodyId id, b2Vec2 velocity )
@@ -512,17 +503,17 @@ void b2Body_SetLinearVelocity( b2BodyId id, b2Vec2 velocity )
         return;
     }
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-    if ( body->type == b2_staticBody || body->isEnabled == false )
+    if ( body->type == b2_staticBody || (body->setIndex != b2_disabledSet) == false )
     {
         return;
     }
     if ( b2LengthSquared( velocity ) > 0.0f )
     {
-        body->isAwake = true;
+        b2WakeBody(b2_worlds+id.world0,body);
     }
-    if ( body->isAwake )
+    if ( (body->setIndex == b2_awakeSet) )
     {
-        body->linearVelocity = velocity;
+        b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = velocity;
     }
 }
 
@@ -533,17 +524,17 @@ void b2Body_SetAngularVelocity( b2BodyId id, float velocity )
         return;
     }
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-    if ( body->type == b2_staticBody || body->isEnabled == false || body->motionLocks.angularZ )
+    if ( body->type == b2_staticBody || (body->setIndex != b2_disabledSet) == false || ((body->flags & b2_lockAngularZ) != 0) )
     {
         return;
     }
     if ( velocity != 0.0f )
     {
-        body->isAwake = true;
+        b2WakeBody(b2_worlds+id.world0,body);
     }
-    if ( body->isAwake )
+    if ( (body->setIndex == b2_awakeSet) )
     {
-        body->angularVelocity = velocity;
+        b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity = velocity;
     }
 }
 
@@ -555,8 +546,8 @@ b2Vec2 b2Body_GetLocalPointVelocity( b2BodyId id, b2Vec2 point )
     {
         return b2Vec2_zero;
     }
-    b2Vec2 offset = b2RotateVector( body->transform.q, b2Sub( point, body->localCenter ) );
-    return b2Add( body->linearVelocity, b2CrossSV( body->angularVelocity, offset ) );
+    b2Vec2 offset = b2RotateVector( b2GetBodySim(b2_worlds+id.world0,body)->transform.q, b2Sub( point, b2GetBodySim(b2_worlds+id.world0,body)->localCenter ) );
+    return b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, offset ) );
 }
 
 b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId id, b2Pos point )
@@ -567,7 +558,7 @@ b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId id, b2Pos point )
     {
         return b2Vec2_zero;
     }
-    return b2Add( body->linearVelocity, b2CrossSV( body->angularVelocity, b2Sub( point, body->center ) ) );
+    return b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2Sub( point, b2GetBodySim(b2_worlds+id.world0,body)->center ) ) );
 }
 
 
@@ -575,14 +566,14 @@ void b2Body_SetGravityScale( b2BodyId id, float scale )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( scale ) )
     {
-        b2GetBodyFullId( b2_worlds+id.world0, id )->gravityScale = scale;
+        b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->gravityScale = scale;
     }
 }
 
 float b2Body_GetGravityScale( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
-    return b2GetBodyFullId( b2_worlds+id.world0, id )->gravityScale;
+    return b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->gravityScale;
 }
 
 
@@ -590,28 +581,28 @@ void b2Body_SetLinearDamping( b2BodyId id, float damping )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
     {
-        b2GetBodyFullId( b2_worlds+id.world0, id )->linearDamping = damping;
+        b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->linearDamping = damping;
     }
 }
 
 float b2Body_GetLinearDamping( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
-    return b2GetBodyFullId( b2_worlds+id.world0, id )->linearDamping;
+    return b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->linearDamping;
 }
 
 void b2Body_SetAngularDamping( b2BodyId id, float damping )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
     {
-        b2GetBodyFullId( b2_worlds+id.world0, id )->angularDamping = damping;
+        b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->angularDamping = damping;
     }
 }
 
 float b2Body_GetAngularDamping( b2BodyId id )
 {
     B2_ASSERT( b2Body_IsValid( id ) );
-    return b2GetBodyFullId( b2_worlds+id.world0, id )->angularDamping;
+    return b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->angularDamping;
 }
 
 
@@ -622,15 +613,15 @@ static b2Body* b2GetBodyForExternalAction( b2BodyId id, bool wake )
         return NULL;
     }
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-    if ( body->type != b2_dynamicBody || body->isEnabled == false )
+    if ( body->type != b2_dynamicBody || (body->setIndex != b2_disabledSet) == false )
     {
         return NULL;
     }
     if ( wake )
     {
-        body->isAwake = true;
+        b2WakeBody(b2_worlds+id.world0,body);
     }
-    return body->isAwake ? body : NULL;
+    return (body->setIndex == b2_awakeSet) ? body : NULL;
 }
 
 void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
@@ -642,8 +633,8 @@ void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->force = b2Add( body->force, force );
-        body->torque += b2Cross( b2Sub( point, body->center ), force );
+        b2GetBodySim(b2_worlds+id.world0,body)->force = b2Add( b2GetBodySim(b2_worlds+id.world0,body)->force, force );
+        b2GetBodySim(b2_worlds+id.world0,body)->torque += b2Cross( b2Sub( point, b2GetBodySim(b2_worlds+id.world0,body)->center ), force );
     }
 }
 
@@ -656,7 +647,7 @@ void b2Body_ApplyForceToCenter( b2BodyId id, b2Vec2 force, bool wake )
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->force = b2Add( body->force, force );
+        b2GetBodySim(b2_worlds+id.world0,body)->force = b2Add( b2GetBodySim(b2_worlds+id.world0,body)->force, force );
     }
 }
 
@@ -665,8 +656,8 @@ void b2Body_ClearForces( b2BodyId id )
     if ( b2Body_IsValid( id ) )
     {
         b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
-        body->force = b2Vec2_zero;
-        body->torque = 0.0f;
+        b2GetBodySim(b2_worlds+id.world0,body)->force = b2Vec2_zero;
+        b2GetBodySim(b2_worlds+id.world0,body)->torque = 0.0f;
     }
 }
 
@@ -680,18 +671,16 @@ void b2Body_ApplyTorque( b2BodyId id, float torque, bool wake )
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->torque += torque;
+        b2GetBodySim(b2_worlds+id.world0,body)->torque += torque;
     }
 }
 
 
-static void b2LimitBodyVelocity( b2Body* body, float maximum )
+static void b2LimitBodyVelocity( b2BodyState* state, float maximum )
 {
-    float squared = b2LengthSquared( body->linearVelocity );
-    if ( squared > maximum*maximum )
-    {
-        body->linearVelocity = b2MulSV( maximum/sqrtf(squared), body->linearVelocity );
-    }
+    float squared=b2LengthSquared(state->linearVelocity);
+    if(squared>maximum*maximum)
+    { state->linearVelocity=b2MulSV(maximum/sqrtf(squared),state->linearVelocity); }
 }
 
 void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool wake )
@@ -703,9 +692,9 @@ void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool w
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->linearVelocity = b2MulAdd( body->linearVelocity, body->invMass, impulse );
-        body->angularVelocity += body->invInertia*b2Cross( b2Sub(point,body->center), impulse );
-        b2LimitBodyVelocity( body, b2_worlds[id.world0].maxLinearSpeed );
+        b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = b2MulAdd( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2GetBodySim(b2_worlds+id.world0,body)->invMass, impulse );
+        b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity += b2GetBodySim(b2_worlds+id.world0,body)->invInertia*b2Cross( b2Sub(point,b2GetBodySim(b2_worlds+id.world0,body)->center), impulse );
+        b2LimitBodyVelocity( b2GetBodyState(b2_worlds+id.world0,body), b2_worlds[id.world0].maxLinearSpeed );
     }
 }
 
@@ -718,8 +707,8 @@ void b2Body_ApplyLinearImpulseToCenter( b2BodyId id, b2Vec2 impulse, bool wake )
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->linearVelocity = b2MulAdd( body->linearVelocity, body->invMass, impulse );
-        b2LimitBodyVelocity( body, b2_worlds[id.world0].maxLinearSpeed );
+        b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = b2MulAdd( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2GetBodySim(b2_worlds+id.world0,body)->invMass, impulse );
+        b2LimitBodyVelocity( b2GetBodyState(b2_worlds+id.world0,body), b2_worlds[id.world0].maxLinearSpeed );
     }
 }
 
@@ -733,7 +722,7 @@ void b2Body_ApplyAngularImpulse( b2BodyId id, float impulse, bool wake )
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
-        body->angularVelocity += body->invInertia*impulse;
+        b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity += b2GetBodySim(b2_worlds+id.world0,body)->invInertia*impulse;
     }
 }
 
@@ -745,25 +734,25 @@ void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float time
         return;
     }
     b2Body* body=b2GetBodyFullId(b2_worlds+id.world0,id);
-    if ( body->isEnabled==false || body->type==b2_staticBody || (body->isAwake==false && wake==false) )
+    if ( (body->setIndex != b2_disabledSet)==false || body->type==b2_staticBody || ((body->setIndex == b2_awakeSet)==false && wake==false) )
     {
         return;
     }
-    b2Vec2 delta=b2Sub(b2TransformPoint(target,body->localCenter),body->center);
+    b2Vec2 delta=b2Sub(b2TransformPoint(target,b2GetBodySim(b2_worlds+id.world0,body)->localCenter),b2GetBodySim(b2_worlds+id.world0,body)->center);
     float inverseTime=1.0f/timeStep;
     b2Vec2 velocity=b2MulSV(inverseTime,delta);
-    float angularVelocity=inverseTime*b2RelativeAngle(body->transform.q,target.q);
-    if ( body->isAwake==false )
+    float angularVelocity=inverseTime*b2RelativeAngle(b2GetBodySim(b2_worlds+id.world0,body)->transform.q,target.q);
+    if ( (body->setIndex == b2_awakeSet)==false )
     {
-        float maximum=b2Length(velocity)+b2AbsFloat(angularVelocity)*body->maxExtent;
+        float maximum=b2Length(velocity)+b2AbsFloat(angularVelocity)*b2GetBodySim(b2_worlds+id.world0,body)->maxExtent;
         if ( maximum<body->sleepThreshold )
         {
             return;
         }
-        body->isAwake=true;
+        b2WakeBody(b2_worlds+id.world0,body);
     }
-    body->linearVelocity=velocity;
-    body->angularVelocity=angularVelocity;
+    b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity=velocity;
+    b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity=angularVelocity;
 }
 
 
@@ -777,38 +766,28 @@ b2BodyType b2Body_GetType( b2BodyId id )
 void b2Body_SetType( b2BodyId id, b2BodyType type )
 {
     if(b2Body_IsValid(id)==false || type<b2_staticBody || type>=b2_bodyTypeCount || b2_worlds[id.world0].locked)
-    {
-        return;
-    }
+    { return; }
     b2World* world=b2_worlds+id.world0;
     b2Body* body=b2GetBodyFullId(world,id);
-    b2BodyType original=body->type;
-    if(original==type)
-    {
-        return;
-    }
+    if(body->type==type) { return; }
     b2DestroyBodyContacts(world,body);
     body->type=type;
-    if(body->isEnabled)
+    if(type==b2_dynamicBody) { body->flags|=b2_dynamicFlag; }
+    else { body->flags&=~b2_dynamicFlag; }
+    if(body->setIndex!=b2_disabledSet)
     {
-        if(original==b2_staticBody || type==b2_staticBody)
-        {
-            body->linearVelocity=b2Vec2_zero;
-            body->angularVelocity=0.0f;
-        }
-        if(type!=b2_staticBody)
-        {
-            body->isAwake=true;
-        }
+        int target=type==b2_staticBody?b2_staticSet:b2_awakeSet;
+        b2TransferBody(world,world->solverSets.data+target,world->solverSets.data+body->setIndex,body);
     }
+    b2SyncBodyFlags(world,body);
     b2UpdateBodyMassData(world,body);
-    if(body->isEnabled)
+    if(body->setIndex!=b2_disabledSet)
     {
         for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         {
             b2Shape* shape=world->shapes.data+shapeId;
             b2DestroyShapeProxy(shape,&world->broadPhase);
-            b2CreateShapeProxy(world,shape,type,body->transform,true);
+            b2CreateShapeProxy(world,shape,type,b2GetBodySim(b2_worlds+id.world0,body)->transform,true);
         }
     }
 }

@@ -20,6 +20,7 @@ add_library(box2d
 	body.cpp
 	shape.cpp
 	solver.cpp
+	solver_set.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 
