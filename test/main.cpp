@@ -47,6 +47,7 @@ int CircleMassTest( void );
 int CapsuleMassTest( void );
 int PolygonMassTest( void );
 int ShapeBoundsTest( void );
+int PointInCircleTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -304,6 +305,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ShapeBoundsTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "PointInCircleTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( PointInCircleTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

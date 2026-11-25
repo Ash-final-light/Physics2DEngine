@@ -375,3 +375,9 @@ b2AABB b2ComputeSegmentBounds( const b2Segment* shape, b2WorldTransform xf )
 {
 	return b2ComputeSegmentFatAABB( shape, xf, 0.0f );
 }
+
+bool b2PointInCircle( const b2Circle* shape, b2Vec2 point )
+{
+	b2Vec2 center = shape->center;
+	return b2DistanceSquared( point, center ) <= shape->radius * shape->radius;
+}

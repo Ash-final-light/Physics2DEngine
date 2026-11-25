@@ -321,3 +321,25 @@ int ShapeBoundsTest( void )
 	ENSURE_SMALL( segmentTurned.upperBound.y - 2.0f, 0.0001f );
 	return 0;
 }
+
+int PointInCircleTest( void )
+{
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2Vec2 inside = { 0.5f, 0.5f };
+	b2Vec2 outside = { 4.0f, -4.0f };
+	b2Vec2 center = { 1.0f, 0.0f };
+	b2Vec2 boundary = { 2.0f, 0.0f };
+	b2Vec2 justOut = { 2.0f + 0.001f, 0.0f };
+	ENSURE( b2PointInCircle( &circle, inside ) == true );
+	ENSURE( b2PointInCircle( &circle, outside ) == false );
+	ENSURE( b2PointInCircle( &circle, center ) == true );
+	ENSURE( b2PointInCircle( &circle, boundary ) == true );
+	ENSURE( b2PointInCircle( &circle, justOut ) == false );
+
+	b2Circle dot = { { 3.0f, 4.0f }, 0.0f };
+	b2Vec2 same = { 3.0f, 4.0f };
+	b2Vec2 near = { 3.0f, 4.001f };
+	ENSURE( b2PointInCircle( &dot, same ) == true );
+	ENSURE( b2PointInCircle( &dot, near ) == false );
+	return 0;
+}
