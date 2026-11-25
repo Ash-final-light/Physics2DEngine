@@ -243,3 +243,9 @@ B2_API b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId bodyId, b2Pos worldPoint );
 
 B2_API void b2Body_SetGravityScale( b2BodyId bodyId, float gravityScale );
 B2_API float b2Body_GetGravityScale( b2BodyId bodyId );
+
+
+B2_API void b2Body_SetLinearDamping( b2BodyId bodyId, float linearDamping );
+B2_API float b2Body_GetLinearDamping( b2BodyId bodyId );
+B2_API void b2Body_SetAngularDamping( b2BodyId bodyId, float angularDamping );
+B2_API float b2Body_GetAngularDamping( b2BodyId bodyId );

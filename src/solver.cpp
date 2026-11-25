@@ -10,7 +10,10 @@ static void b2IntegrateBodyVelocity( b2World* world, b2Body* body, float h )
 {
     float gravityScale = body->invMass > 0.0f ? body->gravityScale : 0.0f;
     b2Vec2 delta = b2MulSV( h*gravityScale, world->gravity );
-    body->linearVelocity = b2Add( delta, body->linearVelocity );
+    float linearDamping = 1.0f / (1.0f+h*body->linearDamping);
+    float angularDamping = 1.0f / (1.0f+h*body->angularDamping);
+    body->linearVelocity = b2MulAdd( delta, linearDamping, body->linearVelocity );
+    body->angularVelocity = angularDamping*body->angularVelocity;
 }
 
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )

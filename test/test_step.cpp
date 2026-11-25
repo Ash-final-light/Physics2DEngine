@@ -95,3 +95,24 @@ int BodyGravityTest( void )
     ENSURE_SMALL( b2Body_GetLinearVelocity( normal ).y+5.0f, 0.00001f );
     b2DestroyWorld( world ); return 0;
 }
+
+
+int BodyDampingTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    bd.linearVelocity = { 10.0f, 0.0f }; bd.angularVelocity = 4.0f;
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2Body_SetLinearDamping( body, 2.0f ); b2Body_SetAngularDamping( body, 3.0f );
+    b2Body_SetLinearDamping( body, -1.0f ); b2Body_SetAngularDamping( body, NAN );
+    ENSURE( b2Body_GetLinearDamping( body ) == 2.0f && b2Body_GetAngularDamping( body ) == 3.0f );
+    b2World_Step( world, 0.5f, 1 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( body ).x-5.0f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.6f, 0.00001f );
+    b2Body_SetLinearDamping( body, 0.0f ); b2Body_SetAngularDamping( body, 0.0f );
+    b2World_Step( world, 0.25f, 2 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( body ).x-5.0f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.6f, 0.00001f );
+    b2DestroyWorld( world ); return 0;
+}

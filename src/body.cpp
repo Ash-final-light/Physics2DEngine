@@ -581,3 +581,32 @@ float b2Body_GetGravityScale( b2BodyId id )
     B2_ASSERT( b2Body_IsValid( id ) );
     return b2GetBodyFullId( b2_worlds+id.world0, id )->gravityScale;
 }
+
+
+void b2Body_SetLinearDamping( b2BodyId id, float damping )
+{
+    if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
+    {
+        b2GetBodyFullId( b2_worlds+id.world0, id )->linearDamping = damping;
+    }
+}
+
+float b2Body_GetLinearDamping( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2GetBodyFullId( b2_worlds+id.world0, id )->linearDamping;
+}
+
+void b2Body_SetAngularDamping( b2BodyId id, float damping )
+{
+    if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
+    {
+        b2GetBodyFullId( b2_worlds+id.world0, id )->angularDamping = damping;
+    }
+}
+
+float b2Body_GetAngularDamping( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2GetBodyFullId( b2_worlds+id.world0, id )->angularDamping;
+}
