@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
+#include <algorithm>
 #include "world.h"
 #include "box2d/types.h"
 
@@ -213,5 +214,37 @@ int BroadPhaseExistingPairsTest( void )
     b2Array_Destroy( keys );
     b2DestroyWorld( worldId );
     ENSURE( b2GetByteCount() == before );
+    return 0;
+}
+
+
+int BroadPhaseSortTest( void )
+{
+    uint64_t values[513], expected[513], temporary[513];
+    uint64_t random = 0x123456789abcdef0ULL;
+    for ( int i = 0; i < 513; ++i )
+    {
+        random ^= random << 13;
+        random ^= random >> 7;
+        random ^= random << 17;
+        values[i] = i%11 == 0 ? UINT64_MAX : random;
+        expected[i] = values[i];
+    }
+    std::sort( expected, expected+513 );
+    b2RadixSortKeys( values, temporary, 513 );
+    for ( int i = 0; i < 513; ++i )
+    {
+        ENSURE( values[i] == expected[i] );
+    }
+    b2RadixSortKeys( NULL, NULL, 0 );
+    uint64_t one = 42;
+    b2RadixSortKeys( &one, temporary, 1 );
+    ENSURE( one == 42 );
+    for ( int i = 0; i < 513; ++i )
+    {
+        values[i] = 123;
+    }
+    b2RadixSortKeys( values, temporary, 513 );
+    ENSURE( values[0] == 123 && values[512] == 123 );
     return 0;
 }

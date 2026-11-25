@@ -357,9 +357,72 @@ void b2CollectCandidatePairs( b2World* world, b2DynamicArray<uint64_t>* pairKeys
         b2CollideCrossPairs( dynamicTree->nodes, dynamicTree->nodes, dynamicTree->nodes+index, dynamicTree->nodes+index+1, &context );
     }
     b2FlushCandidatePairs( &context );
+    if ( pairKeys->count > 1 )
+    {
+        uint64_t* temporary = static_cast<uint64_t*>( b2StackAlloc( &world->stack, pairKeys->count*sizeof(uint64_t), "pair sort" ) );
+        b2RadixSortKeys( pairKeys->data, temporary, pairKeys->count );
+        b2StackFree( &world->stack, temporary );
+    }
     b2StackFree( &world->stack, siblings );
     for ( int type = 0; type < b2_bodyTypeCount; ++type )
     {
         b2DynamicTree_ClearMoved( bp->trees+type );
     }
+}
+
+
+void b2RadixSortKeys( uint64_t* keys, uint64_t* tempKeys, int count )
+{
+    if ( count < 2 )
+    {
+        return;
+    }
+	int digitCounts[8][256] = {};
+	for ( int i = 0; i < count; ++i )
+	{
+		uint64_t key = keys[i];
+		for ( int digit = 0; digit < 8; ++digit )
+		{
+			digitCounts[digit][( key >> ( 8 * digit ) ) & 0xFF] += 1;
+		}
+	}
+
+	uint64_t* source = keys;
+	uint64_t* target = tempKeys;
+
+	for ( int digit = 0; digit < 8; ++digit )
+	{
+		int shift = 8 * digit;
+		int* offsets = digitCounts[digit];
+
+		if ( offsets[( source[0] >> shift ) & 0xFF] == count )
+		{
+			// 此位上所有键值相同。形状对键常见这种情况。
+			continue;
+		}
+
+		int sum = 0;
+		for ( int i = 0; i < 256; ++i )
+		{
+			int digitCount = offsets[i];
+			offsets[i] = sum;
+			sum += digitCount;
+		}
+
+		for ( int i = 0; i < count; ++i )
+		{
+			uint64_t key = source[i];
+			target[offsets[( key >> shift ) & 0xFF]++] = key;
+		}
+
+		// 交换以进行下一趟
+		uint64_t* swap = source;
+		source = target;
+		target = swap;
+	}
+
+	if ( source != keys )
+	{
+		memcpy( keys, source, count * sizeof( uint64_t ) );
+	}
 }

@@ -33,3 +33,5 @@ void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb );
 struct b2World;
 // Emits raw broad-phase candidates. Collision filtering and contacts are separate stages.
 void b2CollectCandidatePairs( b2World* world, b2DynamicArray<uint64_t>* pairKeys );
+
+void b2RadixSortKeys( uint64_t* keys, uint64_t* temporary, int count );
