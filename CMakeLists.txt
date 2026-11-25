@@ -48,6 +48,7 @@ if(BUILD_TESTING)
 		test/test_matrix.cpp
 		test/test_trig.cpp
 		test/test_array.cpp
+		test/test_bitset.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE
