@@ -161,6 +161,107 @@ B2_INLINE bool b2IsNormalized( b2Vec2 a )
 	return b2AbsFloat( 1.0f - aa ) < 100.0f * FLT_EPSILON;
 }
 
+/// 归一化旋转
+B2_INLINE b2Rot b2NormalizeRot( b2Rot q )
+{
+	float mag = sqrtf( q.s * q.s + q.c * q.c );
+	float invMag = mag > 0.0f ? 1.0f / mag : 0.0f;
+	b2Rot qn = { q.c * invMag, q.s * invMag };
+	return qn;
+}
+
+/// 此旋转是否已归一化？
+B2_INLINE bool b2IsNormalizedRot( b2Rot q )
+{
+	float qq = q.s * q.s + q.c * q.c;
+	return 1.0f - 0.0006f < qq && qq < 1.0f + 0.0006f;
+}
+
+/// 使用单位向量创建旋转
+B2_INLINE b2Rot b2MakeRotFromUnitVector( b2Vec2 unitVector )
+{
+	B2_ASSERT( b2IsNormalized( unitVector ) );
+	return B2_LITERAL( b2Rot ){ unitVector.x, unitVector.y };
+}
+
+/// 计算两个单位向量之间的旋转
+B2_API b2Rot b2ComputeRotationBetweenUnitVectors( b2Vec2 v1, b2Vec2 v2 );
+
+/// 获取旋转的逆
+B2_INLINE b2Rot b2InvertRot( b2Rot a )
+{
+	return B2_LITERAL( b2Rot ){ a.c, -a.s };
+}
+
+/// 两个旋转相乘：q * r
+B2_INLINE b2Rot b2MulRot( b2Rot q, b2Rot r )
+{
+	b2Rot qr;
+	qr.s = q.s * r.c + q.c * r.s;
+	qr.c = q.c * r.c - q.s * r.s;
+	return qr;
+}
+
+/// 转置相乘两个旋转：inv(a) * b
+B2_INLINE b2Rot b2InvMulRot( b2Rot a, b2Rot b )
+{
+	b2Rot r;
+	r.s = a.c * b.s - a.s * b.c;
+	r.c = a.c * b.c + a.s * b.s;
+	return r;
+}
+
+/// 旋转向量。
+B2_INLINE b2Vec2 b2RotateVector( b2Rot q, b2Vec2 v )
+{
+	return B2_LITERAL( b2Vec2 ){ q.c * v.x - q.s * v.y, q.s * v.x + q.c * v.y };
+}
+
+/// 逆旋转向量。
+B2_INLINE b2Vec2 b2InvRotateVector( b2Rot q, b2Vec2 v )
+{
+	return B2_LITERAL( b2Vec2 ){ q.c * v.x + q.s * v.y, -q.s * v.x + q.c * v.y };
+}
+
+/// 归一化线性插值
+B2_INLINE b2Rot b2NLerp( b2Rot q1, b2Rot q2, float t )
+{
+	float omt = 1.0f - t;
+	b2Rot q = {
+		omt * q1.c + t * q2.c,
+		omt * q1.s + t * q2.s,
+	};
+
+	float mag = sqrtf( q.s * q.s + q.c * q.c );
+	float invMag = mag > 0.0f ? 1.0f / mag : 0.0f;
+	b2Rot qn = { q.c * invMag, q.s * invMag };
+	return qn;
+}
+
+/// 由角速度积分旋转
+B2_INLINE b2Rot b2IntegrateRotation( b2Rot q1, float deltaAngle )
+{
+	b2Rot q2 = { q1.c - deltaAngle * q1.s, q1.s + deltaAngle * q1.c };
+	float mag = sqrtf( q2.s * q2.s + q2.c * q2.c );
+	float invMag = mag > 0.0f ? 1.0f / mag : 0.0f;
+	b2Rot qn = { q2.c * invMag, q2.s * invMag };
+	return qn;
+}
+
+/// 获取 x 轴
+B2_INLINE b2Vec2 b2Rot_GetXAxis( b2Rot q )
+{
+	b2Vec2 v = { q.c, q.s };
+	return v;
+}
+
+/// 获取 y 轴
+B2_INLINE b2Vec2 b2Rot_GetYAxis( b2Rot q )
+{
+	b2Vec2 v = { -q.s, q.c };
+	return v;
+}
+
 /// 设置每米对应的长度单位。只接受有限且大于 0 的值，非法值保持原值。
 /// 默认值为 1。
 B2_API void b2SetLengthUnitsPerMeter( float lengthUnits );

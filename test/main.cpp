@@ -16,6 +16,7 @@ int GrowAllocTest( void );
 int ZeroAllocTest( void );
 int ScalarTest( void );
 int VectorTest( void );
+int RotationTest( void );
 
 int main( int argc, char** argv )
 {
@@ -86,6 +87,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( VectorTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "RotationTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( RotationTest );
 	}
 
 	if ( ran == 0 )

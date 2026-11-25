@@ -43,6 +43,7 @@ if(BUILD_TESTING)
 		test/test_memory.cpp
 		test/test_scalar.cpp
 		test/test_vector.cpp
+		test/test_rotation.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE
