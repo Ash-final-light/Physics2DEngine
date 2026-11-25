@@ -545,3 +545,34 @@ int ContactMaterialCallbackTest(void)
     ENSURE(materialInputsValid && frictionCalls==3 && restitutionCalls==3);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int SpeculativeContactTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.enableContinuous=false;
+    for(int run=0;run<4;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+        bd.linearVelocity=run==0?b2Vec2{0.25f,0}:run==2?b2Vec2{0,4}:b2Vec2{4,0};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=1;
+        b2Circle c={{0,0},1};b2CreateCircleShape(body,&sd,&c);
+        float gap=run==3?1.5f*B2_SPECULATIVE_DISTANCE:0.5f*B2_SPECULATIVE_DISTANCE;
+        bd.type=b2_staticBody;bd.position={2+gap,0};b2BodyId fixed=b2CreateBody(id,&bd);b2CreateCircleShape(fixed,&sd,&c);
+        b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);ENSURE(world->broadPhase.pairSet.count==1);
+        b2ContactSim* sim=b2GetContactSim(world,world->contacts.data);
+        ENSURE(sim->manifold.pointCount==(run==3?0:1));
+        if(run!=3) { ENSURE_SMALL(sim->manifold.points[0].separation-gap,0.00001f); }
+        b2World_Step(id,run==3?0.001f:0.01f,1);
+        b2Vec2 velocity=b2Body_GetLinearVelocity(body);b2Pos position=b2Body_GetPosition(body);
+        if(run==0)
+        { ENSURE_SMALL(velocity.x-0.25f,0.00001f);ENSURE_SMALL(position.x-0.0025f,0.00001f); }
+        else if(run==1)
+        { ENSURE(position.x<=gap+0.00001f);ENSURE(velocity.x<4 && position.x>0); }
+        else if(run==2)
+        { ENSURE_SMALL(velocity.x,0.00001f);ENSURE_SMALL(velocity.y-4,0.00001f); }
+        else
+        { ENSURE_SMALL(velocity.x-4,0.00001f);ENSURE_SMALL(position.x-0.004f,0.00001f); }
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    return 0;
+}
