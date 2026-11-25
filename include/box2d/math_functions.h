@@ -129,10 +129,22 @@ B2_INLINE b2Vec2 b2Sub( b2Vec2 a, b2Vec2 b )
 	return B2_LITERAL( b2Vec2 ){ a.x - b.x, a.y - b.y };
 }
 
+/// 标量与向量相乘。
+B2_INLINE b2Vec2 b2MulSV( float s, b2Vec2 v )
+{
+	return B2_LITERAL( b2Vec2 ){ s * v.x, s * v.y };
+}
+
 /// a + s * b
 B2_INLINE b2Vec2 b2MulAdd( b2Vec2 a, float s, b2Vec2 b )
 {
 	return B2_LITERAL( b2Vec2 ){ a.x + s * b.x, a.y + s * b.y };
+}
+
+/// a - s * b
+B2_INLINE b2Vec2 b2MulSub( b2Vec2 a, float s, b2Vec2 b )
+{
+	return B2_LITERAL( b2Vec2 ){ a.x - s * b.x, a.y - s * b.y };
 }
 
 /// 分量绝对值。

@@ -51,6 +51,7 @@ int PointInCircleTest( void );
 int PointInCapsuleTest( void );
 int PointInPolygonTest( void );
 int RayCastCircleTest( void );
+int RayCastCapsuleTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -332,6 +333,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( RayCastCircleTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "RayCastCapsuleTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( RayCastCapsuleTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

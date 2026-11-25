@@ -468,3 +468,52 @@ int RayCastCircleTest( void )
 	ENSURE( b2IsValidRay( &bad ) == false );
 	return 0;
 }
+
+int RayCastCapsuleTest( void )
+{
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+
+	b2RayCastInput side = { { 0.0f, -4.0f }, { 0.0f, 8.0f }, 1.0f };
+	b2CastOutput sideHit = b2CastRayCapsule( &capsule, &side );
+	ENSURE( sideHit.hit == true );
+	ENSURE_SMALL( sideHit.normal.x, 0.0001f );
+	ENSURE_SMALL( sideHit.normal.y + 1.0f, 0.0001f );
+	ENSURE_SMALL( sideHit.point.x, 0.0001f );
+	ENSURE_SMALL( sideHit.point.y + 1.0f, 0.0001f );
+	ENSURE_SMALL( sideHit.fraction - 0.375f, 0.0001f );
+
+	b2RayCastInput cap = { { 4.0f, 0.0f }, { -8.0f, 0.0f }, 1.0f };
+	b2CastOutput capHit = b2CastRayCapsule( &capsule, &cap );
+	ENSURE( capHit.hit == true );
+	ENSURE_SMALL( capHit.normal.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( capHit.normal.y, 0.0001f );
+	ENSURE_SMALL( capHit.point.x - 2.0f, 0.0001f );
+	ENSURE_SMALL( capHit.point.y, 0.0001f );
+	ENSURE_SMALL( capHit.fraction - 0.25f, 0.0001f );
+
+	b2RayCastInput other = { { -4.0f, 0.0f }, { 2.0f, 0.0f }, 1.0f };
+	b2CastOutput otherHit = b2CastRayCapsule( &capsule, &other );
+	ENSURE( otherHit.hit == true );
+	ENSURE_SMALL( otherHit.normal.x + 1.0f, 0.0001f );
+	ENSURE_SMALL( otherHit.point.x + 2.0f, 0.0001f );
+	ENSURE_SMALL( otherHit.fraction - 1.0f, 0.0001f );
+
+	b2RayCastInput miss = { { 0.0f, 3.0f }, { 2.0f, 0.0f }, 1.0f };
+	ENSURE( b2CastRayCapsule( &capsule, &miss ).hit == false );
+
+	b2RayCastInput inside = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2CastOutput overlap = b2CastRayCapsule( &capsule, &inside );
+	ENSURE( overlap.hit == true );
+	ENSURE( overlap.point.x == 0.0f && overlap.point.y == 0.0f );
+
+	b2Capsule point = { { 1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2RayCastInput across = { { -4.0f, 0.0f }, { 8.0f, 0.0f }, 1.0f };
+	b2CastOutput fromCapsule = b2CastRayCapsule( &point, &across );
+	b2CastOutput fromCircle = b2CastRayCircle( &circle, &across );
+	ENSURE( fromCapsule.hit == fromCircle.hit );
+	ENSURE_SMALL( fromCapsule.fraction - fromCircle.fraction, FLT_EPSILON );
+	ENSURE_SMALL( fromCapsule.normal.x - fromCircle.normal.x, FLT_EPSILON );
+	ENSURE_SMALL( fromCapsule.point.x - fromCircle.point.x, FLT_EPSILON );
+	return 0;
+}

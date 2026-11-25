@@ -498,3 +498,99 @@ b2CastOutput b2CastRayCircle( const b2Circle* shape, const b2RayCastInput* input
 	output.hit = true;
 	return output;
 }
+
+b2CastOutput b2CastRayCapsule( const b2Capsule* shape, const b2RayCastInput* input )
+{
+	B2_ASSERT( b2IsValidRay( input ) );
+
+	b2CastOutput output = {};
+	b2Vec2 v1 = shape->center1;
+	b2Vec2 v2 = shape->center2;
+	b2Vec2 e = b2Sub( v2, v1 );
+
+	float capsuleLength;
+	b2Vec2 a = b2GetLengthAndNormalize( &capsuleLength, e );
+	if ( capsuleLength < FLT_EPSILON )
+	{
+		b2Circle circle = { v1, shape->radius };
+		return b2CastRayCircle( &circle, input );
+	}
+
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
+	b2Vec2 q = b2Sub( p1, v1 );
+	float qa = b2Dot( q, a );
+	b2Vec2 qp = b2MulAdd( q, -qa, a );
+	float radius = shape->radius;
+
+	if ( b2Dot( qp, qp ) < radius * radius )
+	{
+		if ( qa < 0.0f )
+		{
+			b2Circle circle = { v1, shape->radius };
+			return b2CastRayCircle( &circle, input );
+		}
+
+		if ( qa > capsuleLength )
+		{
+			b2Circle circle = { v2, shape->radius };
+			return b2CastRayCircle( &circle, input );
+		}
+
+		output.point = input->origin;
+		output.hit = true;
+		return output;
+	}
+
+	b2Vec2 n = { a.y, -a.x };
+	float rayLength;
+	b2Vec2 u = b2GetLengthAndNormalize( &rayLength, d );
+	float den = -a.x * u.y + u.x * a.y;
+	if ( -FLT_EPSILON < den && den < FLT_EPSILON )
+	{
+		return output;
+	}
+
+	b2Vec2 b1 = b2MulSub( q, radius, n );
+	b2Vec2 b2 = b2MulAdd( q, radius, n );
+	float invDen = 1.0f / den;
+	float s21 = ( a.x * b1.y - b1.x * a.y ) * invDen;
+	float s22 = ( a.x * b2.y - b2.x * a.y ) * invDen;
+
+	float s2;
+	b2Vec2 b;
+	if ( s21 < s22 )
+	{
+		s2 = s21;
+		b = b1;
+	}
+	else
+	{
+		s2 = s22;
+		b = b2;
+		n = b2Neg( n );
+	}
+
+	if ( s2 < 0.0f || input->maxFraction * rayLength < s2 )
+	{
+		return output;
+	}
+
+	float s1 = ( -b.x * u.y + u.x * b.y ) * invDen;
+	if ( s1 < 0.0f )
+	{
+		b2Circle circle = { v1, shape->radius };
+		return b2CastRayCircle( &circle, input );
+	}
+	else if ( capsuleLength < s1 )
+	{
+		b2Circle circle = { v2, shape->radius };
+		return b2CastRayCircle( &circle, input );
+	}
+
+	output.fraction = s2 / rayLength;
+	output.point = b2Add( b2Lerp( v1, v2, s1 / capsuleLength ), b2MulSV( shape->radius, n ) );
+	output.normal = n;
+	output.hit = true;
+	return output;
+}
