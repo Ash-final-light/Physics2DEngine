@@ -22,9 +22,20 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(PROJECT_IS_TOP_LEVEL)
 	set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/bin")
+	include(CTest)
 endif()
 
 add_executable(toolchain_check
 	test/toolchain_c.c
 	test/toolchain_cpp.cpp
 )
+
+if(BUILD_TESTING)
+	add_executable(unit_tests
+		test/main.cpp
+		test/test_toolchain.cpp
+		test/toolchain_c.c
+	)
+	target_include_directories(unit_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/test")
+	add_test(NAME unit_tests COMMAND unit_tests)
+endif()

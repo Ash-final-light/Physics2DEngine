@@ -6,7 +6,7 @@ Box2D 是用于游戏的二维物理引擎。
 
 ## 当前能力
 
-当前仓库只包含 C17 与 C++20 工具链检查。程序会用 C17 分配并释放一小段内存，再用 C++20 的 `std::span` 对固定数组求和。它不提供物理模拟。
+当前可以检查 C17 与 C++20 工具链，并用 CTest 运行同一项检查。程序会用 C17 分配并释放一小段内存，再用 C++20 的 `std::span` 对固定数组求和。它不提供物理模拟。
 
 ## 构建
 
@@ -16,6 +16,7 @@ Box2D 是用于游戏的二维物理引擎。
 cmake -S . -B build-core -G "Visual Studio 17 2022" -A x64
 cmake --build build-core --config RelWithDebInfo --parallel 8
 .\build-core\bin\RelWithDebInfo\toolchain_check.exe
+ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=error
 ```
 
-通过时程序打印 `C17 and C++20 toolchain check passed` 并返回 0。
+工具链程序通过时打印 `C17 and C++20 toolchain check passed` 并返回 0。CTest 会运行 `unit_tests`。
