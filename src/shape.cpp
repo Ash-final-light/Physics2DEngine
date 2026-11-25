@@ -213,3 +213,28 @@ b2ShapeId b2CreateSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
     }
     return b2CreateShape( bodyId, def, segment, b2_segmentShape );
 }
+
+
+static b2Shape* b2GetShapeFromId( b2ShapeId id )
+{
+    if ( b2Shape_IsValid( id ) == false )
+    {
+        return NULL;
+    }
+    return b2_worlds[id.world0].shapes.data + id.index1 - 1;
+}
+
+void b2Shape_SetUserData( b2ShapeId id, void* userData )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    if ( shape != NULL && b2_worlds[id.world0].locked == false )
+    {
+        shape->userData = userData;
+    }
+}
+
+void* b2Shape_GetUserData( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    return shape != NULL ? shape->userData : NULL;
+}

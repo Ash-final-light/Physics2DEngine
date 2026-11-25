@@ -155,3 +155,31 @@ int SegmentShapeLifecycleTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int ShapeUserDataTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    int first = 1, second = 2;
+    sd.userData = &first;
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2ShapeId a = b2CreateCircleShape( body, &sd, &circle );
+    b2ShapeId b = b2CreateCircleShape( body, &sd, &circle );
+    ENSURE( b2Shape_GetUserData( a ) == &first );
+    b2Shape_SetUserData( a, &second );
+    ENSURE( b2Shape_GetUserData( a ) == &second );
+    ENSURE( b2Shape_GetUserData( b ) == &first );
+    b2Shape_SetUserData( a, NULL );
+    ENSURE( b2Shape_GetUserData( a ) == NULL );
+    b2DestroyShape( a, false );
+    b2ShapeId reused = b2CreateCircleShape( body, &sd, &circle );
+    b2Shape_SetUserData( a, &second );
+    ENSURE( b2Shape_GetUserData( a ) == NULL );
+    ENSURE( b2Shape_GetUserData( reused ) == &first );
+    b2DestroyWorld( world );
+    return 0;
+}

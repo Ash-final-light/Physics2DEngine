@@ -95,6 +95,7 @@ int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int CircleShapeLifecycleTest( void );
+int ShapeUserDataTest( void );
 int SegmentShapeLifecycleTest( void );
 int PolygonShapeLifecycleTest( void );
 int CapsuleShapeLifecycleTest( void );
@@ -661,6 +662,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( SegmentShapeLifecycleTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ShapeUserDataTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ShapeUserDataTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

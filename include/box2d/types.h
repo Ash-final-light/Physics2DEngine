@@ -157,3 +157,6 @@ B2_API b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, c
 B2_API b2ShapeId b2CreatePolygonShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon );
 
 B2_API b2ShapeId b2CreateSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment );
+
+B2_API void b2Shape_SetUserData( b2ShapeId shapeId, void* userData );
+B2_API void* b2Shape_GetUserData( b2ShapeId shapeId );
