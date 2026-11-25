@@ -954,3 +954,20 @@ bool b2Body_IsEnabled(b2BodyId id)
 {
     return b2Body_IsValid(id) && b2GetBodyFullId(b2_worlds+id.world0,id)->setIndex!=b2_disabledSet;
 }
+
+bool b2Body_IsAwake(b2BodyId id)
+{
+    return b2Body_IsValid(id) && b2GetBodyFullId(b2_worlds+id.world0,id)->setIndex==b2_awakeSet;
+}
+
+void b2Body_SetAwake(b2BodyId id,bool awake)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    if(awake && body->setIndex>=b2_firstSleepingSet) { b2WakeBody(world,body); }
+    else if(!awake && body->setIndex==b2_awakeSet)
+    {
+        if(world->islands.data[body->islandId].constraintRemoveCount>0) { b2SplitIsland(world,body->islandId); }
+        b2TrySleepIsland(world,body->islandId);
+    }
+}

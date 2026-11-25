@@ -155,6 +155,7 @@ int BodyTorqueTest( void )
     b2WorldId world = b2CreateWorld( &wd );
     b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
     b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},1};b2CreateCircleShape(body,&sd,&circle);
     b2Body_SetMassData( body, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
     b2Body_ApplyTorque( body, 4.0f, true ); b2Body_ApplyTorque( body, 4.0f, true );
     b2Body_ApplyTorque( body, NAN, true );
@@ -166,8 +167,9 @@ int BodyTorqueTest( void )
     b2Body_ApplyTorque( body, 100.0f, true ); b2Body_ClearForces( body );
     b2World_Step( world, 0.1f, 1 );
     ENSURE_SMALL( b2Body_GetAngularVelocity( body )-1.0f, 0.00001f );
-    bd.isAwake = false;
+    bd.isAwake = false;bd.position={10,0};
     b2BodyId asleep = b2CreateBody( world, &bd );
+    b2CreateCircleShape(asleep,&sd,&circle);
     b2Body_SetMassData( asleep, b2MassData{ 2.0f, { 0.0f, 0.0f }, 4.0f } );
     b2Body_ApplyTorque( asleep, 8.0f, false );
     b2World_Step( world, 0.5f, 1 );

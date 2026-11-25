@@ -253,6 +253,8 @@ B2_API b2MotionLocks b2Body_GetMotionLocks(b2BodyId bodyId);
 B2_API void b2Body_Disable(b2BodyId bodyId);
 B2_API void b2Body_Enable(b2BodyId bodyId);
 B2_API bool b2Body_IsEnabled(b2BodyId bodyId);
+B2_API bool b2Body_IsAwake(b2BodyId bodyId);
+B2_API void b2Body_SetAwake(b2BodyId bodyId,bool awake);
 B2_API void b2Shape_SetFriction(b2ShapeId shapeId,float friction);
 B2_API float b2Shape_GetFriction(b2ShapeId shapeId);
 B2_API void b2Shape_SetRestitution(b2ShapeId shapeId,float restitution);

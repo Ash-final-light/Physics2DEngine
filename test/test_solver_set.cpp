@@ -52,3 +52,58 @@ int SolverSetOrganizationTest( void )
     ENSURE_SMALL(b2Body_GetPosition(sleeping).x-30.3f,0.00001f);
     b2DestroyWorld(worldId);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int IslandSleepTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2BodyId a=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(a,&sd,&c);
+    bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    for(int i=0;i<20;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    for(int i=0;i<20;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    int sleepSet=world->bodies.data[a.index1-1].setIndex;
+    ENSURE(sleepSet>=b2_firstSleepingSet && world->bodies.data[b.index1-1].setIndex==sleepSet);
+    ENSURE(world->solverSets.data[sleepSet].bodyStates.count==0 && world->solverSets.data[sleepSet].contactSims.count==1);
+    ENSURE(world->solverSets.data[b2_awakeSet].bodySims.count==0);
+    b2Contact* contact=world->contacts.data;ENSURE(contact->colorIndex==B2_NULL_INDEX && contact->setIndex==sleepSet);
+    b2Body_SetLinearVelocity(a,{0,1});ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    ENSURE(world->solverSets.data[sleepSet].setIndex==B2_NULL_INDEX);
+    ENSURE(contact->colorIndex!=B2_NULL_INDEX && contact->setIndex==b2_awakeSet);
+    b2World_Step(id,0.01f,1);ENSURE(b2Body_GetPosition(a).y>0);
+    b2Body_SetAwake(a,false);ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    b2Body_SetAwake(b,true);ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Any active member keeps an island awake; a non-touching neighbor may sleep independently.
+    id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.enableSleep=true;bd.position={2,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    bd.position={20,0};b2BodyId independent=b2CreateBody(id,&bd);b2CreateCircleShape(independent,&sd,&c);
+    for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60.0f,4); }
+    ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b) && !b2Body_IsAwake(independent));
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Non-touching pairs between sleeping islands belong to the disabled set.
+    id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={2.04f,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    for(int i=0;i<40;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    contact=world->contacts.data;ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b));
+    ENSURE(contact->setIndex==b2_disabledSet && b2GetContactSim(world,contact)->manifold.pointCount==0);
+    b2Body_SetAwake(a,true);ENSURE(contact->setIndex==b2_awakeSet && !b2Body_IsAwake(b));
+    b2Body_SetTransform(a,{0.05f,0},b2Rot_identity);b2UpdateContacts(world);
+    ENSURE(b2Body_IsAwake(b) && contact->colorIndex!=B2_NULL_INDEX);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Many independent sleep sets force solver-set storage to grow during finalization.
+    id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId many[24];
+    for(int i=0;i<24;++i)
+    { bd.position={10.0f*i,0};many[i]=b2CreateBody(id,&bd);b2CreateCircleShape(many[i],&sd,&c); }
+    for(int i=0;i<40;++i) { b2World_Step(id,1.0f/60.0f,1); }
+    for(int i=0;i<24;++i)
+    {
+        ENSURE(!b2Body_IsAwake(many[i]));b2Body_SetAwake(many[i],true);ENSURE(b2Body_IsAwake(many[i]));
+        b2Body* cold=world->bodies.data+many[i].index1-1;
+        ENSURE(world->solverSets.data[b2_awakeSet].bodySims.data[cold->localIndex].bodyId==cold->id);
+    }
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

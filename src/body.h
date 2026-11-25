@@ -7,6 +7,9 @@
 #include "box2d/constants.h"
 #include "core.h"
 
+static inline int b2SleepBodySimIndex(int encodedIndex)
+{ return encodedIndex>=0?B2_NULL_INDEX:encodedIndex; }
+
 static inline int b2DecodeAwakeIndex(int encodedBodySimIndex)
 { return encodedBodySimIndex>=0?encodedBodySimIndex:B2_NULL_INDEX; }
 

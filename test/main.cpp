@@ -96,6 +96,7 @@ int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int FreeBodyStepTest( void );
 int SolverSetOrganizationTest( void );
+int IslandSleepTest( void );
 int ContactIslandTest( void );
 int ConstraintGraphTest( void );
 int ContactPrepareTest( void );
@@ -916,6 +917,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ContactMaterialCallbackTest")==0) { ran=1; RUN_TEST(ContactMaterialCallbackTest); }
 	if(filter==NULL || strcmp(filter,"BodyMotionLocksTest")==0) { ran=1; RUN_TEST(BodyMotionLocksTest); }
 	if(filter==NULL || strcmp(filter,"BodyEnableDisableTest")==0) { ran=1; RUN_TEST(BodyEnableDisableTest); }
+	if(filter==NULL || strcmp(filter,"IslandSleepTest")==0) { ran=1; RUN_TEST(IslandSleepTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

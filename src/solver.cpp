@@ -52,9 +52,30 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         sim->center=b2Add(sim->center,state->deltaPosition);
         sim->transform.q=b2NormalizeRot(b2MulRot(state->deltaRotation,sim->transform.q));
         sim->transform.p=b2Sub(sim->center,b2RotateVector(sim->transform.q,sim->localCenter));
+        float maxVelocity=b2Length(state->linearVelocity)+b2AbsFloat(state->angularVelocity)*sim->maxExtent;
+        float maxDeltaPosition=b2Length(state->deltaPosition)+b2AbsFloat(state->deltaRotation.s)*sim->maxExtent;
+        float sleepVelocity=b2MaxFloat(maxVelocity,0.5f/timeStep*maxDeltaPosition);
+        b2Body* body=world->bodies.data+sim->bodyId;
+        if(!world->enableSleep || (body->flags&b2_enableSleep)==0 || sleepVelocity>body->sleepThreshold) { body->sleepTime=0; }
+        else { body->sleepTime+=timeStep; }
+        sim->center0=sim->center;sim->rotation0=sim->transform.q;
         state->deltaPosition=b2Vec2_zero;state->deltaRotation=b2Rot_identity;
         sim->force=b2Vec2_zero;sim->torque=0.0f;
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
+    if(world->enableSleep)
+    {
+        // Reverse order is required because sleeping swap-removes island descriptors.
+        int count=world->solverSets.data[b2_awakeSet].islandSims.count;
+        for(int i=count-1;i>=0;--i)
+        {
+            int islandId=world->solverSets.data[b2_awakeSet].islandSims.data[i].islandId;
+            b2Island* island=world->islands.data+islandId;bool ready=true;
+            for(int j=0;j<island->bodies.count;++j)
+            { if(world->bodies.data[island->bodies.data[j]].sleepTime<B2_TIME_TO_SLEEP) { ready=false;break; } }
+            if(ready) { b2TrySleepIsland(world,islandId); }
+        }
+    }
+
 }

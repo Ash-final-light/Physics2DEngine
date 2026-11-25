@@ -33,3 +33,4 @@ void b2RemoveBodyFromSolverSet( b2World* world, b2Body* body );
 void b2TransferBody( b2World* world, b2SolverSet* target, b2SolverSet* source, b2Body* body );
 void b2RefreshContactSets( b2World* world );
 void b2WakeSolverSet( b2World* world, int setIndex );
+void b2TrySleepIsland(b2World* world,int islandId);
