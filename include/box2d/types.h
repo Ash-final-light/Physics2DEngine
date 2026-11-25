@@ -187,3 +187,23 @@ B2_API float b2Shape_GetDensity( b2ShapeId shapeId );
 B2_API b2MassData b2Shape_ComputeMassData( b2ShapeId shapeId );
 
 B2_API void b2Body_SetMassData( b2BodyId bodyId, b2MassData massData );
+
+
+typedef struct b2ChainDef
+{
+    void* userData;
+    const b2Vec2* points;
+    int pointCount;
+    b2Vec2 ghost1;
+    b2Vec2 ghost2;
+    const b2SurfaceMaterial* materials;
+    int materialCount;
+    b2Filter filter;
+    bool isLoop;
+    int internalValue;
+} b2ChainDef;
+
+B2_API b2ChainDef b2DefaultChainDef( void );
+B2_API b2ChainId b2CreateChain( b2BodyId bodyId, const b2ChainDef* def );
+B2_API void b2DestroyChain( b2ChainId chainId );
+B2_API bool b2Chain_IsValid( b2ChainId chainId );

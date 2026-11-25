@@ -29,3 +29,13 @@ typedef struct b2ShapeId
 } b2ShapeId;
 
 static const b2ShapeId b2_nullShapeId = {};
+
+
+typedef struct b2ChainId
+{
+    int32_t index1;
+    uint16_t world0;
+    uint16_t generation;
+} b2ChainId;
+
+static const b2ChainId b2_nullChainId = {};

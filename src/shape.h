@@ -23,6 +23,7 @@ struct b2Shape
         b2Capsule capsule;
         b2Polygon polygon;
         b2Segment segment;
+        b2ChainSegment chainSegment;
     };
     uint16_t generation;
 };
@@ -37,3 +38,14 @@ struct b2ShapeExtent
 };
 b2MassData b2ComputeShapeMass( const b2Shape* shape );
 b2ShapeExtent b2ComputeShapeExtent( const b2Shape* shape, b2Vec2 localCenter );
+
+
+struct b2ChainShape
+{
+    int id;
+    int bodyId;
+    int nextChainId;
+    int segmentCount;
+    uint16_t generation;
+    int* shapeIndices;
+};

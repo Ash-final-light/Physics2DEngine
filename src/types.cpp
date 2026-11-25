@@ -65,3 +65,17 @@ b2ShapeDef b2DefaultShapeDef( void )
     def.internalValue = B2_SECRET_COOKIE;
     return def;
 }
+
+
+b2ChainDef b2DefaultChainDef( void )
+{
+    static b2SurfaceMaterial material = { .friction = 0.6f };
+    b2ChainDef def = {};
+    def.materials = &material;
+    def.materialCount = 1;
+    def.ghost1 = { INFINITY, INFINITY };
+    def.ghost2 = { INFINITY, INFINITY };
+    def.filter = b2DefaultFilter();
+    def.internalValue = B2_SECRET_COOKIE;
+    return def;
+}

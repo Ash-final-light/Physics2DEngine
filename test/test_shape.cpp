@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
+#include "world.h"
 #include "box2d/types.h"
 #include "box2d/math_functions.h"
 #include "box2d/constants.h"
@@ -319,5 +320,55 @@ int BodyExplicitMassTest( void )
     b2Body_SetMassData( locked, custom );
     ENSURE( b2Body_GetMass( locked ) == 3.0f && b2Body_GetRotationalInertia( locked ) == 0.0f );
     b2DestroyWorld( world );
+    return 0;
+}
+
+
+int ChainLifecycleTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId worldId = b2CreateWorld( &wd );
+    b2World* world = b2_worlds + worldId.index1 - 1;
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId bodyId = b2CreateBody( worldId, &bd );
+    b2Vec2 points[] = { { 0.0f, 0.0f }, { 4.0f, 0.0f }, { 4.0f, 3.0f }, { 0.0f, 3.0f } };
+    b2ChainDef def = b2DefaultChainDef();
+    def.points = points;
+    def.pointCount = 4;
+    def.isLoop = true;
+    b2ChainId loop = b2CreateChain( bodyId, &def );
+    ENSURE( b2Chain_IsValid( loop ) );
+    b2ChainShape* chain = world->chainShapes.data + loop.index1 - 1;
+    ENSURE( chain->segmentCount == 4 );
+    int firstIndex = chain->shapeIndices[0];
+    b2ShapeId first = { firstIndex+1, world->worldId, world->shapes.data[firstIndex].generation };
+    ENSURE( world->shapes.data[firstIndex].chainSegment.ghost1.y == 3.0f );
+    points[0].x = -100.0f;
+    ENSURE( world->shapes.data[firstIndex].chainSegment.segment.point1.x == 0.0f );
+    b2DestroyShape( first, true );
+    ENSURE( b2Shape_IsValid( first ) );
+    b2Body_SetTransform( bodyId, { 10.0f, 20.0f }, b2Rot_identity );
+    ENSURE( b2Body_ComputeBounds( bodyId ).upperBound.x > 14.0f );
+    b2DestroyChain( loop );
+    ENSURE( b2Chain_IsValid( loop ) == false && b2Shape_IsValid( first ) == false );
+    points[0].x = 0.0f;
+    def.isLoop = false;
+    ENSURE( b2CreateChain( bodyId, &def ).index1 == 0 );
+    def.ghost1 = { -1.0f, 0.0f };
+    def.ghost2 = { -1.0f, 3.0f };
+    b2ChainId open = b2CreateChain( bodyId, &def );
+    ENSURE( b2Chain_IsValid( open ) );
+    ENSURE( open.index1 == loop.index1 && open.generation != loop.generation );
+    ENSURE( world->chainShapes.data[open.index1-1].segmentCount == 3 );
+    b2DestroyChain( loop );
+    ENSURE( b2Chain_IsValid( open ) );
+    b2DestroyBody( bodyId );
+    ENSURE( b2Chain_IsValid( open ) == false );
+    bodyId = b2CreateBody( worldId, &bd );
+    b2CreateChain( bodyId, &def );
+    b2CreateChain( bodyId, &def );
+    b2DestroyWorld( worldId );
+    ENSURE( b2GetByteCount() == before );
     return 0;
 }

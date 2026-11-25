@@ -38,6 +38,8 @@ struct b2World
 	b2DynamicArray<b2Body> bodies;
 	b2IdPool shapeIdPool;
 	b2DynamicArray<b2Shape> shapes;
+	b2IdPool chainIdPool;
+	b2DynamicArray<b2ChainShape> chainShapes;
 };
 
 extern b2World b2_worlds[B2_MAX_WORLDS];

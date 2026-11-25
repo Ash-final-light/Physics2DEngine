@@ -34,8 +34,10 @@ void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform )
         }
         break;
         case b2_segmentShape:
+        case b2_chainSegmentShape:
         {
-            b2AABB bounds = b2ComputeSegmentBounds( &shape->segment, transform );
+            const b2Segment* segment = shape->type == b2_segmentShape ? &shape->segment : &shape->chainSegment.segment;
+            b2AABB bounds = b2ComputeSegmentBounds( segment, transform );
             b2Vec2 margin = { B2_SPECULATIVE_DISTANCE, B2_SPECULATIVE_DISTANCE };
             shape->aabb = { b2Sub( bounds.lowerBound, margin ), b2Add( bounds.upperBound, margin ) };
         }
@@ -100,6 +102,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
         case b2_capsuleShape: shape->capsule = *(const b2Capsule*)geometry; break;
         case b2_polygonShape: shape->polygon = *(const b2Polygon*)geometry; break;
         case b2_segmentShape: shape->segment = *(const b2Segment*)geometry; break;
+        case b2_chainSegmentShape: shape->chainSegment = *(const b2ChainSegment*)geometry; break;
         default: B2_ASSERT( false ); break;
     }
     shape->density = def->density;
@@ -114,28 +117,20 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     }
     body->headShapeId = id;
     body->shapeCount += 1;
-    body->dirtyMass = true;
-    if ( def->updateBodyMass )
+    if ( type != b2_chainSegmentShape )
     {
-        b2UpdateBodyMassData( world, body );
+        body->dirtyMass = true;
+        if ( def->updateBodyMass )
+        {
+            b2UpdateBodyMassData( world, body );
+        }
     }
     b2UpdateShapeAABB( shape, body->transform );
     return b2ShapeId{ id + 1, world->worldId, generation };
 }
 
-void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
+static void b2DestroyShapeInternal( b2World* world, b2Shape* shape, b2Body* body )
 {
-    if ( b2Shape_IsValid( shapeId ) == false )
-    {
-        return;
-    }
-    b2World* world = b2_worlds + shapeId.world0;
-    if ( world->locked )
-    {
-        return;
-    }
-    b2Shape* shape = world->shapes.data + shapeId.index1 - 1;
-    b2Body* body = world->bodies.data + shape->bodyId;
     if ( shape->prevShapeId != B2_NULL_INDEX )
     {
         world->shapes.data[shape->prevShapeId].nextShapeId = shape->nextShapeId;
@@ -154,11 +149,32 @@ void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
     *shape = b2Shape{};
     shape->generation = generation;
     shape->id = B2_NULL_INDEX;
+}
+
+void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
+{
+    if ( b2Shape_IsValid( shapeId ) == false )
+    {
+        return;
+    }
+    b2World* world = b2_worlds + shapeId.world0;
+    if ( world->locked )
+    {
+        return;
+    }
+    b2Shape* shape = world->shapes.data + shapeId.index1 - 1;
+    if ( shape->type == b2_chainSegmentShape && shape->chainSegment.chainId != B2_NULL_INDEX )
+    {
+        return;
+    }
+    b2Body* body = world->bodies.data + shape->bodyId;
+    b2DestroyShapeInternal( world, shape, body );
     if ( updateBodyMass )
     {
         b2UpdateBodyMassData( world, body );
     }
 }
+
 
 
 b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle )
@@ -407,6 +423,14 @@ b2ShapeExtent b2ComputeShapeExtent( const b2Shape* shape, b2Vec2 localCenter )
 		}
 		break;
 
+        case b2_chainSegmentShape:
+        {
+            b2Vec2 c1 = b2Sub( shape->chainSegment.segment.point1, localCenter );
+            b2Vec2 c2 = b2Sub( shape->chainSegment.segment.point2, localCenter );
+            extent.minExtent = 0.0f;
+            extent.maxExtent = sqrtf( b2MaxFloat( b2LengthSquared( c1 ), b2LengthSquared( c2 ) ) );
+        }
+        break;
 		default:
 			break;
 	}
@@ -442,4 +466,130 @@ b2MassData b2Shape_ComputeMassData( b2ShapeId id )
     b2Shape* shape = b2GetShapeFromId( id );
     B2_ASSERT( shape != NULL );
     return b2ComputeShapeMass( shape );
+}
+
+
+bool b2Chain_IsValid( b2ChainId id )
+{
+    if ( id.world0 >= B2_MAX_WORLDS )
+    {
+        return false;
+    }
+    b2World* world = b2_worlds + id.world0;
+    if ( world->inUse == false || id.index1 < 1 || id.index1 > world->chainShapes.count )
+    {
+        return false;
+    }
+    const b2ChainShape* chain = world->chainShapes.data + id.index1 - 1;
+    return chain->id == id.index1 - 1 && chain->generation == id.generation;
+}
+
+b2ChainId b2CreateChain( b2BodyId bodyId, const b2ChainDef* def )
+{
+    B2_CHECK_DEF( def );
+    if ( b2Body_IsValid( bodyId ) == false || def->points == NULL ||
+         def->pointCount < (def->isLoop ? 3 : 2) || b2_worlds[bodyId.world0].locked )
+    {
+        return b2_nullChainId;
+    }
+    int n = def->isLoop ? def->pointCount : def->pointCount - 1;
+    if ( def->materials == NULL || (def->materialCount != 1 && def->materialCount != n) )
+    {
+        return b2_nullChainId;
+    }
+    for ( int i = 0; i < def->materialCount; ++i )
+    {
+        if ( b2IsValidMaterial( def->materials + i ) == false )
+        {
+            return b2_nullChainId;
+        }
+    }
+    if ( def->isLoop == false && (b2IsValidVec2( def->ghost1 ) == false || b2IsValidVec2( def->ghost2 ) == false) )
+    {
+        return b2_nullChainId;
+    }
+    for ( int i = 0; i < def->pointCount; ++i )
+    {
+        if ( b2IsValidVec2( def->points[i] ) == false )
+        {
+            return b2_nullChainId;
+        }
+    }
+    float tolerance = B2_LINEAR_SLOP * B2_LINEAR_SLOP;
+    for ( int i = 0; i < n; ++i )
+    {
+        if ( b2DistanceSquared( def->points[i], def->points[(i+1)%def->pointCount] ) <= tolerance )
+        {
+            return b2_nullChainId;
+        }
+    }
+    if ( def->isLoop == false &&
+         (b2DistanceSquared( def->ghost1, def->points[0] ) <= tolerance ||
+          b2DistanceSquared( def->ghost2, def->points[def->pointCount-1] ) <= tolerance) )
+    {
+        return b2_nullChainId;
+    }
+    b2World* world = b2_worlds + bodyId.world0;
+    b2Body* body = b2GetBodyFullId( world, bodyId );
+    int id = b2AllocId( &world->chainIdPool );
+    if ( id == world->chainShapes.count )
+    {
+        b2Array_Push( world->chainShapes, b2ChainShape{} );
+    }
+    b2ChainShape* chain = world->chainShapes.data + id;
+    uint16_t generation = (uint16_t)( chain->generation + 1 );
+    *chain = b2ChainShape{};
+    chain->id = id;
+    chain->generation = generation;
+    chain->bodyId = body->id;
+    chain->nextChainId = body->headChainId;
+    chain->segmentCount = n;
+    chain->shapeIndices = static_cast<int*>( b2Alloc( n * sizeof( int ) ) );
+    body->headChainId = id;
+    b2ShapeDef shapeDef = b2DefaultShapeDef();
+    shapeDef.userData = def->userData;
+    shapeDef.filter = def->filter;
+    shapeDef.updateBodyMass = false;
+    for ( int i = 0; i < n; ++i )
+    {
+        b2ChainSegment segment;
+        segment.ghost1 = i == 0 ? (def->isLoop ? def->points[n-1] : def->ghost1) : def->points[i-1];
+        segment.segment.point1 = def->points[i];
+        segment.segment.point2 = def->points[(i+1)%def->pointCount];
+        segment.ghost2 = def->isLoop ? def->points[(i+2)%n] : (i == n-1 ? def->ghost2 : def->points[i+2]);
+        segment.chainId = id;
+        shapeDef.material = def->materials[def->materialCount == 1 ? 0 : i];
+        b2ShapeId shape = b2CreateShape( bodyId, &shapeDef, &segment, b2_chainSegmentShape );
+        B2_ASSERT( shape.index1 != 0 );
+        chain->shapeIndices[i] = shape.index1 - 1;
+    }
+    return b2ChainId{ id+1, world->worldId, generation };
+}
+
+void b2DestroyChain( b2ChainId id )
+{
+    if ( b2Chain_IsValid( id ) == false || b2_worlds[id.world0].locked )
+    {
+        return;
+    }
+    b2World* world = b2_worlds + id.world0;
+    b2ChainShape* chain = world->chainShapes.data + id.index1 - 1;
+    b2Body* body = world->bodies.data + chain->bodyId;
+    int* link = &body->headChainId;
+    while ( *link != B2_NULL_INDEX && *link != chain->id )
+    {
+        link = &world->chainShapes.data[*link].nextChainId;
+    }
+    B2_ASSERT( *link == chain->id );
+    *link = chain->nextChainId;
+    for ( int i = 0; i < chain->segmentCount; ++i )
+    {
+        b2DestroyShapeInternal( world, world->shapes.data + chain->shapeIndices[i], body );
+    }
+    b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
+    b2FreeId( &world->chainIdPool, chain->id );
+    uint16_t generation = chain->generation;
+    *chain = b2ChainShape{};
+    chain->generation = generation;
+    chain->id = B2_NULL_INDEX;
 }

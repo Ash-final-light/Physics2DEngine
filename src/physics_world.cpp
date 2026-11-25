@@ -67,6 +67,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	b2Array_Create( world->bodies );
 	world->shapeIdPool = b2CreateIdPool();
 	b2Array_Create( world->shapes );
+	world->chainIdPool = b2CreateIdPool();
+	b2Array_Create( world->chainShapes );
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -85,6 +87,13 @@ void b2DestroyWorld( b2WorldId worldId )
 
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
+    for ( int i = 0; i < world->chainShapes.count; ++i )
+    {
+        b2ChainShape* chain = world->chainShapes.data + i;
+        b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
+    }
+    b2Array_Destroy( world->chainShapes );
+    b2DestroyIdPool( &world->chainIdPool );
 	b2Array_Destroy( world->shapes );
 	b2DestroyIdPool( &world->shapeIdPool );
 	b2DestroyIdPool( &world->bodyIdPool );

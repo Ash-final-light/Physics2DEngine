@@ -62,6 +62,7 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 	body->generation = generation;
 	body->id = bodyId;
 	body->headShapeId = B2_NULL_INDEX;
+	body->headChainId = B2_NULL_INDEX;
 	body->type = def->type;
 	body->transform.p = def->position;
 	body->transform.q = def->rotation;
@@ -105,6 +106,11 @@ void b2DestroyBody( b2BodyId bodyId )
 	}
 
 
+    while ( body->headChainId != B2_NULL_INDEX )
+    {
+        b2ChainShape* chain = world->chainShapes.data + body->headChainId;
+        b2DestroyChain( b2ChainId{ chain->id + 1, world->worldId, chain->generation } );
+    }
     while ( body->headShapeId != B2_NULL_INDEX )
     {
         b2Shape* shape = world->shapes.data + body->headShapeId;
