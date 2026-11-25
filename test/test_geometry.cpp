@@ -5,6 +5,7 @@
 #include "box2d/math_functions.h"
 #include "test_macros.h"
 
+#include <float.h>
 #include <math.h>
 
 int CircleSegmentTest( void )
@@ -151,5 +152,20 @@ int OffsetPolygonTest( void )
 	b2Polygon bad = b2MakeOffsetRoundedPolygon( &empty, center, quarter, 1.0f );
 	ENSURE( bad.count == 4 && bad.radius == 0.0f );
 	ENSURE( bad.vertices[0].x == -0.5f && bad.centroid.x == 0.0f );
+	return 0;
+}
+
+int CircleMassTest( void )
+{
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2MassData md = b2ComputeCircleMass( &circle, 1.0f );
+	ENSURE_SMALL( md.mass - B2_PI, FLT_EPSILON );
+	ENSURE( md.center.x == 1.0f && md.center.y == 0.0f );
+	ENSURE_SMALL( md.rotationalInertia - 0.5f * B2_PI, FLT_EPSILON );
+
+	b2MassData heavy = b2ComputeCircleMass( &circle, 2.0f );
+	ENSURE_SMALL( heavy.mass - 2.0f * B2_PI, FLT_EPSILON );
+	ENSURE_SMALL( heavy.rotationalInertia - B2_PI, FLT_EPSILON );
+	ENSURE( heavy.center.x == 1.0f && heavy.center.y == 0.0f );
 	return 0;
 }

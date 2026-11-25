@@ -19,6 +19,14 @@ typedef struct b2CastOutput
 	bool hit;
 } b2CastOutput;
 
+/// 形状的质量数据。
+typedef struct b2MassData
+{
+	float mass;
+	b2Vec2 center;
+	float rotationalInertia;
+} b2MassData;
+
 /// 实心圆。
 typedef struct b2Circle
 {
@@ -72,3 +80,4 @@ B2_API b2Polygon b2MakeSquare( float halfWidth );
 B2_API b2Polygon b2MakeRoundedBox( float halfWidth, float halfHeight, float radius );
 B2_API b2Polygon b2MakeOffsetBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation );
 B2_API b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation, float radius );
+B2_API b2MassData b2ComputeCircleMass( const b2Circle* shape, float density );

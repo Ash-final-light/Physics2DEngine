@@ -170,3 +170,14 @@ b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Vec2 cent
 	shape.radius = radius;
 	return shape;
 }
+
+b2MassData b2ComputeCircleMass( const b2Circle* shape, float density )
+{
+	float rr = shape->radius * shape->radius;
+
+	b2MassData massData;
+	massData.mass = density * B2_PI * rr;
+	massData.center = shape->center;
+	massData.rotationalInertia = massData.mass * 0.5f * rr;
+	return massData;
+}
