@@ -82,4 +82,18 @@ inline T* b2Array_Emplace( b2DynamicArray<T>& a )
 	return a.data + a.count++;
 }
 
+template <typename T>
+inline T* b2Array_Get( b2DynamicArray<T>& a, int index )
+{
+	B2_ASSERT( 0 <= index && index < a.count );
+	return a.data + index;
+}
+
+template <typename T>
+inline const T* b2Array_Get( const b2DynamicArray<T>& a, int index )
+{
+	B2_ASSERT( 0 <= index && index < a.count );
+	return a.data + index;
+}
+
 b2DeclareArrayNative( int );

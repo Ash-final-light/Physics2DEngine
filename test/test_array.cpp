@@ -90,3 +90,25 @@ int ArrayPushTest( void )
 	b2Array_Destroy( values );
 	return 0;
 }
+
+int ArrayIndexTest( void )
+{
+	b2Array( int ) values;
+	b2Array_Create( values );
+	b2Array_Push( values, 10 );
+	b2Array_Push( values, 20 );
+	b2Array_Push( values, 30 );
+	ENSURE( *b2Array_Get( values, 0 ) == 10 );
+	ENSURE( *b2Array_Get( values, 2 ) == 30 );
+	const b2Array( int )& readonly = values;
+	ENSURE( *b2Array_Get( readonly, 1 ) == 20 );
+
+	int sum = 0;
+	for ( int i = 0; i < values.count; ++i )
+	{
+		sum += values.data[i];
+	}
+	ENSURE( sum == 60 );
+	b2Array_Destroy( values );
+	return 0;
+}

@@ -23,6 +23,7 @@ int TrigTest( void );
 int ArrayCreateTest( void );
 int ArrayReserveTest( void );
 int ArrayPushTest( void );
+int ArrayIndexTest( void );
 
 int main( int argc, char** argv )
 {
@@ -135,6 +136,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ArrayPushTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ArrayIndexTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ArrayIndexTest );
 	}
 
 	if ( ran == 0 )
