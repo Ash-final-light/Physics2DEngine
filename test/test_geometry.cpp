@@ -371,3 +371,52 @@ int PointInCapsuleTest( void )
 	}
 	return 0;
 }
+
+int PointInPolygonTest( void )
+{
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2Vec2 inside = { 0.5f, 0.5f };
+	b2Vec2 outside = { 4.0f, -4.0f };
+	b2Vec2 edge = { 1.0f, 0.0f };
+	b2Vec2 corner = { 1.0f, 1.0f };
+	b2Vec2 justOut = { 1.001f, 0.0f };
+	ENSURE( b2PointInPolygon( &box, inside ) == true );
+	ENSURE( b2PointInPolygon( &box, outside ) == false );
+	ENSURE( b2PointInPolygon( &box, edge ) == true );
+	ENSURE( b2PointInPolygon( &box, corner ) == true );
+	ENSURE( b2PointInPolygon( &box, justOut ) == false );
+
+	b2Vec2 triangle[3] = { { 0.0f, 0.0f }, { 2.0f, 0.0f }, { 0.0f, 2.0f } };
+	b2Hull hull = b2ComputeHull( triangle, 3 );
+	b2Polygon poly = b2MakePolygon( &hull, 0.0f );
+	b2Vec2 triIn = { 0.5f, 0.5f };
+	b2Vec2 triEdge = { 1.0f, 0.0f };
+	b2Vec2 triOut = { 1.0f, -0.01f };
+	b2Vec2 triVertex = { 0.0f, 0.0f };
+	ENSURE( b2PointInPolygon( &poly, triIn ) == true );
+	ENSURE( b2PointInPolygon( &poly, triEdge ) == true );
+	ENSURE( b2PointInPolygon( &poly, triOut ) == false );
+	ENSURE( b2PointInPolygon( &poly, triVertex ) == true );
+
+	b2Vec2 center = { 2.0f, 3.0f };
+	b2Rot quarter = { 0.0f, 1.0f };
+	b2Polygon turned = b2MakeOffsetBox( 1.0f, 0.5f, center, quarter );
+	b2Vec2 turnedIn = b2TransformPoint( { center, quarter }, { 0.0f, 0.0f } );
+	b2Vec2 turnedEdge = b2TransformPoint( { center, quarter }, { 1.0f, 0.0f } );
+	b2Vec2 turnedOut = b2TransformPoint( { center, quarter }, { 1.1f, 0.0f } );
+	ENSURE( b2PointInPolygon( &turned, turnedIn ) == true );
+	ENSURE( b2PointInPolygon( &turned, turnedEdge ) == true );
+	ENSURE( b2PointInPolygon( &turned, turnedOut ) == false );
+	ENSURE( b2PointInPolygon( &turned, b2Vec2_zero ) == false );
+
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	b2Vec2 roundEdge = { 1.1f, 0.0f };
+	b2Vec2 roundCorner = { 1.2f, 1.2f };
+	ENSURE( b2PointInPolygon( &rounded, roundEdge ) == true );
+	ENSURE( b2PointInPolygon( &rounded, roundCorner ) == false );
+	ENSURE( b2PointInPolygon( &box, roundEdge ) == false );
+
+	b2Polygon wider = b2MakeRoundedBox( 1.0f, 1.0f, 0.3f );
+	ENSURE( b2PointInPolygon( &wider, roundCorner ) == true );
+	return 0;
+}

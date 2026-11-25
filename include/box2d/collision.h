@@ -89,3 +89,4 @@ B2_API b2AABB b2ComputePolygonBounds( const b2Polygon* shape, b2WorldTransform t
 B2_API b2AABB b2ComputeSegmentBounds( const b2Segment* shape, b2WorldTransform transform );
 B2_API bool b2PointInCircle( const b2Circle* shape, b2Vec2 point );
 B2_API bool b2PointInCapsule( const b2Capsule* shape, b2Vec2 point );
+B2_API bool b2PointInPolygon( const b2Polygon* shape, b2Vec2 point );

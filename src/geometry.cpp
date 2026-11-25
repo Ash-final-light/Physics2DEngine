@@ -400,3 +400,42 @@ bool b2PointInCapsule( const b2Capsule* shape, b2Vec2 point )
 	b2Vec2 c = b2MulAdd( p1, t, d );
 	return b2DistanceSquared( point, c ) <= rr;
 }
+
+bool b2PointInPolygon( const b2Polygon* shape, b2Vec2 point )
+{
+	B2_ASSERT( shape->count >= 3 );
+
+	bool inside = true;
+	float minDistanceSquared = FLT_MAX;
+	for ( int i = 0; i < shape->count; ++i )
+	{
+		int i2 = i + 1 < shape->count ? i + 1 : 0;
+		b2Vec2 v1 = shape->vertices[i];
+		b2Vec2 v2 = shape->vertices[i2];
+		if ( b2Dot( b2Sub( point, v1 ), shape->normals[i] ) > 0.0f )
+		{
+			inside = false;
+		}
+
+		b2Vec2 edge = b2Sub( v2, v1 );
+		float lengthSquared = b2Dot( edge, edge );
+		float t = 0.0f;
+		if ( lengthSquared > 0.0f )
+		{
+			t = b2ClampFloat( b2Dot( b2Sub( point, v1 ), edge ) / lengthSquared, 0.0f, 1.0f );
+		}
+		b2Vec2 closest = b2MulAdd( v1, t, edge );
+		float distanceSquared = b2DistanceSquared( point, closest );
+		if ( distanceSquared < minDistanceSquared )
+		{
+			minDistanceSquared = distanceSquared;
+		}
+	}
+
+	if ( inside )
+	{
+		return true;
+	}
+
+	return minDistanceSquared <= shape->radius * shape->radius;
+}
