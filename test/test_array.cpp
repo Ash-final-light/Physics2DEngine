@@ -151,3 +151,41 @@ int ArrayRemoveSwapTest( void )
 	b2Array_Destroy( values );
 	return 0;
 }
+
+int ArrayResizeTest( void )
+{
+	b2Array( int ) values;
+	b2Array_Create( values );
+	for ( int i = 0; i < 10; ++i )
+	{
+		b2Array_Push( values, i * 10 );
+	}
+
+	int capacity = values.capacity;
+	b2Array_Resize( values, 5 );
+	ENSURE( values.count == 5 && values.capacity == capacity );
+	for ( int i = 0; i < 5; ++i )
+	{
+		ENSURE( values.data[i] == i * 10 );
+	}
+
+	b2Array_Resize( values, 12 );
+	ENSURE( values.count == 12 && values.capacity >= 12 );
+	for ( int i = 0; i < 5; ++i )
+	{
+		ENSURE( values.data[i] == i * 10 );
+	}
+
+	b2Array_ResizeAndSetZero( values, 8 );
+	ENSURE( values.count == 8 && values.capacity >= 8 );
+	for ( int i = 0; i < 8; ++i )
+	{
+		ENSURE( values.data[i] == 0 );
+	}
+
+	b2Array_Push( values, 7 );
+	b2Array_Clear( values );
+	ENSURE( values.count == 0 && values.capacity >= 8 && values.data != nullptr );
+	b2Array_Destroy( values );
+	return 0;
+}

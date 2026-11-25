@@ -117,4 +117,28 @@ inline int b2Array_RemoveSwap( b2DynamicArray<T>& a, int index )
 	return B2_NULL_INDEX;
 }
 
+template <typename T>
+inline void b2Array_Resize( b2DynamicArray<T>& a, int n )
+{
+	b2Array_Reserve( a, n );
+	a.count = n;
+}
+
+template <typename T>
+inline void b2Array_ResizeAndSetZero( b2DynamicArray<T>& a, int n )
+{
+	b2Array_Reserve( a, n );
+	if ( n > 0 )
+	{
+		std::memset( a.data, 0, n * sizeof( T ) );
+	}
+	a.count = n;
+}
+
+template <typename T>
+inline void b2Array_Clear( b2DynamicArray<T>& a )
+{
+	a.count = 0;
+}
+
 b2DeclareArrayNative( int );
