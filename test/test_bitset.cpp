@@ -39,3 +39,32 @@ int BitSetTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int BitSetGrowTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2BitSet left = b2CreateBitSet( 128 );
+	b2BitSet right = b2CreateBitSet( 128 );
+	b2SetBitCountAndClear( &left, 128 );
+	b2SetBitCountAndClear( &right, 128 );
+	b2SetBit( &left, 1 );
+	b2SetBit( &left, 70 );
+	b2SetBit( &right, 2 );
+	b2SetBit( &right, 70 );
+
+	b2InPlaceUnion( &left, &right );
+	ENSURE( b2GetBit( &left, 1 ) && b2GetBit( &left, 2 ) && b2GetBit( &left, 70 ) );
+	ENSURE( b2GetBit( &left, 3 ) == false );
+	ENSURE( b2GetBit( &right, 1 ) == false && b2GetBit( &right, 2 ) );
+
+	uint32_t oldCapacity = left.blockCapacity;
+	b2SetBitGrow( &left, 200 );
+	ENSURE( left.blockCount >= 4 && left.blockCapacity > oldCapacity );
+	ENSURE( b2GetBit( &left, 1 ) && b2GetBit( &left, 2 ) && b2GetBit( &left, 70 ) && b2GetBit( &left, 200 ) );
+	ENSURE( b2GetByteCount() == before + ( left.blockCapacity + right.blockCapacity ) * sizeof( uint64_t ) );
+
+	b2DestroyBitSet( &left );
+	b2DestroyBitSet( &right );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

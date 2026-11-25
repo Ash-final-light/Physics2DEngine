@@ -30,6 +30,7 @@ int ArrayResizeTest( void );
 int ArrayConstraintTest( void );
 int SwapValuesTest( void );
 int BitSetTest( void );
+int BitSetGrowTest( void );
 
 int main( int argc, char** argv )
 {
@@ -184,6 +185,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BitSetTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BitSetGrowTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BitSetGrowTest );
 	}
 
 	if ( ran == 0 )
