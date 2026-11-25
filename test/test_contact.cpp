@@ -88,3 +88,37 @@ int ContactManifoldUpdateTest( void )
     ENSURE(sim->manifold.pointCount==1);
     b2DestroyWorld(worldId);return 0;
 }
+
+
+int ContactPersistenceTest( void )
+{
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId worldId=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+worldId.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId a=b2CreateBody(worldId,&bd);
+    bd.type=b2_staticBody;bd.position={1.5f,0.0f};
+    b2BodyId b=b2CreateBody(worldId,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0.0f,0.0f},1.0f};
+    b2CreateCircleShape(a,&sd,&circle);b2CreateCircleShape(b,&sd,&circle);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    b2ContactSim* sim=b2GetContactSim(world,world->contacts.data);
+    ENSURE(sim->manifold.pointCount==1 && sim->manifold.points[0].persisted==false);
+    uint16_t id=sim->manifold.points[0].id;
+    sim->manifold.points[0].normalImpulse=3.0f;
+    sim->manifold.points[0].tangentImpulse=0.5f;
+    sim->manifold.points[0].totalNormalImpulse=9.0f;
+    sim->manifold.points[0].normalVelocity=-10.0f;
+    sim->manifold.rollingImpulse=0.25f;
+    b2UpdateContacts(world);
+    ENSURE(sim->manifold.points[0].persisted && sim->manifold.points[0].id==id);
+    ENSURE(sim->manifold.points[0].normalImpulse==3.0f && sim->manifold.points[0].tangentImpulse==0.5f);
+    ENSURE(sim->manifold.rollingImpulse==0.25f);
+    ENSURE(sim->manifold.points[0].totalNormalImpulse==0.0f && sim->manifold.points[0].normalVelocity==0.0f);
+    b2Body_SetTransform(b,{2.03f,0.0f},b2Rot_identity);b2UpdateContacts(world);
+    ENSURE(sim->manifold.pointCount==0);
+    b2Body_SetTransform(b,{1.5f,0.0f},b2Rot_identity);b2UpdateContacts(world);
+    ENSURE(sim->manifold.pointCount==1 && sim->manifold.points[0].persisted==false);
+    ENSURE(sim->manifold.points[0].normalImpulse==0.0f && sim->manifold.rollingImpulse==0.0f);
+    b2DestroyWorld(worldId);return 0;
+}

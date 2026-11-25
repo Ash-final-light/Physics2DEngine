@@ -266,6 +266,7 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
                       b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB )
 {
     (void)world;
+    b2Manifold old = sim->manifold;
     b2Transform relative = b2InvMulTransforms(transformA,transformB);
     b2ManifoldFcn* function = b2_contactRegistry[a->type][b->type].fcn;
     b2LocalManifold local = function(a,b,relative,&sim->cache);
@@ -280,6 +281,24 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
         point->anchorB = b2Sub(b2Add(b2RotateVector(transformA.q,local.points[i].point),originDelta),centerOffsetB);
         point->separation = local.points[i].separation;
         point->id = local.points[i].id;
+    }
+    if ( local.pointCount > 0 )
+    {
+        sim->manifold.rollingImpulse = old.rollingImpulse;
+        for ( int i = 0; i < local.pointCount; ++i )
+        {
+            b2ManifoldPoint* point = sim->manifold.points+i;
+            for ( int j = 0; j < old.pointCount; ++j )
+            {
+                if ( old.points[j].id == point->id )
+                {
+                    point->normalImpulse = old.points[j].normalImpulse;
+                    point->tangentImpulse = old.points[j].tangentImpulse;
+                    point->persisted = true;
+                    break;
+                }
+            }
+        }
     }
     bool touching = local.pointCount > 0;
     if ( touching ) { sim->simFlags |= b2_simTouchingFlag; }
