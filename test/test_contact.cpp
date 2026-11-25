@@ -122,3 +122,38 @@ int ContactPersistenceTest( void )
     ENSURE(sim->manifold.points[0].normalImpulse==0.0f && sim->manifold.rollingImpulse==0.0f);
     b2DestroyWorld(worldId);return 0;
 }
+
+
+int ContactDataQueryTest( void )
+{
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId worldId=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+worldId.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId body=b2CreateBody(worldId,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0.0f,2.0f},1.0f};
+    b2ShapeId upper=b2CreateCircleShape(body,&sd,&circle);
+    circle.center.y=-2.0f;b2CreateCircleShape(body,&sd,&circle);
+    bd.type=b2_staticBody;bd.position={1.5f,2.0f};
+    b2BodyId other=b2CreateBody(worldId,&bd);
+    circle.center=b2Vec2_zero;b2CreateCircleShape(other,&sd,&circle);
+    bd.position.y=-2.0f;b2CreateCircleShape(b2CreateBody(worldId,&bd),&sd,&circle);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    ENSURE(b2Body_GetContactCapacity(body)==2);
+    b2ContactData data[3]={};data[2].contactId.index1=12345;
+    ENSURE(b2Body_GetContactData(body,data,1)==1 && data[1].contactId.index1==0);
+    ENSURE(b2Body_GetContactData(body,data,3)==2 && data[2].contactId.index1==12345);
+    ENSURE(b2Contact_IsValid(data[0].contactId));
+    b2ContactData single=b2Contact_GetData(data[0].contactId);
+    ENSURE(single.shapeIdA.index1==data[0].shapeIdA.index1 && single.manifold.pointCount==1);
+    ENSURE(b2Shape_GetContactCapacity(upper)==2);
+    ENSURE(b2Shape_GetContactData(upper,data,3)==1);
+    ENSURE(data[0].shapeIdA.index1==upper.index1 || data[0].shapeIdB.index1==upper.index1);
+    ENSURE(b2Body_GetContactData(body,NULL,0)==0);
+    b2Body_SetTransform(other,{2.03f,2.0f},b2Rot_identity);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    ENSURE(b2Body_GetContactCapacity(body)==2);
+    ENSURE(b2Body_GetContactData(body,data,3)==1);
+    ENSURE(b2Shape_GetContactData(upper,data,3)==0);
+    b2DestroyWorld(worldId);return 0;
+}

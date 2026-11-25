@@ -325,3 +325,17 @@ void b2UpdateContacts( b2World* world )
         else { contact->flags &= ~b2_contactTouchingFlag; }
     }
 }
+
+
+b2ContactData b2Contact_GetData( b2ContactId id )
+{
+    B2_ASSERT(b2Contact_IsValid(id));
+    b2World* world=b2_worlds+id.world0;
+    b2Contact* contact=world->contacts.data+id.index1-1;
+    const b2Shape* a=world->shapes.data+contact->shapeIdA;
+    const b2Shape* b=world->shapes.data+contact->shapeIdB;
+    return b2ContactData{ id,
+        b2ShapeId{a->id+1,id.world0,a->generation},
+        b2ShapeId{b->id+1,id.world0,b->generation},
+        b2GetContactSim(world,contact)->manifold };
+}

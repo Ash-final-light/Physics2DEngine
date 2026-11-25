@@ -270,3 +270,18 @@ B2_API b2BodyType b2Body_GetType( b2BodyId bodyId );
 B2_API void b2Body_SetType( b2BodyId bodyId, b2BodyType type );
 
 B2_API bool b2Contact_IsValid( b2ContactId contactId );
+
+
+typedef struct b2ContactData
+{
+    b2ContactId contactId;
+    b2ShapeId shapeIdA;
+    b2ShapeId shapeIdB;
+    b2Manifold manifold;
+} b2ContactData;
+
+B2_API b2ContactData b2Contact_GetData( b2ContactId contactId );
+B2_API int b2Body_GetContactCapacity( b2BodyId bodyId );
+B2_API int b2Body_GetContactData( b2BodyId bodyId, b2ContactData* contactData, int capacity );
+B2_API int b2Shape_GetContactCapacity( b2ShapeId shapeId );
+B2_API int b2Shape_GetContactData( b2ShapeId shapeId, b2ContactData* contactData, int capacity );

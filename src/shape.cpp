@@ -835,3 +835,36 @@ void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
         b2CreateShapeProxy( world, shape, body->type, body->transform, true );
     }
 }
+
+
+int b2Shape_GetContactCapacity( b2ShapeId id )
+{
+    b2Shape* shape=b2GetShapeFromId(id);
+    if(shape==NULL || b2_worlds[id.world0].locked)
+    {
+        return 0;
+    }
+    return b2_worlds[id.world0].bodies.data[shape->bodyId].contactCount;
+}
+
+int b2Shape_GetContactData( b2ShapeId id, b2ContactData* output, int capacity )
+{
+    b2Shape* shape=b2GetShapeFromId(id);
+    if(shape==NULL || output==NULL || capacity<=0 || b2_worlds[id.world0].locked)
+    {
+        return 0;
+    }
+    b2World* world=b2_worlds+id.world0;
+    int key=world->bodies.data[shape->bodyId].headContactKey;
+    int count=0;
+    while(key!=B2_NULL_INDEX && count<capacity)
+    {
+        b2Contact* contact=world->contacts.data+(key>>1);
+        if((contact->flags&b2_contactTouchingFlag)!=0 && (contact->shapeIdA==shape->id || contact->shapeIdB==shape->id))
+        {
+            output[count++]=b2Contact_GetData(b2ContactId{contact->contactId+1,id.world0,0,contact->generation});
+        }
+        key=contact->edges[key&1].nextKey;
+    }
+    return count;
+}

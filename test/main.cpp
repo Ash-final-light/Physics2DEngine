@@ -96,6 +96,7 @@ int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int FreeBodyStepTest( void );
 int ContactLifecycleTest( void );
+int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
 int ContactManifoldUpdateTest( void );
 int BodyTypeChangeTest( void );
@@ -864,6 +865,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ContactPersistenceTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ContactDataQueryTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ContactDataQueryTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

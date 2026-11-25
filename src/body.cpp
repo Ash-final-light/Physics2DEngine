@@ -812,3 +812,35 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
         }
     }
 }
+
+
+int b2Body_GetContactCapacity( b2BodyId id )
+{
+    if(b2Body_IsValid(id)==false || b2_worlds[id.world0].locked)
+    {
+        return 0;
+    }
+    return b2GetBodyFullId(b2_worlds+id.world0,id)->contactCount;
+}
+
+int b2Body_GetContactData( b2BodyId id, b2ContactData* output, int capacity )
+{
+    if(b2Body_IsValid(id)==false || output==NULL || capacity<=0 || b2_worlds[id.world0].locked)
+    {
+        return 0;
+    }
+    b2World* world=b2_worlds+id.world0;
+    b2Body* body=b2GetBodyFullId(world,id);
+    int count=0;
+    int key=body->headContactKey;
+    while(key!=B2_NULL_INDEX && count<capacity)
+    {
+        b2Contact* contact=world->contacts.data+(key>>1);
+        if((contact->flags&b2_contactTouchingFlag)!=0)
+        {
+            output[count++]=b2Contact_GetData(b2ContactId{contact->contactId+1,id.world0,0,contact->generation});
+        }
+        key=contact->edges[key&1].nextKey;
+    }
+    return count;
+}
