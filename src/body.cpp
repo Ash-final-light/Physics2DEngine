@@ -312,7 +312,9 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	b2Body* body = b2GetBodyFullId( world, bodyId );
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p = position;
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.q = rotation;
+    b2GetBodySim(world,body)->rotation0=rotation;
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+bodyId.world0,body)->transform, b2GetBodySim(b2_worlds+bodyId.world0,body)->localCenter );
+    b2GetBodySim(b2_worlds+bodyId.world0,body)->center0 = b2GetBodySim(b2_worlds+bodyId.world0,body)->center;
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
         b2MoveShapeProxy( world, world->shapes.data + id, b2GetBodySim(b2_worlds+bodyId.world0,body)->transform );
@@ -357,6 +359,7 @@ void b2UpdateBodyMassData( b2World* world, b2Body* body )
     if ( body->type != b2_dynamicBody )
     {
         b2GetBodySim(world,body)->center = b2GetBodySim(world,body)->transform.p;
+    b2GetBodySim(world,body)->center0 = b2GetBodySim(world,body)->center;
         if ( body->type == b2_kinematicBody )
         {
             for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
@@ -411,6 +414,7 @@ void b2UpdateBodyMassData( b2World* world, b2Body* body )
     b2Pos oldCenter = b2GetBodySim(world,body)->center;
     b2GetBodySim(world,body)->localCenter = localCenter;
     b2GetBodySim(world,body)->center = b2TransformPoint( b2GetBodySim(world,body)->transform, localCenter );
+    b2GetBodySim(world,body)->center0 = b2GetBodySim(world,body)->center;
     if ( (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
         b2Vec2 delta = b2CrossSV( b2GetBodyState(world,body)->angularVelocity, b2Sub( b2GetBodySim(world,body)->center, oldCenter ) );
@@ -476,6 +480,7 @@ void b2Body_SetMassData( b2BodyId id, b2MassData data )
     b2GetBodySim(b2_worlds+id.world0,body)->localCenter = data.center;
     b2Pos oldCenter = b2GetBodySim(b2_worlds+id.world0,body)->center;
     b2GetBodySim(b2_worlds+id.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+id.world0,body)->transform, data.center );
+    b2GetBodySim(b2_worlds+id.world0,body)->center0 = b2GetBodySim(b2_worlds+id.world0,body)->center;
     if ( body->type != b2_staticBody && (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
         b2Vec2 delta = b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2Sub( b2GetBodySim(b2_worlds+id.world0,body)->center, oldCenter ) );

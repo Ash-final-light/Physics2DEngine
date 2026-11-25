@@ -213,3 +213,14 @@ int b2EncodeBodySimIndex( const b2Body* body );
 bool b2WakeBody( b2World* world, b2Body* body );
 void b2UpdateBodyMassData( b2World* world, b2Body* body );
 void b2SyncBodyFlags( b2World* world, b2Body* body );
+
+static inline b2Sweep b2MakeRelativeSweep( const b2BodySim* bodySim, b2Pos base )
+{
+	b2Sweep s;
+	s.c1 = b2Sub( bodySim->center0, base );
+	s.c2 = b2Sub( bodySim->center, base );
+	s.q1 = bodySim->rotation0;
+	s.q2 = bodySim->transform.q;
+	s.localCenter = bodySim->localCenter;
+	return s;
+}

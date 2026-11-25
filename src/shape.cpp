@@ -912,3 +912,70 @@ uint64_t b2Shape_GetUserMaterial(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.userMaterialId:0;
 }
+
+b2AABB b2ComputeShapeAABB( const b2Shape* shape, b2WorldTransform xf )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			return b2ComputeCapsuleBounds( &shape->capsule, xf );
+		case b2_circleShape:
+			return b2ComputeCircleBounds( &shape->circle, xf );
+		case b2_polygonShape:
+			return b2ComputePolygonBounds( &shape->polygon, xf );
+		case b2_segmentShape:
+			return b2ComputeSegmentBounds( &shape->segment, xf );
+		case b2_chainSegmentShape:
+			return b2ComputeSegmentBounds( &shape->chainSegment.segment, xf );
+		default:
+		{
+			B2_ASSERT( false );
+			b2AABB empty = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+			return empty;
+		}
+	}
+}
+
+b2Vec2 b2GetShapeCentroid( const b2Shape* shape )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			return b2Lerp( shape->capsule.center1, shape->capsule.center2, 0.5f );
+		case b2_circleShape:
+			return shape->circle.center;
+		case b2_polygonShape:
+			return shape->polygon.centroid;
+		case b2_segmentShape:
+			return b2Lerp( shape->segment.point1, shape->segment.point2, 0.5f );
+		case b2_chainSegmentShape:
+			return b2Lerp( shape->chainSegment.segment.point1, shape->chainSegment.segment.point2,
+						   0.5f );
+		default:
+			return b2Vec2_zero;
+	}
+}
+
+b2ShapeProxy b2MakeShapeDistanceProxy( const b2Shape* shape )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			return b2MakeProxy( &shape->capsule.center1, 2, shape->capsule.radius );
+		case b2_circleShape:
+			return b2MakeProxy( &shape->circle.center, 1, shape->circle.radius );
+		case b2_polygonShape:
+			return b2MakeProxy( shape->polygon.vertices, shape->polygon.count,
+								shape->polygon.radius );
+		case b2_segmentShape:
+			return b2MakeProxy( &shape->segment.point1, 2, 0.0f );
+		case b2_chainSegmentShape:
+			return b2MakeProxy( &shape->chainSegment.segment.point1, 2, 0.0f );
+		default:
+		{
+			B2_ASSERT( false );
+			b2ShapeProxy empty = {};
+			return empty;
+		}
+	}
+}

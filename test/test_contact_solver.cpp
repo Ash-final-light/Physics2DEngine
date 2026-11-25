@@ -576,3 +576,54 @@ int SpeculativeContactTest(void)
     }
     return 0;
 }
+
+int ContinuousCollisionTest(void)
+{
+    size_t before=b2GetByteCount();
+    for(int run=0;run<5;++run)
+    {
+        b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.enableContinuous=run!=3;
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();
+        if(run==1) { b2Capsule capsule={{0,-0.3f},{0,0.3f},0.1f};b2CreateCapsuleShape(body,&sd,&capsule); }
+        else if(run==2) { b2Polygon box=b2MakeBox(0.1f,0.3f);b2CreatePolygonShape(body,&sd,&box); }
+        else { b2Circle circle={{0,0},0.1f};b2CreateCircleShape(body,&sd,&circle); }
+        bd.type=b2_staticBody;bd.position={0,0};bd.linearVelocity={0,0};b2BodyId obstacle=b2CreateBody(id,&bd);
+        if(run==4) { sd.filter.maskBits=0; }
+        b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(obstacle,&sd,&wall);
+        b2World_Step(id,0.05f,1);
+        if(run<3)
+        {
+            ENSURE(b2Body_GetPosition(body).x<0 && b2Body_GetPosition(body).x>-0.2f);
+            b2Body* cold=world->bodies.data+body.index1-1;ENSURE((b2GetBodySim(world,cold)->flags&b2_hadTimeOfImpact)!=0);
+            for(int i=0;i<30;++i) { b2World_Step(id,1.0f/60.0f,4); }
+            ENSURE(b2Body_GetPosition(body).x<0);
+        }
+        else { ENSURE_SMALL(b2Body_GetPosition(body).x-3,0.00001f); }
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    // Teleporting updates the sweep origin and must not sweep through an intervening wall.
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={1,0};
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},0.1f};b2CreateCircleShape(body,&sd,&circle);
+    bd.type=b2_staticBody;bd.position={0,0};b2BodyId obstacle=b2CreateBody(id,&bd);b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(obstacle,&sd,&wall);
+    b2Body_SetTransform(body,{2,0},b2Rot_identity);b2World_Step(id,0.2f,1);
+    ENSURE_SMALL(b2Body_GetPosition(body).x-2.2f,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // One-sided chain edges retain the reference orientation test during a fast sweep.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_staticBody;obstacle=b2CreateBody(id,&bd);
+    b2Vec2 vertices[4]={{0,-10},{10,-10},{10,10},{0,10}};
+    b2SurfaceMaterial material=b2DefaultSurfaceMaterial();b2ChainDef chain=b2DefaultChainDef();
+    chain.points=vertices;chain.pointCount=4;chain.isLoop=true;chain.materials=&material;chain.materialCount=1;
+    b2CreateChain(obstacle,&chain);bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};
+    body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&circle);b2World_Step(id,0.05f,1);
+    ENSURE(b2Body_GetPosition(body).x<0 && b2Body_GetPosition(body).x>-0.15f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Recentered TOI also works away from the world origin.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={998,0};bd.linearVelocity={100,0};
+    body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&circle);
+    bd.type=b2_staticBody;bd.position={1000,0};obstacle=b2CreateBody(id,&bd);b2CreatePolygonShape(obstacle,&sd,&wall);
+    b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(body).x<1000 && b2Body_GetPosition(body).x>999.8f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

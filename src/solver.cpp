@@ -7,6 +7,115 @@
 #include "shape.h"
 #include "box2d/math_functions.h"
 
+
+// Continuous collision uses a local frame centered on the fast body's previous center.
+struct b2ContinuousContext
+{
+    b2World* world;
+    b2BodySim* fastBodySim;
+    b2Shape* fastShape;
+    b2Vec2 centroid1,centroid2;
+    b2Sweep sweep;
+    b2Pos base;
+    float fraction;
+};
+#define B2_CORE_FRACTION 0.25f
+
+static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* context)
+{
+    (void)proxyId;
+    b2ContinuousContext* continuousContext=static_cast<b2ContinuousContext*>(context);
+    b2World* world=continuousContext->world;
+    b2Shape* fastShape=continuousContext->fastShape;
+    b2BodySim* fastBodySim=continuousContext->fastBodySim;
+    b2Shape* shape=world->shapes.data+(int)userData;
+    if(shape->id==fastShape->id || shape->bodyId==fastBodySim->bodyId || !b2ShouldShapesCollide(fastShape->filter,shape->filter)) { return true; }
+    b2Body* body=world->bodies.data+shape->bodyId;
+    B2_ASSERT(body->type==b2_staticBody);
+    b2BodySim* bodySim=b2GetBodySim(world,body);
+	// 沿链条形状快速平行运动时提前退出。
+	if ( shape->type == b2_chainSegmentShape )
+	{
+		b2Transform transform = b2Transform{b2Sub(bodySim->transform.p,continuousContext->base),bodySim->transform.q};
+		b2Vec2 p1 = b2TransformPoint( transform, shape->chainSegment.segment.point1 );
+		b2Vec2 p2 = b2TransformPoint( transform, shape->chainSegment.segment.point2 );
+		b2Vec2 e = b2Sub( p2, p1 );
+		float length;
+		e = b2GetLengthAndNormalize( &length, e );
+		if ( length > B2_LINEAR_SLOP )
+		{
+			b2Vec2 c1 = continuousContext->centroid1;
+			float separation1 = b2Cross( b2Sub( c1, p1 ), e );
+			b2Vec2 c2 = continuousContext->centroid2;
+			float separation2 = b2Cross( b2Sub( c2, p1 ), e );
+
+			float coreDistance = B2_CORE_FRACTION * fastBodySim->minExtent;
+
+			if ( separation1 < 0.0f || ( separation1 - separation2 < coreDistance && separation2 > coreDistance ) )
+			{
+				// 最小裁剪
+				return true;
+			}
+		}
+	}
+
+    b2TOIInput input;
+    input.proxyA=b2MakeShapeDistanceProxy(shape);input.proxyB=b2MakeShapeDistanceProxy(fastShape);
+    input.sweepA=b2MakeRelativeSweep(bodySim,continuousContext->base);input.sweepB=continuousContext->sweep;
+    input.maxFraction=continuousContext->fraction;
+    b2TOIOutput output=b2ComputeTimeOfImpact(&input);
+    float hitFraction=continuousContext->fraction;bool didHit=false;
+    if(0.0f<output.fraction && output.fraction<continuousContext->fraction)
+    { hitFraction=output.fraction;didHit=true; }
+    else if(output.fraction==0.0f)
+    {
+        // The reference fallback uses a small core circle at the fast shape's centroid.
+        b2Vec2 centroid=b2GetShapeCentroid(fastShape);b2ShapeExtent extent=b2ComputeShapeExtent(fastShape,centroid);
+        input.proxyB=b2MakeProxy(&centroid,1,B2_CORE_FRACTION*extent.minExtent);
+        output=b2ComputeTimeOfImpact(&input);
+        if(0.0f<output.fraction && output.fraction<continuousContext->fraction)
+        { hitFraction=output.fraction;didHit=true; }
+    }
+    if(didHit) { continuousContext->fraction=hitFraction; }
+    return true;
+}
+
+static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
+{
+    b2SolverSet* awake=world->solverSets.data+b2_awakeSet;
+    b2BodySim* fastBodySim=awake->bodySims.data+bodySimIndex;
+    b2Pos base=fastBodySim->center0;b2Sweep sweep=b2MakeRelativeSweep(fastBodySim,base);
+    b2Transform xf1={b2Sub(sweep.c1,b2RotateVector(sweep.q1,sweep.localCenter)),sweep.q1};
+    b2Transform xf2={b2Sub(sweep.c2,b2RotateVector(sweep.q2,sweep.localCenter)),sweep.q2};
+    b2Body* fastBody=world->bodies.data+fastBodySim->bodyId;
+    b2ContinuousContext context={};context.world=world;context.sweep=sweep;context.base=base;
+    context.fastBodySim=fastBodySim;context.fraction=1.0f;
+    for(int shapeId=fastBody->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+    {
+        b2Shape* shape=world->shapes.data+shapeId;context.fastShape=shape;
+        b2Vec2 centroid=b2GetShapeCentroid(shape);
+        context.centroid1=b2TransformPoint(xf1,centroid);context.centroid2=b2TransformPoint(xf2,centroid);
+        b2AABB box1=shape->aabb,box2=b2ComputeShapeAABB(shape,xf2);
+        box2.lowerBound=b2Add(box2.lowerBound,base);box2.upperBound=b2Add(box2.upperBound,base);
+        shape->aabb=box2;
+        b2AABB sweptBox=b2AABB_Union(box1,box2);
+        b2DynamicTree_OverlapAABB(world->broadPhase.trees+b2_staticBody,sweptBox,UINT64_MAX,b2ContinuousQueryCallback,&context);
+    }
+    if(context.fraction<1.0f)
+    {
+        b2Rot q=b2NLerp(sweep.q1,sweep.q2,context.fraction);b2Vec2 c=b2Lerp(sweep.c1,sweep.c2,context.fraction);
+        fastBodySim->transform.q=q;fastBodySim->transform.p=b2Add(base,b2Sub(c,b2RotateVector(q,sweep.localCenter)));
+        fastBodySim->center=b2Add(base,c);fastBodySim->flags|=b2_hadTimeOfImpact;
+        b2BodyState* state=awake->bodyStates.data+bodySimIndex;
+        float timeLoss=(1.0f-context.fraction)*dt;
+        b2Vec2 dv=b2MulSV(-timeLoss*fastBodySim->gravityScale,world->gravity);
+        dv.x=(state->flags&b2_lockLinearX)?0.0f:dv.x;dv.y=(state->flags&b2_lockLinearY)?0.0f:dv.y;
+        state->linearVelocity=b2Add(state->linearVelocity,dv);
+    }
+    fastBodySim->center0=fastBodySim->center;fastBodySim->rotation0=fastBodySim->transform.q;
+    // The existing proxy synchronization below recomputes bounds at the clipped transform.
+}
+
 static void b2IntegrateBodyVelocity( b2World* world, b2BodySim* sim, b2BodyState* state, float h )
 {
     float gravityScale=sim->invMass>0.0f?sim->gravityScale:0.0f;
@@ -58,7 +167,11 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         b2Body* body=world->bodies.data+sim->bodyId;
         if(!world->enableSleep || (body->flags&b2_enableSleep)==0 || sleepVelocity>body->sleepThreshold) { body->sleepTime=0; }
         else { body->sleepTime+=timeStep; }
-        sim->center0=sim->center;sim->rotation0=sim->transform.q;
+        sim->flags&=~(b2_isFast|b2_hadTimeOfImpact);
+        float maxMotion=b2MaxFloat(maxDeltaPosition,maxVelocity*timeStep);
+        if(body->type==b2_dynamicBody && world->enableContinuous && maxMotion>body->safetyFactor*sim->minExtent)
+        { sim->flags|=b2_isFast;b2SolveContinuous(world,i,timeStep); }
+        else { sim->center0=sim->center;sim->rotation0=sim->transform.q; }
         state->deltaPosition=b2Vec2_zero;state->deltaRotation=b2Rot_identity;
         sim->force=b2Vec2_zero;sim->torque=0.0f;
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)

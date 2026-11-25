@@ -84,3 +84,7 @@ static inline float b2GetShapeRadius( const b2Shape* shape )
 			return 0.0f;
 	}
 }
+
+b2AABB b2ComputeShapeAABB(const b2Shape* shape,b2WorldTransform xf);
+b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
+b2ShapeProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
