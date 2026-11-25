@@ -284,3 +284,45 @@ int SegmentPolygonManifoldTest( void )
 	ENSURE( b2CollideSegmentAndPolygon( &segment, &box, apart ).pointCount == 0 );
 	return 0;
 }
+
+int ChainCircleManifoldTest( void )
+{
+	b2ChainSegment chain = {};
+	chain.ghost1 = { -2.0f, 0.0f };
+	chain.segment.point1 = { 0.0f, 0.0f };
+	chain.segment.point2 = { 2.0f, 0.0f };
+	chain.ghost2 = { 4.0f, 0.0f };
+	b2Circle circle = { { 0.0f, 0.0f }, 0.5f };
+
+	b2Transform front = { { 1.0f, -0.4f }, b2Rot_identity };
+	b2LocalManifold hit = b2CollideChainSegmentAndCircle( &chain, &circle, front );
+	ENSURE( hit.pointCount == 1 );
+	ENSURE( hit.normal.y < -0.9f );
+	ENSURE( hit.points[0].separation < 0.0f );
+
+	b2Transform back = { { 1.0f, 0.4f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCircle( &chain, &circle, back ).pointCount == 0 );
+
+	b2Transform nextRegion = { { 2.5f, -0.3f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCircle( &chain, &circle, nextRegion ).pointCount == 0 );
+
+	b2Transform prevRegion = { { -0.3f, -0.3f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCircle( &chain, &circle, prevRegion ).pointCount == 0 );
+
+	b2ChainSegment corner = {};
+	corner.ghost1 = { -2.0f, 0.0f };
+	corner.segment.point1 = { 0.0f, 0.0f };
+	corner.segment.point2 = { 0.0f, 2.0f };
+	corner.ghost2 = { 1.0f, 2.0f };
+	circle.radius = 0.7f;
+	b2Transform owned = { { 0.4f, -0.3f }, b2Rot_identity };
+	b2LocalManifold cap = b2CollideChainSegmentAndCircle( &corner, &circle, owned );
+	ENSURE( cap.pointCount == 1 );
+	ENSURE( cap.normal.x > 0.5f );
+	ENSURE( cap.points[0].separation < 0.0f );
+
+	circle.radius = 0.5f;
+	b2Transform far = { { 1.0f, -3.0f }, b2Rot_identity };
+	ENSURE( b2CollideChainSegmentAndCircle( &chain, &circle, far ).pointCount == 0 );
+	return 0;
+}

@@ -722,3 +722,65 @@ b2LocalManifold b2CollideSegmentAndPolygon( const b2Segment* segmentA, const b2P
 	b2Polygon polygonA = b2MakeCapsule( segmentA->point1, segmentA->point2, 0.0f );
 	return b2CollidePolygons( &polygonA, polygonB, xf );
 }
+
+b2LocalManifold b2CollideChainSegmentAndCircle( const b2ChainSegment* segmentA, const b2Circle* circleB, b2Transform xf )
+{
+	b2LocalManifold manifold = {};
+	b2Vec2 pB = b2TransformPoint( xf, circleB->center );
+	b2Vec2 p1 = segmentA->segment.point1;
+	b2Vec2 p2 = segmentA->segment.point2;
+	b2Vec2 e = b2Sub( p2, p1 );
+	float offset = b2Dot( b2RightPerp( e ), b2Sub( pB, p1 ) );
+	if ( offset < 0.0f )
+	{
+		return manifold;
+	}
+
+	float u = b2Dot( e, b2Sub( p2, pB ) );
+	float v = b2Dot( e, b2Sub( pB, p1 ) );
+	b2Vec2 pA;
+	if ( v <= 0.0f )
+	{
+		b2Vec2 prevEdge = b2Sub( p1, segmentA->ghost1 );
+		float uPrev = b2Dot( prevEdge, b2Sub( pB, p1 ) );
+		if ( uPrev <= 0.0f )
+		{
+			return manifold;
+		}
+
+		pA = p1;
+	}
+	else if ( u <= 0.0f )
+	{
+		b2Vec2 nextEdge = b2Sub( segmentA->ghost2, p2 );
+		float vNext = b2Dot( nextEdge, b2Sub( pB, p2 ) );
+		if ( vNext > 0.0f )
+		{
+			return manifold;
+		}
+
+		pA = p2;
+	}
+	else
+	{
+		float ee = b2Dot( e, e );
+		pA = b2Vec2{ u * p1.x + v * p2.x, u * p1.y + v * p2.y };
+		pA = ee > 0.0f ? b2MulSV( 1.0f / ee, pA ) : p1;
+	}
+
+	float distance;
+	b2Vec2 normal = b2GetLengthAndNormalize( &distance, b2Sub( pB, pA ) );
+	float separation = distance - circleB->radius;
+	if ( separation > B2_SPECULATIVE_DISTANCE )
+	{
+		return manifold;
+	}
+
+	b2Vec2 cB = b2MulAdd( pB, -circleB->radius, normal );
+	manifold.normal = normal;
+	manifold.points[0].point = b2Lerp( pA, cB, 0.5f );
+	manifold.points[0].separation = separation;
+	manifold.points[0].id = 0;
+	manifold.pointCount = 1;
+	return manifold;
+}

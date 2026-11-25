@@ -49,6 +49,15 @@ typedef struct b2Segment
 	b2Vec2 point2;
 } b2Segment;
 
+/// 带相邻幽灵顶点的链段。碰撞只发生在线段右侧。
+typedef struct b2ChainSegment
+{
+	b2Vec2 ghost1;
+	b2Segment segment;
+	b2Vec2 ghost2;
+	int chainId;
+} b2ChainSegment;
+
 /// 实心胶囊，由两个半圆和中间矩形组成。
 typedef struct b2Capsule
 {
@@ -258,3 +267,4 @@ B2_API b2LocalManifold b2CollideSegmentAndCapsule( const b2Segment* segmentA, co
 B2_API b2LocalManifold b2CollidePolygonAndCapsule( const b2Polygon* polygonA, const b2Capsule* capsuleB, b2Transform xf );
 B2_API b2LocalManifold b2CollidePolygons( const b2Polygon* polygonA, const b2Polygon* polygonB, b2Transform xf );
 B2_API b2LocalManifold b2CollideSegmentAndPolygon( const b2Segment* segmentA, const b2Polygon* polygonB, b2Transform xf );
+B2_API b2LocalManifold b2CollideChainSegmentAndCircle( const b2ChainSegment* segmentA, const b2Circle* circleB, b2Transform xf );
