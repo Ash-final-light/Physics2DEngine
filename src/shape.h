@@ -21,6 +21,7 @@ struct b2Shape
     {
         b2Circle circle;
         b2Capsule capsule;
+        b2Polygon polygon;
     };
     uint16_t generation;
 };

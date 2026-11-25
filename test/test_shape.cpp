@@ -94,3 +94,36 @@ int CapsuleShapeLifecycleTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int PolygonShapeLifecycleTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Polygon box = b2MakeBox( 2.0f, 1.0f );
+    b2ShapeId shape = b2CreatePolygonShape( body, &sd, &box );
+    ENSURE( b2Shape_IsValid( shape ) );
+    b2AABB bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.x - (2.0f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    b2Body_SetTransform( body, { 5.0f, 3.0f }, { 0.0f, 1.0f } );
+    bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.y - (5.0f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    b2Polygon bad = box;
+    bad.count = 0;
+    ENSURE( b2CreatePolygonShape( body, &sd, &bad ).index1 == 0 );
+    bad = box;
+    bad.normals[0].x = NAN;
+    ENSURE( b2CreatePolygonShape( body, &sd, &bad ).index1 == 0 );
+    bad = box;
+    bad.radius = -1.0f;
+    ENSURE( b2CreatePolygonShape( body, &sd, &bad ).index1 == 0 );
+    b2DestroyShape( shape, true );
+    ENSURE( b2Shape_IsValid( shape ) == false );
+    b2DestroyWorld( world );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

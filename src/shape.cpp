@@ -26,6 +26,13 @@ void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform )
             shape->aabb = b2ComputeCapsuleBounds( &expanded, transform );
         }
         break;
+        case b2_polygonShape:
+        {
+            b2Polygon expanded = shape->polygon;
+            expanded.radius += B2_SPECULATIVE_DISTANCE;
+            shape->aabb = b2ComputePolygonBounds( &expanded, transform );
+        }
+        break;
         default:
             B2_ASSERT( false );
     }
@@ -84,6 +91,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     {
         case b2_circleShape: shape->circle = *(const b2Circle*)geometry; break;
         case b2_capsuleShape: shape->capsule = *(const b2Capsule*)geometry; break;
+        case b2_polygonShape: shape->polygon = *(const b2Polygon*)geometry; break;
         default: B2_ASSERT( false ); break;
     }
     shape->density = def->density;
@@ -157,4 +165,32 @@ b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
         return b2_nullShapeId;
     }
     return b2CreateShape( bodyId, def, capsule, b2_capsuleShape );
+}
+
+
+static bool b2IsValidPolygon( const b2Polygon* polygon )
+{
+    if ( polygon == NULL || polygon->count < 1 || polygon->count > B2_MAX_POLYGON_VERTICES ||
+         b2IsValidFloat( polygon->radius ) == false || polygon->radius < 0.0f ||
+         b2IsValidVec2( polygon->centroid ) == false )
+    {
+        return false;
+    }
+    for ( int i = 0; i < polygon->count; ++i )
+    {
+        if ( b2IsValidVec2( polygon->vertices[i] ) == false || b2IsValidVec2( polygon->normals[i] ) == false )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+b2ShapeId b2CreatePolygonShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Polygon* polygon )
+{
+    if ( b2IsValidPolygon( polygon ) == false )
+    {
+        return b2_nullShapeId;
+    }
+    return b2CreateShape( bodyId, def, polygon, b2_polygonShape );
 }
