@@ -1014,3 +1014,16 @@ bool b2Body_IsSleepingEnabled(b2BodyId id)
 {
     B2_ASSERT(b2Body_IsValid(id));return (b2GetBodyFullId(b2_worlds+id.world0,id)->flags&b2_enableSleep)!=0;
 }
+
+void b2Body_SetBullet(b2BodyId id,bool flag)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    uint32_t newFlag=flag?b2_isBullet:0;if((body->flags&b2_isBullet)==newFlag) { return; }
+    body->flags=(body->flags&~b2_isBullet)|newFlag;b2SyncBodyFlags(world,body);
+}
+
+bool b2Body_IsBullet(b2BodyId id)
+{
+    B2_ASSERT(b2Body_IsValid(id));return (b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId(b2_worlds+id.world0,id))->flags&b2_isBullet)!=0;
+}

@@ -31,7 +31,8 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     b2Shape* shape=world->shapes.data+(int)userData;
     if(shape->id==fastShape->id || shape->bodyId==fastBodySim->bodyId || !b2ShouldShapesCollide(fastShape->filter,shape->filter)) { return true; }
     b2Body* body=world->bodies.data+shape->bodyId;
-    B2_ASSERT(body->type==b2_staticBody);
+    B2_ASSERT(body->type==b2_staticBody || (fastBodySim->flags&b2_isBullet));
+    if(body->flags&b2_isBullet) { return true; }
     b2BodySim* bodySim=b2GetBodySim(world,body);
 	// 沿链条形状快速平行运动时提前退出。
 	if ( shape->type == b2_chainSegmentShape )
@@ -100,6 +101,11 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
         shape->aabb=box2;
         b2AABB sweptBox=b2AABB_Union(box1,box2);
         b2DynamicTree_OverlapAABB(world->broadPhase.trees+b2_staticBody,sweptBox,UINT64_MAX,b2ContinuousQueryCallback,&context);
+        if(fastBodySim->flags&b2_isBullet)
+        {
+            b2DynamicTree_OverlapAABB(world->broadPhase.trees+b2_kinematicBody,sweptBox,UINT64_MAX,b2ContinuousQueryCallback,&context);
+            b2DynamicTree_OverlapAABB(world->broadPhase.trees+b2_dynamicBody,sweptBox,UINT64_MAX,b2ContinuousQueryCallback,&context);
+        }
     }
     if(context.fraction<1.0f)
     {
@@ -154,6 +160,9 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     b2ApplyContactRestitution(&context);
     b2StoreContactImpulses(&context);
     b2ReleaseContactConstraints(&context);
+    int bulletCount=0;int* bulletIndices=NULL;
+    if(world->enableContinuous && set->bodySims.count>0)
+    { bulletIndices=static_cast<int*>(b2StackAlloc(&world->stack,set->bodySims.count*sizeof(int),"bullets")); }
     for(int i=0;i<set->bodySims.count;++i)
     {
         b2BodySim* sim=set->bodySims.data+i;
@@ -169,14 +178,30 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         else { body->sleepTime+=timeStep; }
         sim->flags&=~(b2_isFast|b2_hadTimeOfImpact);
         float maxMotion=b2MaxFloat(maxDeltaPosition,maxVelocity*timeStep);
+        bool deferBullet=false;
         if(body->type==b2_dynamicBody && world->enableContinuous && maxMotion>body->safetyFactor*sim->minExtent)
-        { sim->flags|=b2_isFast;b2SolveContinuous(world,i,timeStep); }
+        {
+            sim->flags|=b2_isFast;deferBullet=(sim->flags&b2_isBullet)!=0;
+            if(deferBullet) { bulletIndices[bulletCount++]=i; }
+            else { b2SolveContinuous(world,i,timeStep); }
+        }
         else { sim->center0=sim->center;sim->rotation0=sim->transform.q; }
         state->deltaPosition=b2Vec2_zero;state->deltaRotation=b2Rot_identity;
         sim->force=b2Vec2_zero;sim->torque=0.0f;
+        if(!deferBullet)
+        {
+            for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+            { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
+        }
+    }
+    for(int i=0;i<bulletCount;++i)
+    {
+        int index=bulletIndices[i];b2SolveContinuous(world,index,timeStep);
+        b2BodySim* sim=set->bodySims.data+index;
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
+    if(bulletIndices!=NULL) { b2StackFree(&world->stack,bulletIndices); }
     if(world->enableSleep)
     {
         // Reverse order is required because sleeping swap-removes island descriptors.

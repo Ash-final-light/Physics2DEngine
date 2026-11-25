@@ -256,6 +256,8 @@ B2_API bool b2Body_IsEnabled(b2BodyId bodyId);
 B2_API bool b2Body_IsAwake(b2BodyId bodyId);
 B2_API void b2Body_SetAwake(b2BodyId bodyId,bool awake);
 B2_API void b2Body_WakeTouching(b2BodyId bodyId);
+B2_API void b2Body_SetBullet(b2BodyId bodyId,bool flag);
+B2_API bool b2Body_IsBullet(b2BodyId bodyId);
 B2_API void b2Body_SetSleepThreshold(b2BodyId bodyId,float sleepThreshold);
 B2_API float b2Body_GetSleepThreshold(b2BodyId bodyId);
 B2_API void b2Body_EnableSleeping(b2BodyId bodyId,bool enableSleep);

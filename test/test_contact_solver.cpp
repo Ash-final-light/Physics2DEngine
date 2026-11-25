@@ -627,3 +627,32 @@ int ContinuousCollisionTest(void)
     b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(body).x<1000 && b2Body_GetPosition(body).x>999.8f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int BulletCollisionTest(void)
+{
+    size_t before=b2GetByteCount();
+    for(int run=0;run<5;++run)
+    {
+        b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+        b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};bd.isBullet=run!=0;
+        b2BodyId bullet=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.1f};b2CreateCircleShape(bullet,&sd,&c);
+        ENSURE(b2Body_IsBullet(bullet)==(run!=0));
+        bd.type=run==2?b2_kinematicBody:b2_dynamicBody;bd.position={0,0};bd.linearVelocity=run==2?b2Vec2{-10,0}:b2Vec2{0,0};bd.isBullet=run==3;
+        b2BodyId target=b2CreateBody(id,&bd);b2Polygon wall=b2MakeBox(0.05f,10);
+        if(run==4) { sd.filter.maskBits=0; }
+        b2CreatePolygonShape(target,&sd,&wall);
+        b2World_Step(id,0.05f,1);
+        if(run==1 || run==2)
+        {
+            ENSURE(b2Body_GetPosition(bullet).x<b2Body_GetPosition(target).x);
+            ENSURE(b2Body_GetPosition(bullet).x>b2Body_GetPosition(target).x-0.2f);
+            b2Body* cold=world->bodies.data+bullet.index1-1;ENSURE((b2GetBodySim(world,cold)->flags&b2_hadTimeOfImpact)!=0);
+        }
+        else { ENSURE_SMALL(b2Body_GetPosition(bullet).x-3,0.00001f); }
+        world->locked=true;b2Body_SetBullet(bullet,run==0);world->locked=false;ENSURE(b2Body_IsBullet(bullet)==(run!=0));
+        b2Body_SetBullet(bullet,false);ENSURE(!b2Body_IsBullet(bullet));b2Body_SetBullet(bullet,true);ENSURE(b2Body_IsBullet(bullet));
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    return 0;
+}
