@@ -345,3 +345,87 @@ int DynamicTreeRayTest( void )
 	b2DestroyDynamicTree( tree );
 	return 0;
 }
+
+struct BoxHit
+{
+	const b2DynamicTree* tree;
+	int proxyId;
+	float fraction;
+};
+
+static float ClosestTreeBox( const b2BoxCastInput* input, int proxyId, uint64_t userData, void* context )
+{
+	(void)userData;
+	BoxHit* hit = static_cast<BoxHit*>( context );
+	b2Vec2 extension = b2AABB_Extents( input->box );
+	b2AABB target = b2DynamicTree_GetProxyBounds( hit->tree, proxyId );
+	b2AABB expanded = {
+		{ target.lowerBound.x - extension.x, target.lowerBound.y - extension.y },
+		{ target.upperBound.x + extension.x, target.upperBound.y + extension.y },
+	};
+	b2Vec2 origin = b2AABB_Center( input->box );
+	b2Vec2 end = b2MulAdd( origin, input->maxFraction, input->translation );
+	b2CastOutput output = b2AABB_RayCast( expanded, origin, end );
+	if ( output.hit == false )
+	{
+		return input->maxFraction;
+	}
+	float fraction = output.fraction * input->maxFraction;
+	if ( fraction < hit->fraction )
+	{
+		hit->fraction = fraction;
+		hit->proxyId = proxyId;
+	}
+	return fraction;
+}
+
+int DynamicTreeBoxCastTest( void )
+{
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	b2AABB nearBox = { { 4.0f, -1.0f }, { 5.0f, 1.0f } };
+	b2AABB farBox = { { 8.0f, -1.0f }, { 9.0f, 1.0f } };
+	int nearId = b2CreateTreeProxy( tree, nearBox, 0x1ull, 1 );
+	int farId = b2CreateTreeProxy( tree, farBox, 0x1ull, 2 );
+	b2BoxCastInput input = {};
+	input.box = { { -0.5f, -0.5f }, { 0.5f, 0.5f } };
+	input.translation = { 10.0f, 0.0f };
+	input.maxFraction = 1.0f;
+	BoxHit hit = { tree, -1, 2.0f };
+	b2DynamicTree_CastBox( tree, &input, 0xFFFFFFFFull, ClosestTreeBox, &hit );
+	ENSURE( hit.proxyId == nearId );
+	ENSURE( hit.fraction > 0.30f && hit.fraction < 0.40f );
+
+	b2Vec2 extension = b2AABB_Extents( input.box );
+	float best = 2.0f;
+	int bestId = -1;
+	b2AABB boxes[2] = { nearBox, farBox };
+	int ids[2] = { nearId, farId };
+	for ( int i = 0; i < 2; ++i )
+	{
+		b2AABB expanded = {
+			{ boxes[i].lowerBound.x - extension.x, boxes[i].lowerBound.y - extension.y },
+			{ boxes[i].upperBound.x + extension.x, boxes[i].upperBound.y + extension.y },
+		};
+		b2CastOutput output = b2AABB_RayCast( expanded, { 0.0f, 0.0f }, { 10.0f, 0.0f } );
+		if ( output.hit && output.fraction < best )
+		{
+			best = output.fraction;
+			bestId = ids[i];
+		}
+	}
+	ENSURE( bestId == hit.proxyId );
+	ENSURE_SMALL( best - hit.fraction, 0.0001f );
+
+	b2DynamicTree_SetCategoryBits( tree, nearId, 0x2ull );
+	BoxHit skipped = { tree, -1, 2.0f };
+	b2DynamicTree_CastBox( tree, &input, 0x1ull, ClosestTreeBox, &skipped );
+	ENSURE( skipped.proxyId == farId );
+
+	b2BoxCastInput miss = input;
+	miss.box = { { -0.5f, 4.0f }, { 0.5f, 5.0f } };
+	BoxHit missed = { tree, -1, 2.0f };
+	b2DynamicTree_CastBox( tree, &miss, 0xFFFFFFFFull, ClosestTreeBox, &missed );
+	ENSURE( missed.proxyId == -1 );
+	b2DestroyDynamicTree( tree );
+	return 0;
+}
