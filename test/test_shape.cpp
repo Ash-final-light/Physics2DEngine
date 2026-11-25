@@ -127,3 +127,31 @@ int PolygonShapeLifecycleTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+int SegmentShapeLifecycleTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Segment segment = { { -2.0f, 0.0f }, { 3.0f, 0.0f } };
+    b2ShapeId shape = b2CreateSegmentShape( body, &sd, &segment );
+    ENSURE( b2Shape_IsValid( shape ) );
+    b2AABB bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.x - (3.0f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    b2Body_SetTransform( body, { 5.0f, 3.0f }, { 0.0f, 1.0f } );
+    bounds = b2Body_ComputeBounds( body );
+    ENSURE_SMALL( bounds.upperBound.y - (6.0f + B2_SPECULATIVE_DISTANCE), 0.00001f );
+    segment.point2 = segment.point1;
+    ENSURE( b2CreateSegmentShape( body, &sd, &segment ).index1 == 0 );
+    segment.point2.x = INFINITY;
+    ENSURE( b2CreateSegmentShape( body, &sd, &segment ).index1 == 0 );
+    b2DestroyBody( body );
+    ENSURE( b2Shape_IsValid( shape ) == false );
+    b2DestroyWorld( world );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

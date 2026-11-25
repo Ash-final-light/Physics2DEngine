@@ -33,6 +33,13 @@ void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform )
             shape->aabb = b2ComputePolygonBounds( &expanded, transform );
         }
         break;
+        case b2_segmentShape:
+        {
+            b2AABB bounds = b2ComputeSegmentBounds( &shape->segment, transform );
+            b2Vec2 margin = { B2_SPECULATIVE_DISTANCE, B2_SPECULATIVE_DISTANCE };
+            shape->aabb = { b2Sub( bounds.lowerBound, margin ), b2Add( bounds.upperBound, margin ) };
+        }
+        break;
         default:
             B2_ASSERT( false );
     }
@@ -92,6 +99,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
         case b2_circleShape: shape->circle = *(const b2Circle*)geometry; break;
         case b2_capsuleShape: shape->capsule = *(const b2Capsule*)geometry; break;
         case b2_polygonShape: shape->polygon = *(const b2Polygon*)geometry; break;
+        case b2_segmentShape: shape->segment = *(const b2Segment*)geometry; break;
         default: B2_ASSERT( false ); break;
     }
     shape->density = def->density;
@@ -193,4 +201,15 @@ b2ShapeId b2CreatePolygonShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
         return b2_nullShapeId;
     }
     return b2CreateShape( bodyId, def, polygon, b2_polygonShape );
+}
+
+
+b2ShapeId b2CreateSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Segment* segment )
+{
+    if ( segment == NULL || b2IsValidVec2( segment->point1 ) == false || b2IsValidVec2( segment->point2 ) == false ||
+         b2DistanceSquared( segment->point1, segment->point2 ) <= B2_LINEAR_SLOP * B2_LINEAR_SLOP )
+    {
+        return b2_nullShapeId;
+    }
+    return b2CreateShape( bodyId, def, segment, b2_segmentShape );
 }
