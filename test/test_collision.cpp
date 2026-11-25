@@ -190,3 +190,39 @@ int SegmentCapsuleManifoldTest( void )
 	ENSURE( b2CollideSegmentAndCapsule( &segment, &capsule, far ).pointCount == 0 );
 	return 0;
 }
+
+int PolygonCapsuleManifoldTest( void )
+{
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2Capsule capsule = { { -0.5f, 0.0f }, { 0.5f, 0.0f }, 0.3f };
+	b2Transform side = { { 0.0f, 1.2f }, b2Rot_identity };
+	b2LocalManifold face = b2CollidePolygonAndCapsule( &box, &capsule, side );
+	ENSURE( face.pointCount == 2 );
+	ENSURE( face.normal.y > 0.9f );
+	ENSURE( face.points[0].separation < 0.0f );
+	ENSURE( face.points[1].separation < 0.0f );
+	ENSURE( face.points[0].id != face.points[1].id );
+	b2LocalManifold again = b2CollidePolygonAndCapsule( &box, &capsule, side );
+	ENSURE( again.points[0].id == face.points[0].id );
+	ENSURE( again.points[1].id == face.points[1].id );
+
+	b2Capsule tip = { { 1.4f, 0.0f }, { 3.0f, 0.0f }, 0.5f };
+	b2LocalManifold end = b2CollidePolygonAndCapsule( &box, &tip, b2Transform_identity );
+	ENSURE( end.pointCount == 2 );
+	ENSURE( end.normal.x > 0.9f );
+	float endSeparation = end.points[0].separation < end.points[1].separation ? end.points[0].separation : end.points[1].separation;
+	ENSURE( endSeparation < 0.0f );
+
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	capsule.radius = 0.2f;
+	b2Transform roundSide = { { 0.0f, 1.3f }, b2Rot_identity };
+	b2LocalManifold round = b2CollidePolygonAndCapsule( &rounded, &capsule, roundSide );
+	ENSURE( round.pointCount >= 1 );
+	ENSURE( round.normal.y > 0.9f );
+	ENSURE( round.points[0].separation < 0.0f );
+
+	b2Transform away = { { 0.0f, 4.0f }, b2Rot_identity };
+	capsule.radius = 0.3f;
+	ENSURE( b2CollidePolygonAndCapsule( &box, &capsule, away ).pointCount == 0 );
+	return 0;
+}

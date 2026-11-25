@@ -386,3 +386,333 @@ b2LocalManifold b2CollideSegmentAndCapsule( const b2Segment* segmentA, const b2C
 	b2Capsule capsuleA = { segmentA->point1, segmentA->point2, 0.0f };
 	return b2CollideCapsules( &capsuleA, capsuleB, xf );
 }
+
+static b2Polygon b2MakeCapsule( b2Vec2 p1, b2Vec2 p2, float radius )
+{
+	b2Polygon shape = {};
+	shape.vertices[0] = p1;
+	shape.vertices[1] = p2;
+	shape.centroid = b2Lerp( p1, p2, 0.5f );
+	b2Vec2 d = b2Sub( p2, p1 );
+	B2_ASSERT( b2LengthSquared( d ) > FLT_EPSILON );
+	b2Vec2 axis = b2Normalize( d );
+	b2Vec2 normal = b2RightPerp( axis );
+	shape.normals[0] = normal;
+	shape.normals[1] = b2Neg( normal );
+	shape.count = 2;
+	shape.radius = radius;
+	return shape;
+}
+
+static b2LocalManifold b2ClipPolygons( const b2Polygon* polyA, const b2Polygon* polyB, int edgeA, int edgeB, bool flip )
+{
+	b2LocalManifold manifold = {};
+	const b2Polygon* poly1;
+	const b2Polygon* poly2;
+	int i11, i12, i21, i22;
+	if ( flip )
+	{
+		poly1 = polyB;
+		poly2 = polyA;
+		i11 = edgeB;
+		i12 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
+		i21 = edgeA;
+		i22 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
+	}
+	else
+	{
+		poly1 = polyA;
+		poly2 = polyB;
+		i11 = edgeA;
+		i12 = edgeA + 1 < polyA->count ? edgeA + 1 : 0;
+		i21 = edgeB;
+		i22 = edgeB + 1 < polyB->count ? edgeB + 1 : 0;
+	}
+
+	b2Vec2 normal = poly1->normals[i11];
+	b2Vec2 v11 = poly1->vertices[i11];
+	b2Vec2 v12 = poly1->vertices[i12];
+	b2Vec2 v21 = poly2->vertices[i21];
+	b2Vec2 v22 = poly2->vertices[i22];
+	b2Vec2 tangent = b2CrossSV( 1.0f, normal );
+	float lower1 = 0.0f;
+	float upper1 = b2Dot( b2Sub( v12, v11 ), tangent );
+	float upper2 = b2Dot( b2Sub( v21, v11 ), tangent );
+	float lower2 = b2Dot( b2Sub( v22, v11 ), tangent );
+	if ( upper2 < lower1 || upper1 < lower2 )
+	{
+		return manifold;
+	}
+
+	b2Vec2 vLower;
+	if ( lower2 < lower1 && upper2 - lower2 > FLT_EPSILON )
+	{
+		vLower = b2Lerp( v22, v21, ( lower1 - lower2 ) / ( upper2 - lower2 ) );
+	}
+	else
+	{
+		vLower = v22;
+	}
+
+	b2Vec2 vUpper;
+	if ( upper2 > upper1 && upper2 - lower2 > FLT_EPSILON )
+	{
+		vUpper = b2Lerp( v22, v21, ( upper1 - lower2 ) / ( upper2 - lower2 ) );
+	}
+	else
+	{
+		vUpper = v21;
+	}
+
+	float separationLower = b2Dot( b2Sub( vLower, v11 ), normal );
+	float separationUpper = b2Dot( b2Sub( vUpper, v11 ), normal );
+	float r1 = poly1->radius;
+	float r2 = poly2->radius;
+	vLower = b2MulAdd( vLower, 0.5f * ( r1 - r2 - separationLower ), normal );
+	vUpper = b2MulAdd( vUpper, 0.5f * ( r1 - r2 - separationUpper ), normal );
+	float radius = r1 + r2;
+	if ( flip == false )
+	{
+		manifold.normal = normal;
+		manifold.points[0].point = vLower;
+		manifold.points[0].separation = separationLower - radius;
+		manifold.points[0].id = B2_MAKE_ID( i11, i22 );
+		manifold.points[1].point = vUpper;
+		manifold.points[1].separation = separationUpper - radius;
+		manifold.points[1].id = B2_MAKE_ID( i12, i21 );
+		manifold.pointCount = 2;
+	}
+	else
+	{
+		manifold.normal = b2Neg( normal );
+		manifold.points[0].point = vUpper;
+		manifold.points[0].separation = separationUpper - radius;
+		manifold.points[0].id = B2_MAKE_ID( i21, i12 );
+		manifold.points[1].point = vLower;
+		manifold.points[1].separation = separationLower - radius;
+		manifold.points[1].id = B2_MAKE_ID( i22, i11 );
+		manifold.pointCount = 2;
+	}
+
+	return manifold;
+}
+
+static float b2FindMaxSeparation( int* edgeIndex, const b2Polygon* poly1, const b2Polygon* poly2 )
+{
+	int count1 = poly1->count;
+	int count2 = poly2->count;
+	const b2Vec2* n1s = poly1->normals;
+	const b2Vec2* v1s = poly1->vertices;
+	const b2Vec2* v2s = poly2->vertices;
+	int bestIndex = 0;
+	float maxSeparation = -FLT_MAX;
+	for ( int i = 0; i < count1; ++i )
+	{
+		b2Vec2 n = n1s[i];
+		b2Vec2 v1 = v1s[i];
+		float si = FLT_MAX;
+		for ( int j = 0; j < count2; ++j )
+		{
+			float sij = b2Dot( n, b2Sub( v2s[j], v1 ) );
+			if ( sij < si )
+			{
+				si = sij;
+			}
+		}
+
+		if ( si > maxSeparation )
+		{
+			maxSeparation = si;
+			bestIndex = i;
+		}
+	}
+
+	*edgeIndex = bestIndex;
+	return maxSeparation;
+}
+
+static b2LocalManifold b2CollidePolygons( const b2Polygon* polygonA, const b2Polygon* polygonB, b2Transform xf )
+{
+	b2Vec2 origin = polygonA->vertices[0];
+	float linearSlop = B2_LINEAR_SLOP;
+	float speculativeDistance = B2_SPECULATIVE_DISTANCE;
+	b2Transform xfs = { b2Sub( xf.p, origin ), xf.q };
+
+	b2Polygon localPolyA = {};
+	localPolyA.count = polygonA->count;
+	localPolyA.radius = polygonA->radius;
+	localPolyA.vertices[0] = b2Vec2_zero;
+	localPolyA.normals[0] = polygonA->normals[0];
+	for ( int i = 1; i < localPolyA.count; ++i )
+	{
+		localPolyA.vertices[i] = b2Sub( polygonA->vertices[i], origin );
+		localPolyA.normals[i] = polygonA->normals[i];
+	}
+
+	b2Polygon localPolyB = {};
+	localPolyB.count = polygonB->count;
+	localPolyB.radius = polygonB->radius;
+	for ( int i = 0; i < localPolyB.count; ++i )
+	{
+		localPolyB.vertices[i] = b2TransformPoint( xfs, polygonB->vertices[i] );
+		localPolyB.normals[i] = b2RotateVector( xfs.q, polygonB->normals[i] );
+	}
+
+	float radius = localPolyA.radius + localPolyB.radius;
+	int edgeA = 0;
+	float separationA = b2FindMaxSeparation( &edgeA, &localPolyA, &localPolyB );
+	if ( separationA > speculativeDistance + radius )
+	{
+		return {};
+	}
+
+	int edgeB = 0;
+	float separationB = b2FindMaxSeparation( &edgeB, &localPolyB, &localPolyA );
+	if ( separationB > speculativeDistance + radius )
+	{
+		return {};
+	}
+
+	bool flip;
+	if ( separationA >= separationB )
+	{
+		flip = false;
+		b2Vec2 searchDirection = localPolyA.normals[edgeA];
+		int count = localPolyB.count;
+		const b2Vec2* normals = localPolyB.normals;
+		edgeB = 0;
+		float minDot = FLT_MAX;
+		for ( int i = 0; i < count; ++i )
+		{
+			float dot = b2Dot( searchDirection, normals[i] );
+			if ( dot < minDot )
+			{
+				minDot = dot;
+				edgeB = i;
+			}
+		}
+	}
+	else
+	{
+		flip = true;
+		b2Vec2 searchDirection = localPolyB.normals[edgeB];
+		int count = localPolyA.count;
+		const b2Vec2* normals = localPolyA.normals;
+		edgeA = 0;
+		float minDot = FLT_MAX;
+		for ( int i = 0; i < count; ++i )
+		{
+			float dot = b2Dot( searchDirection, normals[i] );
+			if ( dot < minDot )
+			{
+				minDot = dot;
+				edgeA = i;
+			}
+		}
+	}
+
+	b2LocalManifold manifold = {};
+	if ( separationA > 0.1f * linearSlop || separationB > 0.1f * linearSlop )
+	{
+		int i11 = edgeA;
+		int i12 = edgeA + 1 < localPolyA.count ? edgeA + 1 : 0;
+		int i21 = edgeB;
+		int i22 = edgeB + 1 < localPolyB.count ? edgeB + 1 : 0;
+		b2Vec2 v11 = localPolyA.vertices[i11];
+		b2Vec2 v12 = localPolyA.vertices[i12];
+		b2Vec2 v21 = localPolyB.vertices[i21];
+		b2Vec2 v22 = localPolyB.vertices[i22];
+		b2SegmentDistanceResult result = b2ComputeSegmentDistance( v11, v12, v21, v22 );
+		B2_ASSERT( result.distanceSquared > 0.0f );
+		float distance = sqrtf( result.distanceSquared );
+		float separation = distance - radius;
+		if ( distance - radius > speculativeDistance )
+		{
+			return manifold;
+		}
+
+		manifold = b2ClipPolygons( &localPolyA, &localPolyB, edgeA, edgeB, flip );
+		float minSeparation = FLT_MAX;
+		for ( int i = 0; i < manifold.pointCount; ++i )
+		{
+			minSeparation = b2MinFloat( minSeparation, manifold.points[i].separation );
+		}
+
+		if ( separation + 0.1f * linearSlop < minSeparation )
+		{
+			if ( result.fraction1 == 0.0f && result.fraction2 == 0.0f )
+			{
+				b2Vec2 normal = b2Sub( v21, v11 );
+				float invDistance = 1.0f / distance;
+				normal.x *= invDistance;
+				normal.y *= invDistance;
+				b2Vec2 c1 = b2MulAdd( v11, localPolyA.radius, normal );
+				b2Vec2 c2 = b2MulAdd( v21, -localPolyB.radius, normal );
+				manifold.normal = normal;
+				manifold.points[0].point = b2Lerp( c1, c2, 0.5f );
+				manifold.points[0].separation = distance - radius;
+				manifold.points[0].id = B2_MAKE_ID( i11, i21 );
+				manifold.pointCount = 1;
+			}
+			else if ( result.fraction1 == 0.0f && result.fraction2 == 1.0f )
+			{
+				b2Vec2 normal = b2Sub( v22, v11 );
+				float invDistance = 1.0f / distance;
+				normal.x *= invDistance;
+				normal.y *= invDistance;
+				b2Vec2 c1 = b2MulAdd( v11, localPolyA.radius, normal );
+				b2Vec2 c2 = b2MulAdd( v22, -localPolyB.radius, normal );
+				manifold.normal = normal;
+				manifold.points[0].point = b2Lerp( c1, c2, 0.5f );
+				manifold.points[0].separation = distance - radius;
+				manifold.points[0].id = B2_MAKE_ID( i11, i22 );
+				manifold.pointCount = 1;
+			}
+			else if ( result.fraction1 == 1.0f && result.fraction2 == 0.0f )
+			{
+				b2Vec2 normal = b2Sub( v21, v12 );
+				float invDistance = 1.0f / distance;
+				normal.x *= invDistance;
+				normal.y *= invDistance;
+				b2Vec2 c1 = b2MulAdd( v12, localPolyA.radius, normal );
+				b2Vec2 c2 = b2MulAdd( v21, -localPolyB.radius, normal );
+				manifold.normal = normal;
+				manifold.points[0].point = b2Lerp( c1, c2, 0.5f );
+				manifold.points[0].separation = distance - radius;
+				manifold.points[0].id = B2_MAKE_ID( i12, i21 );
+				manifold.pointCount = 1;
+			}
+			else if ( result.fraction1 == 1.0f && result.fraction2 == 1.0f )
+			{
+				b2Vec2 normal = b2Sub( v22, v12 );
+				float invDistance = 1.0f / distance;
+				normal.x *= invDistance;
+				normal.y *= invDistance;
+				b2Vec2 c1 = b2MulAdd( v12, localPolyA.radius, normal );
+				b2Vec2 c2 = b2MulAdd( v22, -localPolyB.radius, normal );
+				manifold.normal = normal;
+				manifold.points[0].point = b2Lerp( c1, c2, 0.5f );
+				manifold.points[0].separation = distance - radius;
+				manifold.points[0].id = B2_MAKE_ID( i12, i22 );
+				manifold.pointCount = 1;
+			}
+		}
+	}
+	else
+	{
+		manifold = b2ClipPolygons( &localPolyA, &localPolyB, edgeA, edgeB, flip );
+	}
+
+	for ( int i = 0; i < manifold.pointCount; ++i )
+	{
+		manifold.points[i].point = b2Add( manifold.points[i].point, origin );
+	}
+
+	return manifold;
+}
+
+b2LocalManifold b2CollidePolygonAndCapsule( const b2Polygon* polygonA, const b2Capsule* capsuleB, b2Transform xf )
+{
+	b2Polygon polyB = b2MakeCapsule( capsuleB->center1, capsuleB->center2, capsuleB->radius );
+	return b2CollidePolygons( polygonA, &polyB, xf );
+}
