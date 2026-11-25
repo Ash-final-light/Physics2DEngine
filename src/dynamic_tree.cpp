@@ -5,6 +5,8 @@
 
 #include "core.h"
 
+#include "box2d/constants.h"
+
 #include <float.h>
 #include <string.h>
 
@@ -471,6 +473,81 @@ void b2DestroyTreeProxy( b2DynamicTree* tree, int proxyId )
 	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
 	b2RemoveLeaf( tree, proxyId );
 	b2FreeProxy( tree, proxyId );
+}
+
+static bool b2EnlargeAABB( b2AABB* a, b2AABB b )
+{
+	bool changed = false;
+	if ( b.lowerBound.x < a->lowerBound.x )
+	{
+		a->lowerBound.x = b.lowerBound.x;
+		changed = true;
+	}
+	if ( b.lowerBound.y < a->lowerBound.y )
+	{
+		a->lowerBound.y = b.lowerBound.y;
+		changed = true;
+	}
+	if ( a->upperBound.x < b.upperBound.x )
+	{
+		a->upperBound.x = b.upperBound.x;
+		changed = true;
+	}
+	if ( a->upperBound.y < b.upperBound.y )
+	{
+		a->upperBound.y = b.upperBound.y;
+		changed = true;
+	}
+	return changed;
+}
+
+void b2DynamicTree_MoveProxy( b2DynamicTree* tree, int proxyId, b2AABB aabb )
+{
+	B2_VALIDATE( b2IsValidAABB( aabb ) );
+	B2_VALIDATE( aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE );
+	B2_VALIDATE( aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE );
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	b2RemoveLeaf( tree, proxyId );
+	b2InsertLeaf( tree, aabb, proxyId, false, false );
+}
+
+void b2DynamicTree_EnlargeProxy( b2DynamicTree* tree, int proxyId, b2AABB aabb )
+{
+	B2_VALIDATE( b2IsValidAABB( aabb ) );
+	B2_VALIDATE( aabb.upperBound.x - aabb.lowerBound.x < B2_HUGE );
+	B2_VALIDATE( aabb.upperBound.y - aabb.lowerBound.y < B2_HUGE );
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	b2TreeNode* nodes = tree->nodes;
+	const int32_t* parents = tree->parents;
+	int index = tree->proxies[proxyId].node;
+	b2TreeNode* node = nodes + index;
+	B2_ASSERT( b2IsLeaf( node ) );
+	B2_VALIDATE( b2AABB_Contains( node->aabb, aabb ) == false );
+	node->aabb = aabb;
+	node->flagIndex |= B2_MOVED_NODE;
+	index = parents[index];
+	while ( index != B2_NULL_INDEX )
+	{
+		node = nodes + index;
+		bool changed = b2EnlargeAABB( &node->aabb, aabb );
+		node->flagIndex |= B2_MOVED_NODE;
+		index = parents[index];
+		if ( changed == false )
+		{
+			break;
+		}
+	}
+
+	while ( index != B2_NULL_INDEX )
+	{
+		node = nodes + index;
+		if ( node->flagIndex & B2_MOVED_NODE )
+		{
+			break;
+		}
+		node->flagIndex |= B2_MOVED_NODE;
+		index = parents[index];
+	}
 }
 
 int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree )

@@ -77,6 +77,7 @@ int ChainBuildTest( void );
 int DynamicTreeCreateTest( void );
 int DynamicTreeInsertTest( void );
 int DynamicTreeRemoveTest( void );
+int DynamicTreeMoveTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -514,6 +515,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( DynamicTreeRemoveTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "DynamicTreeMoveTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( DynamicTreeMoveTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

@@ -80,3 +80,23 @@ int DynamicTreeRemoveTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int DynamicTreeMoveTest( void )
+{
+	b2AABB first = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+	b2AABB moved = { { 5.0f, 5.0f }, { 6.0f, 7.0f } };
+	b2AABB enlarged = { { 4.0f, 4.0f }, { 8.0f, 8.0f } };
+	b2AABB other = { { -3.0f, -1.0f }, { -1.0f, 1.0f } };
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	int id1 = b2CreateTreeProxy( tree, first, 1, 7 );
+	int id2 = b2CreateTreeProxy( tree, other, 1, 8 );
+	b2DynamicTree_MoveProxy( tree, id1, moved );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), moved ) );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id2 ), other ) );
+	ENSURE( b2DynamicTree_GetUserData( tree, id1 ) == 7 );
+	b2DynamicTree_EnlargeProxy( tree, id1, enlarged );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), enlarged ) );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id2 ), other ) );
+	b2DestroyDynamicTree( tree );
+	return 0;
+}
