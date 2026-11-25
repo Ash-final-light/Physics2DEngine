@@ -18,6 +18,7 @@ int ScalarTest( void );
 int VectorTest( void );
 int RotationTest( void );
 int TransformTest( void );
+int MatrixTest( void );
 
 int main( int argc, char** argv )
 {
@@ -100,6 +101,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( TransformTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "MatrixTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( MatrixTest );
 	}
 
 	if ( ran == 0 )

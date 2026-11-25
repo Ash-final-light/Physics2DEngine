@@ -302,6 +302,46 @@ B2_INLINE b2Transform b2InvMulTransforms( b2Transform A, b2Transform B )
 	return C;
 }
 
+/// 2×2 矩阵乘以二维向量
+B2_INLINE b2Vec2 b2MulMV( b2Mat22 A, b2Vec2 v )
+{
+	b2Vec2 u = {
+		A.cx.x * v.x + A.cy.x * v.y,
+		A.cx.y * v.x + A.cy.y * v.y,
+	};
+	return u;
+}
+
+/// 获取 2×2 矩阵的逆。行列式为 0 时返回零矩阵。
+B2_INLINE b2Mat22 b2GetInverse22( b2Mat22 A )
+{
+	float a = A.cx.x, b = A.cy.x, c = A.cx.y, d = A.cy.y;
+	float det = a * d - b * c;
+	if ( det != 0.0f )
+	{
+		det = 1.0f / det;
+	}
+
+	b2Mat22 B = {
+		{ det * d, -det * c },
+		{ -det * b, det * a },
+	};
+	return B;
+}
+
+/// 求解 A * x = b。行列式为 0 时返回零向量。
+B2_INLINE b2Vec2 b2Solve22( b2Mat22 A, b2Vec2 b )
+{
+	float a11 = A.cx.x, a12 = A.cy.x, a21 = A.cx.y, a22 = A.cy.y;
+	float det = a11 * a22 - a12 * a21;
+	if ( det != 0.0f )
+	{
+		det = 1.0f / det;
+	}
+	b2Vec2 x = { det * ( a22 * b.x - a12 * b.y ), det * ( a11 * b.y - a21 * b.x ) };
+	return x;
+}
+
 /// 设置每米对应的长度单位。只接受有限且大于 0 的值，非法值保持原值。
 /// 默认值为 1。
 B2_API void b2SetLengthUnitsPerMeter( float lengthUnits );

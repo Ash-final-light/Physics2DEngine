@@ -45,6 +45,7 @@ if(BUILD_TESTING)
 		test/test_vector.cpp
 		test/test_rotation.cpp
 		test/test_transform.cpp
+		test/test_matrix.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE
