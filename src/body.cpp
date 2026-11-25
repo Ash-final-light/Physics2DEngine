@@ -769,3 +769,42 @@ b2BodyType b2Body_GetType( b2BodyId id )
     B2_ASSERT( b2Body_IsValid(id) );
     return b2GetBodyFullId(b2_worlds+id.world0,id)->type;
 }
+
+
+void b2Body_SetType( b2BodyId id, b2BodyType type )
+{
+    if(b2Body_IsValid(id)==false || type<b2_staticBody || type>=b2_bodyTypeCount || b2_worlds[id.world0].locked)
+    {
+        return;
+    }
+    b2World* world=b2_worlds+id.world0;
+    b2Body* body=b2GetBodyFullId(world,id);
+    b2BodyType original=body->type;
+    if(original==type)
+    {
+        return;
+    }
+    body->type=type;
+    if(body->isEnabled)
+    {
+        if(original==b2_staticBody || type==b2_staticBody)
+        {
+            body->linearVelocity=b2Vec2_zero;
+            body->angularVelocity=0.0f;
+        }
+        if(type!=b2_staticBody)
+        {
+            body->isAwake=true;
+        }
+    }
+    b2UpdateBodyMassData(world,body);
+    if(body->isEnabled)
+    {
+        for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+        {
+            b2Shape* shape=world->shapes.data+shapeId;
+            b2DestroyShapeProxy(shape,&world->broadPhase);
+            b2CreateShapeProxy(world,shape,type,body->transform,true);
+        }
+    }
+}

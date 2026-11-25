@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
+#include "world.h"
 #include "box2d/types.h"
 #include "box2d/math_functions.h"
 #include <math.h>
@@ -273,4 +274,42 @@ int BodyTypesTest( void )
     bd.type=(b2BodyType)b2_bodyTypeCount;
     ENSURE(b2CreateBody(world,&bd).index1==0);
     b2DestroyWorld(world);return 0;
+}
+
+
+int BodyTypeChangeTest( void )
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId worldId=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+worldId.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId body=b2CreateBody(worldId,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0.0f,0.0f},1.0f};
+    b2CreateCircleShape(body,&sd,&circle);
+    b2Body_SetLinearVelocity(body,{3.0f,0.0f});
+    b2Body_SetType(body,b2_staticBody);
+    ENSURE(b2Body_GetType(body)==b2_staticBody && b2Body_GetMass(body)==0.0f);
+    ENSURE(b2DynamicTree_GetProxyCount(world->broadPhase.trees+b2_dynamicBody)==0);
+    ENSURE(b2DynamicTree_GetProxyCount(world->broadPhase.trees+b2_staticBody)==1);
+    b2World_Step(worldId,0.1f,1);
+    ENSURE(b2Body_GetPosition(body).x==0.0f);
+    b2Body_SetType(body,b2_kinematicBody);
+    ENSURE(b2Body_GetLinearVelocity(body).x==0.0f);
+    b2Body_SetLinearVelocity(body,{4.0f,0.0f});
+    b2World_Step(worldId,0.25f,1);
+    ENSURE_SMALL(b2Body_GetPosition(body).x-1.0f,0.00001f);
+    b2Body_SetType(body,b2_dynamicBody);
+    ENSURE(b2Body_GetMass(body)>0.0f && b2Body_GetLinearVelocity(body).x==4.0f);
+    ENSURE(b2DynamicTree_GetProxyCount(world->broadPhase.trees+b2_dynamicBody)==1);
+    b2Body_SetType(body,(b2BodyType)99);
+    ENSURE(b2Body_GetType(body)==b2_dynamicBody);
+    bd.isEnabled=false;
+    b2BodyId disabled=b2CreateBody(worldId,&bd);
+    b2ShapeId shape=b2CreateCircleShape(disabled,&sd,&circle);
+    b2Body_SetType(disabled,b2_kinematicBody);
+    ENSURE(b2Body_GetType(disabled)==b2_kinematicBody);
+    ENSURE(world->shapes.data[shape.index1-1].proxyKey==B2_NULL_INDEX);
+    b2DestroyWorld(worldId);
+    ENSURE(b2GetByteCount()==before);return 0;
 }
