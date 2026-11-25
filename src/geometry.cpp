@@ -207,3 +207,83 @@ b2MassData b2ComputeCapsuleMass( const b2Capsule* shape, float density )
 	massData.rotationalInertia = circleInertia + boxInertia;
 	return massData;
 }
+
+b2MassData b2ComputePolygonMass( const b2Polygon* shape, float density )
+{
+	B2_ASSERT( shape->count > 0 );
+
+	if ( shape->count == 1 )
+	{
+		b2Circle circle;
+		circle.center = shape->vertices[0];
+		circle.radius = shape->radius;
+		return b2ComputeCircleMass( &circle, density );
+	}
+
+	if ( shape->count == 2 )
+	{
+		b2Capsule capsule;
+		capsule.center1 = shape->vertices[0];
+		capsule.center2 = shape->vertices[1];
+		capsule.radius = shape->radius;
+		return b2ComputeCapsuleMass( &capsule, density );
+	}
+
+	b2Vec2 vertices[B2_MAX_POLYGON_VERTICES] = {};
+	int count = shape->count;
+	float radius = shape->radius;
+
+	if ( radius > 0.0f )
+	{
+		float sqrt2 = 1.412f;
+		for ( int i = 0; i < count; ++i )
+		{
+			int j = i == 0 ? count - 1 : i - 1;
+			b2Vec2 n1 = shape->normals[j];
+			b2Vec2 n2 = shape->normals[i];
+			b2Vec2 mid = b2Normalize( b2Add( n1, n2 ) );
+			vertices[i] = b2MulAdd( shape->vertices[i], sqrt2 * radius, mid );
+		}
+	}
+	else
+	{
+		for ( int i = 0; i < count; ++i )
+		{
+			vertices[i] = shape->vertices[i];
+		}
+	}
+
+	b2Vec2 center = { 0.0f, 0.0f };
+	float area = 0.0f;
+	float rotationalInertia = 0.0f;
+	b2Vec2 r = vertices[0];
+	const float inv3 = 1.0f / 3.0f;
+
+	for ( int i = 1; i < count - 1; ++i )
+	{
+		b2Vec2 e1 = b2Sub( vertices[i], r );
+		b2Vec2 e2 = b2Sub( vertices[i + 1], r );
+		float D = b2Cross( e1, e2 );
+		float triangleArea = 0.5f * D;
+		area += triangleArea;
+		center = b2MulAdd( center, triangleArea * inv3, b2Add( e1, e2 ) );
+
+		float ex1 = e1.x, ey1 = e1.y;
+		float ex2 = e2.x, ey2 = e2.y;
+		float intx2 = ex1 * ex1 + ex2 * ex1 + ex2 * ex2;
+		float inty2 = ey1 * ey1 + ey2 * ey1 + ey2 * ey2;
+		rotationalInertia += ( 0.25f * inv3 * D ) * ( intx2 + inty2 );
+	}
+
+	b2MassData massData;
+	massData.mass = density * area;
+	B2_ASSERT( area > FLT_EPSILON );
+	float invArea = 1.0f / area;
+	center.x *= invArea;
+	center.y *= invArea;
+	massData.center = b2Add( r, center );
+	massData.rotationalInertia = density * rotationalInertia;
+	massData.rotationalInertia -= massData.mass * b2Dot( center, center );
+	B2_ASSERT( massData.rotationalInertia >= 0.0f );
+	return massData;
+}

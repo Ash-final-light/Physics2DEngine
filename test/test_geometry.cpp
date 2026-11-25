@@ -205,3 +205,60 @@ int CapsuleMassTest( void )
 	ENSURE( stretched.rotationalInertia > md.rotationalInertia );
 	return 0;
 }
+
+int PolygonMassTest( void )
+{
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2MassData md = b2ComputePolygonMass( &box, 1.0f );
+	ENSURE_SMALL( md.mass - 4.0f, FLT_EPSILON );
+	ENSURE_SMALL( md.center.x, FLT_EPSILON );
+	ENSURE_SMALL( md.center.y, FLT_EPSILON );
+	ENSURE_SMALL( md.rotationalInertia - 8.0f / 3.0f, 2.0f * FLT_EPSILON );
+
+	b2Vec2 offset = { 0.4f, -0.7f };
+	b2Polygon local = b2MakeBox( 0.25f, 0.5f );
+	b2Polygon shifted = b2MakeOffsetBox( 0.25f, 0.5f, offset, b2Rot_identity );
+	b2MassData m1 = b2ComputePolygonMass( &local, 1.0f );
+	b2MassData m2 = b2ComputePolygonMass( &shifted, 1.0f );
+	ENSURE_SMALL( m1.mass - m2.mass, FLT_EPSILON );
+	ENSURE_SMALL( m1.rotationalInertia - m2.rotationalInertia, FLT_EPSILON );
+	ENSURE_SMALL( m2.center.x - offset.x, FLT_EPSILON );
+	ENSURE_SMALL( m2.center.y - offset.y, FLT_EPSILON );
+
+	b2Vec2 triangle[3] = { { 0.0f, 0.0f }, { 2.0f, 0.0f }, { 0.0f, 2.0f } };
+	b2Hull hull = b2ComputeHull( triangle, 3 );
+	b2Polygon poly = b2MakePolygon( &hull, 0.0f );
+	b2MassData tri = b2ComputePolygonMass( &poly, 1.0f );
+	ENSURE_SMALL( tri.mass - 2.0f, 0.0001f );
+	ENSURE_SMALL( tri.center.x - ( 2.0f / 3.0f ), 0.0001f );
+	ENSURE_SMALL( tri.center.y - ( 2.0f / 3.0f ), 0.0001f );
+	ENSURE( tri.rotationalInertia > 0.0f );
+
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	b2MassData round = b2ComputePolygonMass( &rounded, 1.0f );
+	ENSURE( round.mass > md.mass );
+	ENSURE_SMALL( round.center.x, 0.0001f );
+	ENSURE_SMALL( round.center.y, 0.0001f );
+
+	b2Polygon one = {};
+	one.count = 1;
+	one.vertices[0] = { 1.0f, 0.0f };
+	one.radius = 1.0f;
+	b2Circle circle = { { 1.0f, 0.0f }, 1.0f };
+	b2MassData oneMass = b2ComputePolygonMass( &one, 1.0f );
+	b2MassData circleMass = b2ComputeCircleMass( &circle, 1.0f );
+	ENSURE_SMALL( oneMass.mass - circleMass.mass, FLT_EPSILON );
+	ENSURE_SMALL( oneMass.rotationalInertia - circleMass.rotationalInertia, FLT_EPSILON );
+
+	b2Polygon two = {};
+	two.count = 2;
+	two.vertices[0] = { -1.0f, 0.0f };
+	two.vertices[1] = { 1.0f, 0.0f };
+	two.radius = 1.0f;
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2MassData twoMass = b2ComputePolygonMass( &two, 1.0f );
+	b2MassData capsuleMass = b2ComputeCapsuleMass( &capsule, 1.0f );
+	ENSURE_SMALL( twoMass.mass - capsuleMass.mass, FLT_EPSILON );
+	ENSURE_SMALL( twoMass.rotationalInertia - capsuleMass.rotationalInertia, FLT_EPSILON );
+	return 0;
+}
