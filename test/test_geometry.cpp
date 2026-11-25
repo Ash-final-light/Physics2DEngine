@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "geometry.h"
+#include "box2d/math_functions.h"
 #include "test_macros.h"
 
 #include <math.h>
@@ -61,5 +62,45 @@ int CapsuleTest( void )
 	bad = capsule;
 	bad.radius = INFINITY;
 	ENSURE( b2IsValidCapsule( &bad ) == false );
+	return 0;
+}
+
+int PolygonTest( void )
+{
+	b2Polygon box = b2MakeBox( 0.5f, 1.0f );
+	ENSURE( box.count == 4 && box.radius == 0.0f );
+	ENSURE( box.centroid.x == 0.0f && box.centroid.y == 0.0f );
+	ENSURE( box.vertices[0].x == -0.5f && box.vertices[0].y == -1.0f );
+	ENSURE( box.vertices[2].x == 0.5f && box.vertices[2].y == 1.0f );
+	ENSURE( box.normals[0].x == 0.0f && box.normals[0].y == -1.0f );
+	ENSURE( box.normals[1].x == 1.0f && box.normals[1].y == 0.0f );
+	ENSURE( box.normals[2].y == 1.0f && box.normals[3].x == -1.0f );
+
+	b2Polygon square = b2MakeSquare( 0.5f );
+	ENSURE( square.count == 4 );
+	ENSURE( square.vertices[1].x == 0.5f && square.vertices[1].y == -0.5f );
+	ENSURE( square.vertices[3].x == -0.5f && square.vertices[3].y == 0.5f );
+
+	b2Vec2 triangle[3] = { { 0.0f, 0.0f }, { 2.0f, 0.0f }, { 0.0f, 2.0f } };
+	b2Hull hull = b2ComputeHull( triangle, 3 );
+	ENSURE( hull.count == 3 );
+	b2Polygon polygon = b2MakePolygon( &hull, 0.25f );
+	ENSURE( polygon.count == 3 && polygon.radius == 0.25f );
+	ENSURE_SMALL( polygon.centroid.x - 2.0f / 3.0f, 0.0001f );
+	ENSURE_SMALL( polygon.centroid.y - 2.0f / 3.0f, 0.0001f );
+	for ( int i = 0; i < 3; ++i )
+	{
+		ENSURE( polygon.vertices[i].x == hull.points[i].x && polygon.vertices[i].y == hull.points[i].y );
+		int i2 = ( i + 1 ) % 3;
+		b2Vec2 edge = b2Sub( polygon.vertices[i2], polygon.vertices[i] );
+		b2Vec2 expected = b2Normalize( b2CrossVS( edge, 1.0f ) );
+		ENSURE_SMALL( polygon.normals[i].x - expected.x, 0.0001f );
+		ENSURE_SMALL( polygon.normals[i].y - expected.y, 0.0001f );
+	}
+
+	b2Hull empty = {};
+	b2Polygon fallback = b2MakePolygon( &empty, 1.0f );
+	ENSURE( fallback.count == 4 && fallback.radius == 0.0f );
+	ENSURE( fallback.vertices[0].x == -0.5f && fallback.vertices[2].x == 0.5f );
 	return 0;
 }

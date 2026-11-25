@@ -129,6 +129,12 @@ B2_INLINE b2Vec2 b2Sub( b2Vec2 a, b2Vec2 b )
 	return B2_LITERAL( b2Vec2 ){ a.x - b.x, a.y - b.y };
 }
 
+/// a + s * b
+B2_INLINE b2Vec2 b2MulAdd( b2Vec2 a, float s, b2Vec2 b )
+{
+	return B2_LITERAL( b2Vec2 ){ a.x + s * b.x, a.y + s * b.y };
+}
+
 /// 分量绝对值。
 B2_INLINE b2Vec2 b2Abs( b2Vec2 a )
 {

@@ -53,3 +53,17 @@ B2_API b2Hull b2ComputeHull( const b2Vec2* points, int count );
 
 /// 检查凸包是否严格凸、逆时针，且没有过近的共线点。
 B2_API bool b2ValidateHull( const b2Hull* hull );
+
+/// 实心凸多边形。顶点按逆时针排列，法线指向外侧。
+typedef struct b2Polygon
+{
+	b2Vec2 vertices[B2_MAX_POLYGON_VERTICES];
+	b2Vec2 normals[B2_MAX_POLYGON_VERTICES];
+	b2Vec2 centroid;
+	float radius;
+	int count;
+} b2Polygon;
+
+B2_API b2Polygon b2MakePolygon( const b2Hull* hull, float radius );
+B2_API b2Polygon b2MakeBox( float halfWidth, float halfHeight );
+B2_API b2Polygon b2MakeSquare( float halfWidth );
