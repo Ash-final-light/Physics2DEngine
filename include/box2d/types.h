@@ -90,3 +90,4 @@ typedef struct b2BodyDef
 B2_API b2BodyDef b2DefaultBodyDef( void );
 B2_API b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def );
 B2_API void b2DestroyBody( b2BodyId bodyId );
+B2_API bool b2Body_IsValid( b2BodyId id );

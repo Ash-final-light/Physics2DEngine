@@ -110,3 +110,27 @@ int BodyCreateTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int BodyIdTest( void )
+{
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld( &worldDef );
+	b2BodyDef bodyDef = b2DefaultBodyDef();
+	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
+	ENSURE( b2Body_IsValid( bodyId ) );
+	ENSURE( b2Body_IsValid( b2_nullBodyId ) == false );
+	uint16_t generation = bodyId.generation;
+	b2DestroyBody( bodyId );
+	ENSURE( b2Body_IsValid( bodyId ) == false );
+
+	b2BodyId reused = b2CreateBody( worldId, &bodyDef );
+	ENSURE( reused.index1 == bodyId.index1 );
+	ENSURE( reused.generation != generation );
+	ENSURE( b2Body_IsValid( reused ) );
+	ENSURE( b2Body_IsValid( bodyId ) == false );
+	b2DestroyBody( bodyId );
+	ENSURE( b2Body_IsValid( reused ) );
+	b2DestroyWorld( worldId );
+	ENSURE( b2Body_IsValid( reused ) == false );
+	return 0;
+}

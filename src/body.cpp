@@ -106,3 +106,26 @@ void b2DestroyBody( b2BodyId bodyId )
 	body->generation = generation;
 	body->id = B2_NULL_INDEX;
 }
+
+bool b2Body_IsValid( b2BodyId id )
+{
+	if ( id.world0 >= B2_MAX_WORLDS )
+	{
+		return false;
+	}
+	b2World* world = b2_worlds + id.world0;
+	if ( world->inUse == false || world->worldId != id.world0 )
+	{
+		return false;
+	}
+	if ( id.index1 < 1 || world->bodies.count < id.index1 )
+	{
+		return false;
+	}
+	b2Body* body = world->bodies.data + ( id.index1 - 1 );
+	if ( body->id == B2_NULL_INDEX )
+	{
+		return false;
+	}
+	return body->generation == id.generation;
+}
