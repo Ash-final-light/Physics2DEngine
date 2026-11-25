@@ -38,11 +38,14 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->indexB=b2DecodeAwakeIndex(sim->encodedBodySimB)+1;
             constraint->normal=manifold->normal;
             constraint->friction=sim->friction;
+            constraint->rollingResistance=sim->rollingResistance;
+            constraint->rollingImpulse=warmStartScale*manifold->rollingImpulse;
             constraint->softness=(constraint->indexA==0 || constraint->indexB==0)?staticSoftness:contactSoftness;
             constraint->pointCount=manifold->pointCount;
             float mA=sim->invMassA,iA=sim->invIA,mB=sim->invMassB,iB=sim->invIB;
             constraint->invMassA=mA;constraint->invIA=iA;
             constraint->invMassB=mB;constraint->invIB=iB;
+            constraint->rollingMass=iA+iB>0.0f?1.0f/(iA+iB):0.0f;
             for(int j=0;j<manifold->pointCount;++j)
             {
                 const b2ManifoldPoint* mp=manifold->points+j;
@@ -124,12 +127,27 @@ static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBia
             normalImpulse+=impulse;angularA+=impulse*rnA[j];angularB+=impulse*rnB[j];
         }
         float tangentImpulse=0.0f;
+        float rollingImpulse=0.0f;
+        if(!useBias)
+        {
+            float Cdot=wB-wA,totalNormalImpulse=0.0f;
+            for(int j=0;j<constraint->pointCount;++j)
+            {
+                Cdot+=(iA*rnA[j]+iB*rnB[j])*impulses[j];
+                totalNormalImpulse+=constraint->points[j].normalImpulse;
+            }
+            float lambda=constraint->rollingImpulse;
+            float maxLambda=constraint->rollingResistance*totalNormalImpulse;
+            constraint->rollingImpulse=b2ClampFloat(lambda-constraint->rollingMass*Cdot,-maxLambda,maxLambda);
+            rollingImpulse=constraint->rollingImpulse-lambda;
+            angularA+=rollingImpulse;angularB+=rollingImpulse;
+        }
         if(!useBias)
         {
             for(int j=0;j<constraint->pointCount;++j)
             {
                 b2ContactConstraintPoint* cp=constraint->points+j;
-                float vt=vtc+wB*rtB[j]-wA*rtA[j];
+                float vt=vtc+wB*rtB[j]-wA*rtA[j]+(iA*rtA[j]+iB*rtB[j])*rollingImpulse;
                 for(int k=0;k<constraint->pointCount;++k)
                 { vt+=(iA*rtA[j]*rnA[k]+iB*rtB[j]*rnB[k])*impulses[k]; }
                 for(int k=0;k<j;++k)
@@ -165,6 +183,7 @@ void b2StoreContactImpulses(b2StepContext* context)
             b2Manifold* manifold=&color->contactSims.data[i].manifold;
             const b2ContactConstraint* constraint=color->overflowConstraints+i;
             B2_ASSERT(manifold->pointCount==constraint->pointCount);
+            manifold->rollingImpulse=constraint->rollingImpulse;
             for(int j=0;j<manifold->pointCount;++j)
             {
                 manifold->points[j].normalImpulse=constraint->points[j].normalImpulse;
@@ -204,6 +223,7 @@ void b2WarmStartContacts(b2StepContext* context)
                 wA-=constraint->invIA*b2Cross(cp->anchorA,P);vA=b2MulAdd(vA,-constraint->invMassA,P);
                 wB+=constraint->invIB*b2Cross(cp->anchorB,P);vB=b2MulAdd(vB,constraint->invMassB,P);
             }
+            wA-=constraint->invIA*constraint->rollingImpulse;wB+=constraint->invIB*constraint->rollingImpulse;
             if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
             if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
         }

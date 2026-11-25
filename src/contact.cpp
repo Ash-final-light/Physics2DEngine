@@ -291,6 +291,12 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
 {
     (void)world;
     sim->friction=sqrtf(a->material.friction*b->material.friction);
+    sim->rollingResistance=0.0f;
+    if(a->material.rollingResistance>0 || b->material.rollingResistance>0)
+    {
+        float maxRadius=b2MaxFloat(b2GetShapeRadius(a),b2GetShapeRadius(b));
+        sim->rollingResistance=b2MaxFloat(a->material.rollingResistance,b->material.rollingResistance)*maxRadius;
+    }
     b2Manifold old = sim->manifold;
     b2Transform relative = b2InvMulTransforms(transformA,transformB);
     b2ManifoldFcn* function = b2_contactRegistry[a->type][b->type].fcn;

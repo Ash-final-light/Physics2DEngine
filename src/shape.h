@@ -69,3 +69,18 @@ inline bool b2ShouldShapesCollide( b2Filter a, b2Filter b )
     }
     return (a.maskBits & b.categoryBits) != 0 && (a.categoryBits & b.maskBits) != 0;
 }
+
+static inline float b2GetShapeRadius( const b2Shape* shape )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			return shape->capsule.radius;
+		case b2_circleShape:
+			return shape->circle.radius;
+		case b2_polygonShape:
+			return shape->polygon.radius;
+		default:
+			return 0.0f;
+	}
+}

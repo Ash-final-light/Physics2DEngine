@@ -326,3 +326,35 @@ int ContactFrictionTest(void)
     ENSURE_SMALL(b2Body_GetAngularVelocity(body),0.00001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactRollingResistanceTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int run=0;run<3;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-2};bd.angularVelocity=10;
+        b2BodyId a=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=0;
+        sd.material.rollingResistance=run?0.1f:0;b2Circle c={{0,0},2};b2CreateCircleShape(a,&sd,&c);
+        b2Body_SetMassData(a,b2MassData{1,{0,0},1});
+        bd.type=run==2?b2_dynamicBody:b2_staticBody;bd.position={0,-3};bd.linearVelocity={0,0};bd.angularVelocity=-10;
+        b2BodyId b=b2CreateBody(id,&bd);sd.material.rollingResistance=run?0.2f:0;c.radius=1;b2CreateCircleShape(b,&sd,&c);
+        if(run==2) { b2Body_SetMassData(b,b2MassData{1,{0,0},1}); }
+        SolveHardNormal(id);b2Contact* contact=world->contacts.data;b2ContactSim* sim=b2GetContactSim(world,contact);
+        float expected=run==0?0.0f:run==1?0.8f:0.4f;
+        ENSURE_SMALL(sim->rollingResistance-(run?0.4f:0.0f),0.00001f);
+        ENSURE_SMALL(sim->manifold.rollingImpulse-expected,0.00001f);
+        ENSURE_SMALL(b2Body_GetAngularVelocity(a)-(10-expected),0.00001f);
+        if(run==2)
+        {
+            ENSURE_SMALL(b2Body_GetAngularVelocity(b)-(-10+expected),0.00001f);
+            ENSURE_SMALL(b2Body_GetAngularVelocity(a)+b2Body_GetAngularVelocity(b),0.00001f);
+        }
+        b2Body_SetAngularVelocity(a,0);b2Body_SetLinearVelocity(a,{0,0});
+        b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,0.01f,100};
+        b2PrepareContactConstraints(&context);b2WarmStartContacts(&context);
+        ENSURE_SMALL(b2Body_GetAngularVelocity(a)+expected,0.00001f);
+        b2ReleaseContactConstraints(&context);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    return 0;
+}

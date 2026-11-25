@@ -24,6 +24,9 @@ struct b2ContactConstraint
     float invMassA, invMassB;
     float invIA, invIB;
     float friction;
+    float rollingResistance;
+    float rollingMass;
+    float rollingImpulse;
     b2Softness softness;
     int pointCount;
 };
