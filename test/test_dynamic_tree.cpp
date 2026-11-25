@@ -3,6 +3,7 @@
 
 #include "test_macros.h"
 
+#include "aabb.h"
 #include "dynamic_tree.h"
 
 #include "box2d/base.h"
@@ -267,6 +268,80 @@ int DynamicTreeOverlapTest( void )
 	stats = b2DynamicTree_OverlapAABB( empty, query, 0xFFFFFFFFull, CollectOverlap, hits );
 	ENSURE( stats.nodeVisits == 0 && stats.leafVisits == 0 );
 	b2DestroyDynamicTree( empty );
+	b2DestroyDynamicTree( tree );
+	return 0;
+}
+
+struct RayHit
+{
+	const b2DynamicTree* tree;
+	int proxyId;
+	float fraction;
+};
+
+static float ClosestTreeRay( const b2RayCastInput* input, int proxyId, uint64_t userData, void* context )
+{
+	(void)userData;
+	RayHit* hit = static_cast<RayHit*>( context );
+	b2Vec2 end = b2MulAdd( input->origin, input->maxFraction, input->translation );
+	b2CastOutput output = b2AABB_RayCast( b2DynamicTree_GetProxyBounds( hit->tree, proxyId ), input->origin, end );
+	if ( output.hit == false )
+	{
+		return input->maxFraction;
+	}
+	float fraction = output.fraction * input->maxFraction;
+	if ( fraction < hit->fraction )
+	{
+		hit->fraction = fraction;
+		hit->proxyId = proxyId;
+	}
+	return fraction;
+}
+
+int DynamicTreeRayTest( void )
+{
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	b2AABB nearBox = { { 2.0f, -0.5f }, { 3.0f, 0.5f } };
+	b2AABB farBox = { { 6.0f, -0.5f }, { 7.0f, 0.5f } };
+	b2AABB offBox = { { 2.0f, 3.0f }, { 3.0f, 4.0f } };
+	int nearId = b2CreateTreeProxy( tree, nearBox, 0x1ull, 1 );
+	int farId = b2CreateTreeProxy( tree, farBox, 0x1ull, 2 );
+	int offId = b2CreateTreeProxy( tree, offBox, 0x1ull, 3 );
+	b2RayCastInput input = { { 0.0f, 0.0f }, { 10.0f, 0.0f }, 1.0f };
+	RayHit hit = { tree, -1, 2.0f };
+	b2DynamicTree_CastRay( tree, &input, 0xFFFFFFFFull, ClosestTreeRay, &hit );
+	ENSURE( hit.proxyId == nearId );
+	ENSURE( hit.fraction > 0.15f && hit.fraction < 0.25f );
+
+	float best = 2.0f;
+	int bestId = -1;
+	b2AABB boxes[3] = { nearBox, farBox, offBox };
+	int ids[3] = { nearId, farId, offId };
+	for ( int i = 0; i < 3; ++i )
+	{
+		b2CastOutput output = b2AABB_RayCast( boxes[i], input.origin, { 10.0f, 0.0f } );
+		if ( output.hit && output.fraction < best )
+		{
+			best = output.fraction;
+			bestId = ids[i];
+		}
+	}
+	ENSURE( bestId == hit.proxyId );
+	ENSURE_SMALL( best - hit.fraction, 0.0001f );
+
+	RayHit masked = { tree, -1, 2.0f };
+	b2DynamicTree_CastRay( tree, &input, 0x1ull, ClosestTreeRay, &masked );
+	b2DynamicTree_SetCategoryBits( tree, nearId, 0x2ull );
+	RayHit skipped = { tree, -1, 2.0f };
+	b2DynamicTree_CastRay( tree, &input, 0x1ull, ClosestTreeRay, &skipped );
+	ENSURE( skipped.proxyId == farId );
+
+	b2RayCastInput miss = { { 0.0f, 8.0f }, { 10.0f, 0.0f }, 1.0f };
+	RayHit missed = { tree, -1, 2.0f };
+	b2DynamicTree_CastRay( tree, &miss, 0xFFFFFFFFull, ClosestTreeRay, &missed );
+	ENSURE( missed.proxyId == -1 );
+	(void)offId;
+	(void)masked;
 	b2DestroyDynamicTree( tree );
 	return 0;
 }

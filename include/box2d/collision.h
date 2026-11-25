@@ -324,6 +324,11 @@ B2_API b2TreeStats b2DynamicTree_OverlapAABB( const b2DynamicTree* tree, b2AABB 
 											 b2TreeQueryCallbackFcn* callback, void* context );
 B2_API b2TreeStats b2DynamicTree_OverlapAABBAll( const b2DynamicTree* tree, b2AABB aabb, b2TreeQueryCallbackFcn* callback,
 												 void* context );
+
+typedef float b2TreeRayCastCallbackFcn( const b2RayCastInput* input, int proxyId, uint64_t userData, void* context );
+
+B2_API b2TreeStats b2DynamicTree_CastRay( const b2DynamicTree* tree, const b2RayCastInput* input, uint64_t maskBits,
+										  b2TreeRayCastCallbackFcn* callback, void* context );
 B2_API int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree );
 B2_API uint64_t b2DynamicTree_GetUserData( const b2DynamicTree* tree, int proxyId );
 B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId );

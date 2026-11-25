@@ -1152,3 +1152,100 @@ b2TreeStats b2DynamicTree_OverlapAABBAll( const b2DynamicTree* tree, b2AABB aabb
 {
 	return b2QueryAABB( tree, aabb, 0, false, callback, context );
 }
+
+b2TreeStats b2DynamicTree_CastRay( const b2DynamicTree* tree, const b2RayCastInput* input, uint64_t maskBits,
+								   b2TreeRayCastCallbackFcn* callback, void* context )
+{
+	b2TreeStats result = {};
+	if ( tree->proxyCount == 0 )
+	{
+		return result;
+	}
+
+	b2Vec2 p1 = input->origin;
+	b2Vec2 d = input->translation;
+	b2Vec2 r = b2Normalize( d );
+	b2Vec2 v = b2CrossSV( 1.0f, r );
+	b2Vec2 absV = b2Abs( v );
+	float maxFraction = input->maxFraction;
+	b2Vec2 p2 = b2MulAdd( p1, maxFraction, d );
+	b2AABB segmentAABB = { b2Min( p1, p2 ), b2Max( p1, p2 ) };
+	const b2TreeNode* nodes = tree->nodes;
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = b2GetRootPair( nodes );
+	b2RayCastInput subInput = *input;
+	while ( stackCount > 0 )
+	{
+		int pair = stack[--stackCount];
+		result.nodeVisits += 1;
+		const b2TreeNode* hit[2];
+		bool isLeaf[2];
+		int hitCount = 0;
+		for ( int i = 0; i < 2; ++i )
+		{
+			const b2TreeNode* node = nodes + pair + i;
+			if ( b2IsEmptyNode( node ) || b2AABB_Overlaps( node->aabb, segmentAABB ) == false )
+			{
+				continue;
+			}
+
+			b2Vec2 c = b2AABB_Center( node->aabb );
+			b2Vec2 h = b2AABB_Extents( node->aabb );
+			float term1 = b2AbsFloat( b2Dot( v, b2Sub( p1, c ) ) );
+			float term2 = b2Dot( absV, h );
+			if ( term2 < term1 )
+			{
+				continue;
+			}
+
+			isLeaf[hitCount] = b2IsLeaf( node );
+			hit[hitCount] = node;
+			hitCount += 1;
+		}
+
+		if ( hitCount == 2 && isLeaf[0] == false && isLeaf[1] == false )
+		{
+			float d1 = b2DistanceSquared( b2AABB_Center( hit[0]->aabb ), p1 );
+			float d2 = b2DistanceSquared( b2AABB_Center( hit[1]->aabb ), p1 );
+			if ( d1 < d2 )
+			{
+				B2_SWAP( hit[0], hit[1] );
+			}
+		}
+
+		for ( int i = 0; i < hitCount; ++i )
+		{
+			if ( isLeaf[i] )
+			{
+				int proxyId = b2GetProxyId( hit[i] );
+				const b2TreeProxy* proxy = tree->proxies + proxyId;
+				if ( ( proxy->categoryBits & maskBits ) == 0 )
+				{
+					continue;
+				}
+
+				subInput.maxFraction = maxFraction;
+				float value = callback( &subInput, proxyId, proxy->userData, context );
+				result.leafVisits += 1;
+				if ( value == 0.0f )
+				{
+					return result;
+				}
+				if ( 0.0f < value && value <= maxFraction )
+				{
+					maxFraction = value;
+					p2 = b2MulAdd( p1, maxFraction, d );
+					segmentAABB.lowerBound = b2Min( p1, p2 );
+					segmentAABB.upperBound = b2Max( p1, p2 );
+				}
+			}
+			else if ( stackCount < B2_TREE_STACK_SIZE - 1 )
+			{
+				stack[stackCount++] = b2GetLeftChild( hit[i] );
+			}
+		}
+	}
+
+	return result;
+}
