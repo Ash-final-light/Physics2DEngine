@@ -35,3 +35,25 @@ void b2DestroyBroadPhase( b2BroadPhase* bp )
 
 	memset( bp, 0, sizeof( b2BroadPhase ) );
 }
+
+
+int b2BroadPhase_CreateProxy( b2BroadPhase* bp, b2BodyType proxyType, b2AABB aabb, uint64_t categoryBits, int shapeIndex,
+							  bool forcePairCreation )
+{
+	B2_ASSERT( 0 <= proxyType && proxyType < b2_bodyTypeCount );
+
+	bool mark = ( proxyType != b2_staticBody || forcePairCreation );
+
+	int proxyId = b2CreateTreeProxyInternal( bp->trees + proxyType, aabb, categoryBits, shapeIndex, mark );
+	int proxyKey = B2_PROXY_KEY( proxyId, proxyType );
+	return proxyKey;
+}
+
+void b2BroadPhase_DestroyProxy( b2BroadPhase* bp, int proxyKey )
+{
+	b2BodyType proxyType = B2_PROXY_TYPE( proxyKey );
+	int proxyId = B2_PROXY_ID( proxyKey );
+
+	B2_ASSERT( 0 <= proxyType && proxyType < b2_bodyTypeCount );
+	b2DestroyTreeProxy( bp->trees + proxyType, proxyId );
+}

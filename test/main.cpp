@@ -95,6 +95,7 @@ int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int BroadPhaseTreeTypesTest( void );
+int BroadPhaseProxyLifecycleTest( void );
 int ObjectRelationshipTest( void );
 int ChainMaterialTest( void );
 int ChainEnumerationTest( void );
@@ -724,6 +725,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BroadPhaseTreeTypesTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BroadPhaseProxyLifecycleTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BroadPhaseProxyLifecycleTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

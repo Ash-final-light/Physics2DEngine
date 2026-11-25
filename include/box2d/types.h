@@ -141,6 +141,7 @@ typedef struct b2ShapeDef
     b2SurfaceMaterial material;
     float density;
     b2Filter filter;
+    bool invokeContactCreation;
     bool updateBodyMass;
     int internalValue;
 } b2ShapeDef;

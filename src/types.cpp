@@ -61,6 +61,7 @@ b2ShapeDef b2DefaultShapeDef( void )
     def.material = b2DefaultSurfaceMaterial();
     def.density = 1.0f;
     def.filter = b2DefaultFilter();
+    def.invokeContactCreation = true;
     def.updateBodyMass = true;
     def.internalValue = B2_SECRET_COOKIE;
     return def;

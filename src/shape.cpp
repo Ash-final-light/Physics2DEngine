@@ -8,6 +8,61 @@
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 
+static float b2ComputeShapeMargin( b2Shape* shape )
+{
+	float margin = 0.0f;
+
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+		{
+			margin = 0.5f * b2Distance( shape->capsule.center2, shape->capsule.center1 ) +
+					 shape->capsule.radius;
+		}
+		break;
+
+		case b2_circleShape:
+		{
+			margin = shape->circle.radius;
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			const b2Polygon* poly = &shape->polygon;
+			float maxExtentSqr = 0.0f;
+			int count = poly->count;
+			for ( int i = 0; i < count; ++i )
+			{
+				float distanceSqr = b2DistanceSquared( poly->vertices[i], poly->centroid );
+				maxExtentSqr = b2MaxFloat( maxExtentSqr, distanceSqr );
+			}
+
+			margin = sqrtf( maxExtentSqr );
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			margin = 0.5f * b2Distance( shape->segment.point1, shape->segment.point2 );
+		}
+		break;
+
+		case b2_chainSegmentShape:
+		{
+			margin = 0.5f * b2Distance( shape->chainSegment.segment.point1,
+										shape->chainSegment.segment.point2 );
+		}
+		break;
+
+		default:
+			B2_VALIDATE( false );
+			return B2_MAX_AABB_MARGIN;
+	}
+
+	return b2MinFloat( B2_MAX_AABB_MARGIN, B2_AABB_MARGIN_FRACTION * margin );
+}
+
 void b2UpdateShapeAABB( b2Shape* shape, b2WorldTransform transform )
 {
     switch ( shape->type )
@@ -88,6 +143,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     if ( id == world->shapes.count )
     {
         b2Array_Push( world->shapes, b2Shape{} );
+        b2Array_Push( world->fatAABBs, b2AABB{} );
     }
     b2Shape* shape = world->shapes.data + id;
     uint16_t generation = (uint16_t)( shape->generation + 1 );
@@ -106,6 +162,8 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
         default: B2_ASSERT( false ); break;
     }
     shape->density = def->density;
+    shape->proxyKey = B2_NULL_INDEX;
+    shape->aabbMargin = b2ComputeShapeMargin( shape );
     shape->material = def->material;
     shape->filter = def->filter;
     shape->userData = def->userData;
@@ -126,6 +184,10 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
         }
     }
     b2UpdateShapeAABB( shape, body->transform );
+    if ( body->isEnabled )
+    {
+        b2CreateShapeProxy( world, shape, body->type, body->transform, def->invokeContactCreation );
+    }
     return b2ShapeId{ id + 1, world->worldId, generation };
 }
 
@@ -144,6 +206,7 @@ static void b2DestroyShapeInternal( b2World* world, b2Shape* shape, b2Body* body
         body->headShapeId = shape->nextShapeId;
     }
     body->shapeCount -= 1;
+    b2DestroyShapeProxy( shape, &world->broadPhase );
     b2FreeId( &world->shapeIdPool, shape->id );
     uint16_t generation = shape->generation;
     *shape = b2Shape{};
@@ -693,4 +756,26 @@ b2WorldId b2Shape_GetWorld( b2ShapeId id )
 {
     B2_ASSERT( b2Shape_IsValid( id ) );
     return b2WorldId{ (uint16_t)(id.world0+1), b2_worlds[id.world0].generation };
+}
+
+
+void b2CreateShapeProxy( b2World* world, b2Shape* shape, b2BodyType type, b2WorldTransform transform, bool forcePairCreation )
+{
+    B2_ASSERT( shape->proxyKey == B2_NULL_INDEX );
+    b2UpdateShapeAABB( shape, transform );
+    float margin = type == b2_staticBody ? B2_SPECULATIVE_DISTANCE : shape->aabbMargin;
+    b2Vec2 extra = { margin, margin };
+    b2AABB fat = { b2Sub( shape->aabb.lowerBound, extra ), b2Add( shape->aabb.upperBound, extra ) };
+    world->fatAABBs.data[shape->id] = fat;
+    shape->proxyKey = b2BroadPhase_CreateProxy( &world->broadPhase, type, fat, shape->filter.categoryBits,
+                                               shape->id, forcePairCreation );
+}
+
+void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* bp )
+{
+    if ( shape->proxyKey != B2_NULL_INDEX )
+    {
+        b2BroadPhase_DestroyProxy( bp, shape->proxyKey );
+        shape->proxyKey = B2_NULL_INDEX;
+    }
 }

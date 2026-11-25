@@ -457,14 +457,14 @@ static void b2RemoveLeaf( b2DynamicTree* tree, int proxyId )
 	}
 }
 
-int b2CreateTreeProxy( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData )
+int b2CreateTreeProxyInternal( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData, bool markMoved )
 {
 	B2_VALIDATE( b2IsValidAABB( aabb ) );
 	int proxyId = b2AllocateProxy( tree );
 	b2TreeProxy* proxy = tree->proxies + proxyId;
 	proxy->categoryBits = categoryBits;
 	proxy->userData = userData;
-	b2InsertLeaf( tree, aabb, proxyId, false, true );
+	b2InsertLeaf( tree, aabb, proxyId, markMoved, true );
 	return proxyId;
 }
 
@@ -1410,4 +1410,10 @@ size_t b2DynamicTree_GetByteCount( const b2DynamicTree* tree )
 		size += tree->rebuildCapacity * sizeof( b2Vec2 );
 	}
 	return size;
+}
+
+
+int b2CreateTreeProxy( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData )
+{
+    return b2CreateTreeProxyInternal( tree, aabb, categoryBits, userData, false );
 }

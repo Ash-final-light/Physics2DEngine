@@ -40,6 +40,7 @@ struct b2World
 	b2DynamicArray<b2Body> bodies;
 	b2IdPool shapeIdPool;
 	b2DynamicArray<b2Shape> shapes;
+	b2DynamicArray<b2AABB> fatAABBs;
 	b2IdPool chainIdPool;
 	b2DynamicArray<b2ChainShape> chainShapes;
 };
