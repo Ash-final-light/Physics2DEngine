@@ -58,6 +58,7 @@ int SegmentDistanceTest( void );
 int ShapeProxyTest( void );
 int ShapeDistanceTest( void );
 int ShapeCastTest( void );
+int ShapeCastDispatchTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -381,6 +382,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ShapeCastTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ShapeCastDispatchTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ShapeCastDispatchTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

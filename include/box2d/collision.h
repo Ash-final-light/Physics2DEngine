@@ -182,3 +182,16 @@ typedef struct b2ShapeCastPairInput
 } b2ShapeCastPairInput;
 
 B2_API b2CastOutput b2CastShape( const b2ShapeCastPairInput* input );
+
+typedef struct b2ShapeCastInput
+{
+	b2ShapeProxy proxy;
+	b2Vec2 translation;
+	float maxFraction;
+	bool canEncroach;
+} b2ShapeCastInput;
+
+B2_API b2CastOutput b2CastShapeCircle( const b2Circle* shape, const b2ShapeCastInput* input );
+B2_API b2CastOutput b2CastShapeCapsule( const b2Capsule* shape, const b2ShapeCastInput* input );
+B2_API b2CastOutput b2CastShapeSegment( const b2Segment* shape, const b2ShapeCastInput* input );
+B2_API b2CastOutput b2CastShapePolygon( const b2Polygon* shape, const b2ShapeCastInput* input );

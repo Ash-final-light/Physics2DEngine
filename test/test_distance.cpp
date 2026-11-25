@@ -218,3 +218,42 @@ int ShapeCastTest( void )
 	ENSURE_SMALL( thinDistance.distance - B2_LINEAR_SLOP, 1.0e-6f );
 	return 0;
 }
+
+int ShapeCastDispatchTest( void )
+{
+	b2Vec2 start = { 4.0f, 0.0f };
+	b2ShapeCastInput input = {};
+	input.proxy = b2MakeProxy( &start, 1, 0.0f );
+	input.translation = { -6.0f, 0.0f };
+	input.maxFraction = 1.0f;
+	input.canEncroach = false;
+
+	b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+	b2CastOutput circleHit = b2CastShapeCircle( &circle, &input );
+	ENSURE( circleHit.hit == true );
+	ENSURE( circleHit.fraction > 0.45f && circleHit.fraction < 0.55f );
+	ENSURE( circleHit.normal.x > 0.0f );
+
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2CastOutput capsuleHit = b2CastShapeCapsule( &capsule, &input );
+	ENSURE( capsuleHit.hit == true );
+	ENSURE( capsuleHit.fraction > 0.25f && capsuleHit.fraction < 0.40f );
+
+	b2Segment segment = { { 0.0f, -1.0f }, { 0.0f, 1.0f } };
+	b2CastOutput segmentHit = b2CastShapeSegment( &segment, &input );
+	ENSURE( segmentHit.hit == true );
+	ENSURE( segmentHit.fraction > 0.60f && segmentHit.fraction < 0.75f );
+
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2CastOutput boxHit = b2CastShapePolygon( &box, &input );
+	ENSURE( boxHit.hit == true );
+	ENSURE( boxHit.fraction > 0.45f && boxHit.fraction < 0.55f );
+	ENSURE( boxHit.normal.x > 0.0f );
+
+	input.translation = { 2.0f, 0.0f };
+	ENSURE( b2CastShapeCircle( &circle, &input ).hit == false );
+	ENSURE( b2CastShapeCapsule( &capsule, &input ).hit == false );
+	ENSURE( b2CastShapeSegment( &segment, &input ).hit == false );
+	ENSURE( b2CastShapePolygon( &box, &input ).hit == false );
+	return 0;
+}
