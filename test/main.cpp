@@ -84,6 +84,7 @@ int DynamicTreeRefitTest( void );
 int DynamicTreeOverlapTest( void );
 int DynamicTreeRayTest( void );
 int DynamicTreeBoxCastTest( void );
+int DynamicTreeStatsTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -563,6 +564,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( DynamicTreeBoxCastTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "DynamicTreeStatsTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( DynamicTreeStatsTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

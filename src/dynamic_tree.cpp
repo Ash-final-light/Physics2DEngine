@@ -1348,3 +1348,66 @@ b2TreeStats b2DynamicTree_CastBox( const b2DynamicTree* tree, const b2BoxCastInp
 
 	return result;
 }
+
+int b2DynamicTree_GetHeight( const b2DynamicTree* tree )
+{
+	return b2GetNodeHeight( tree->nodes + B2_ROOT_NODE );
+}
+
+float b2DynamicTree_GetAreaRatio( const b2DynamicTree* tree )
+{
+	if ( tree->proxyCount == 0 )
+	{
+		return 0.0f;
+	}
+
+	float rootArea = b2TreePerimeter( tree->nodes[B2_ROOT_NODE].aabb );
+	if ( rootArea <= 0.0f )
+	{
+		return 0.0f;
+	}
+
+	float internalArea = 0.0f;
+	for ( int i = 2; i < tree->nodeEnd; ++i )
+	{
+		if ( b2IsLeaf( tree->nodes + i ) == false )
+		{
+			internalArea += b2TreePerimeter( tree->nodes[i].aabb );
+		}
+	}
+	return internalArea / rootArea;
+}
+
+b2AABB b2DynamicTree_GetRootBounds( const b2DynamicTree* tree )
+{
+	if ( tree->proxyCount == 0 )
+	{
+		return b2AABB{ b2Vec2_zero, b2Vec2_zero };
+	}
+	return tree->nodes[B2_ROOT_NODE].aabb;
+}
+
+size_t b2DynamicTree_GetByteCount( const b2DynamicTree* tree )
+{
+	size_t size = sizeof( b2DynamicTree );
+	size += tree->nodeCapacity * sizeof( b2TreeNode );
+	size += tree->nodeCapacity * sizeof( int32_t );
+	size += tree->proxyCapacity * sizeof( b2TreeProxy );
+	if ( tree->swapNodes != NULL )
+	{
+		size += tree->nodeCapacity * sizeof( b2TreeNode );
+	}
+	if ( tree->leafIndices != NULL )
+	{
+		size += tree->rebuildCapacity * sizeof( int32_t );
+	}
+	if ( tree->leafNodes != NULL )
+	{
+		size += tree->rebuildCapacity * sizeof( b2TreeNode );
+	}
+	if ( tree->leafCenters != NULL )
+	{
+		size += tree->rebuildCapacity * sizeof( b2Vec2 );
+	}
+	return size;
+}

@@ -429,3 +429,41 @@ int DynamicTreeBoxCastTest( void )
 	b2DestroyDynamicTree( tree );
 	return 0;
 }
+
+int DynamicTreeStatsTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2DynamicTree* empty = b2CreateDynamicTree( 16 );
+	ENSURE( b2DynamicTree_GetHeight( empty ) == 0 );
+	ENSURE( b2DynamicTree_GetAreaRatio( empty ) == 0.0f );
+	b2AABB emptyBounds = b2DynamicTree_GetRootBounds( empty );
+	ENSURE( emptyBounds.lowerBound.x == 0.0f && emptyBounds.upperBound.x == 0.0f );
+	ENSURE( b2DynamicTree_GetByteCount( empty ) == b2GetByteCount() - before );
+	b2DestroyDynamicTree( empty );
+
+	before = b2GetByteCount();
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	b2AABB box = { { 1.0f, 2.0f }, { 3.0f, 4.0f } };
+	b2CreateTreeProxy( tree, box, 1, 7 );
+	ENSURE( b2DynamicTree_GetHeight( tree ) == 0 );
+	ENSURE( SameBounds( b2DynamicTree_GetRootBounds( tree ), box ) );
+	ENSURE( b2DynamicTree_GetAreaRatio( tree ) == 0.0f );
+	for ( int i = 0; i < 4; ++i )
+	{
+		b2AABB item = { { (float)( i + 10 ), 0.0f }, { (float)( i + 10 ) + 0.5f, 0.5f } };
+		b2CreateTreeProxy( tree, item, 1, (uint64_t)i );
+	}
+	b2AABB root = b2DynamicTree_GetRootBounds( tree );
+	ENSURE( root.lowerBound.x <= 1.0f && root.upperBound.x >= 13.5f );
+	ENSURE( b2DynamicTree_GetHeight( tree ) >= 1 );
+	ENSURE( b2DynamicTree_GetAreaRatio( tree ) > 0.0f );
+	ENSURE( b2DynamicTree_GetByteCount( tree ) == b2GetByteCount() - before );
+	b2DynamicTree_Rebuild( tree, true );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 5 );
+	ENSURE( b2DynamicTree_GetByteCount( tree ) == b2GetByteCount() - before );
+	root = b2DynamicTree_GetRootBounds( tree );
+	ENSURE( b2AABB_Contains( root, box ) );
+	b2DestroyDynamicTree( tree );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
