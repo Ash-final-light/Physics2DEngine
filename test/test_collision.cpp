@@ -64,3 +64,43 @@ int CapsuleCircleManifoldTest( void )
 	ENSURE( b2CollideCapsuleAndCircle( &capsule, &circle, far ).pointCount == 0 );
 	return 0;
 }
+
+int PolygonCircleManifoldTest( void )
+{
+	b2Polygon box = b2MakeBox( 1.0f, 1.0f );
+	b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+	b2Transform face = { { 2.0f, 0.0f }, b2Rot_identity };
+	b2LocalManifold side = b2CollidePolygonAndCircle( &box, &circle, face );
+	ENSURE( side.pointCount == 1 );
+	ENSURE_SMALL( side.normal.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( side.normal.y, 0.0001f );
+	ENSURE_SMALL( side.points[0].separation, 0.0001f );
+	ENSURE_SMALL( side.points[0].point.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( side.points[0].point.y, 0.0001f );
+
+	b2Transform inside = b2Transform_identity;
+	circle.radius = 0.5f;
+	b2LocalManifold contained = b2CollidePolygonAndCircle( &box, &circle, inside );
+	ENSURE( contained.pointCount == 1 );
+	ENSURE( contained.points[0].separation < 0.0f );
+
+	circle.radius = 0.5f;
+	b2Transform corner = { { 1.2f, 1.2f }, b2Rot_identity };
+	b2LocalManifold vertex = b2CollidePolygonAndCircle( &box, &circle, corner );
+	ENSURE( vertex.pointCount == 1 );
+	ENSURE( vertex.points[0].separation < 0.0f );
+	ENSURE( vertex.normal.x > 0.5f && vertex.normal.y > 0.5f );
+
+	b2Polygon rounded = b2MakeRoundedBox( 1.0f, 1.0f, 0.2f );
+	circle.radius = 0.2f;
+	b2Transform roundFace = { { 1.3f, 0.0f }, b2Rot_identity };
+	b2LocalManifold round = b2CollidePolygonAndCircle( &rounded, &circle, roundFace );
+	ENSURE( round.pointCount == 1 );
+	ENSURE_SMALL( round.normal.x - 1.0f, 0.0001f );
+	ENSURE( round.points[0].separation < 0.0f );
+
+	circle.radius = 0.5f;
+	b2Transform away = { { 4.0f, 0.0f }, b2Rot_identity };
+	ENSURE( b2CollidePolygonAndCircle( &box, &circle, away ).pointCount == 0 );
+	return 0;
+}
