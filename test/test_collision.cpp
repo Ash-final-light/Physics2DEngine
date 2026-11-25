@@ -104,3 +104,36 @@ int PolygonCircleManifoldTest( void )
 	ENSURE( b2CollidePolygonAndCircle( &box, &circle, away ).pointCount == 0 );
 	return 0;
 }
+
+int CapsuleManifoldTest( void )
+{
+	b2Capsule lower = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 0.5f };
+	b2Capsule upper = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 0.5f };
+	b2Transform side = { { 0.0f, 1.0f }, b2Rot_identity };
+	b2LocalManifold parallel = b2CollideCapsules( &lower, &upper, side );
+	ENSURE( parallel.pointCount == 2 );
+	ENSURE_SMALL( parallel.normal.x, 0.0001f );
+	ENSURE( parallel.normal.y > 0.9f || parallel.normal.y < -0.9f );
+	ENSURE_SMALL( parallel.points[0].separation, 0.001f );
+	ENSURE_SMALL( parallel.points[1].separation, 0.001f );
+
+	b2Capsule cross = { { 0.0f, -1.0f }, { 0.0f, 1.0f }, 0.5f };
+	b2LocalManifold crossed = b2CollideCapsules( &lower, &cross, b2Transform_identity );
+	ENSURE( crossed.pointCount >= 1 );
+	float crossedSeparation = crossed.points[0].separation;
+	if ( crossed.pointCount == 2 && crossed.points[1].separation < crossedSeparation )
+	{
+		crossedSeparation = crossed.points[1].separation;
+	}
+	ENSURE( crossedSeparation <= 0.001f );
+
+	b2Capsule tip = { { 1.5f, 0.0f }, { 3.0f, 0.0f }, 0.5f };
+	b2LocalManifold ends = b2CollideCapsules( &lower, &tip, b2Transform_identity );
+	ENSURE( ends.pointCount == 1 );
+	ENSURE( ends.normal.x > 0.9f );
+	ENSURE( ends.points[0].separation < 0.0f );
+
+	b2Transform far = { { 0.0f, 5.0f }, b2Rot_identity };
+	ENSURE( b2CollideCapsules( &lower, &upper, far ).pointCount == 0 );
+	return 0;
+}

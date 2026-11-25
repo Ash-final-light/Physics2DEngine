@@ -64,6 +64,7 @@ int TimeOfImpactTest( void );
 int CircleManifoldTest( void );
 int CapsuleCircleManifoldTest( void );
 int PolygonCircleManifoldTest( void );
+int CapsuleManifoldTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -423,6 +424,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( PolygonCircleManifoldTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "CapsuleManifoldTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( CapsuleManifoldTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

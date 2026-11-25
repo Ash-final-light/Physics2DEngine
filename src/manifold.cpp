@@ -1,11 +1,16 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "core.h"
+
 #include "box2d/collision.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>
+#include <math.h>
+
+#define B2_MAKE_ID( A, B ) ( (uint8_t)( A ) << 8 | (uint8_t)( B ) )
 
 b2LocalManifold b2CollideCircles( const b2Circle* circleA, const b2Circle* circleB, b2Transform xf )
 {
@@ -157,6 +162,214 @@ b2LocalManifold b2CollidePolygonAndCircle( const b2Polygon* polygonA, const b2Ci
 		manifold.points[0].separation = separation - radius;
 		manifold.points[0].id = 0;
 		manifold.pointCount = 1;
+	}
+
+	return manifold;
+}
+
+b2LocalManifold b2CollideCapsules( const b2Capsule* capsuleA, const b2Capsule* capsuleB, b2Transform xf )
+{
+	b2Vec2 origin = capsuleA->center1;
+	b2Transform xfs = { b2Sub( xf.p, origin ), xf.q };
+	b2Vec2 p1 = b2Vec2_zero;
+	b2Vec2 q1 = b2Sub( capsuleA->center2, origin );
+	b2Vec2 p2 = b2TransformPoint( xfs, capsuleB->center1 );
+	b2Vec2 q2 = b2TransformPoint( xfs, capsuleB->center2 );
+	b2Vec2 d1 = b2Sub( q1, p1 );
+	b2Vec2 d2 = b2Sub( q2, p2 );
+	float dd1 = b2Dot( d1, d1 );
+	float dd2 = b2Dot( d2, d2 );
+	const float epsSqr = FLT_EPSILON * FLT_EPSILON;
+	B2_ASSERT( dd1 > epsSqr && dd2 > epsSqr );
+
+	b2Vec2 r = b2Sub( p1, p2 );
+	float rd1 = b2Dot( r, d1 );
+	float rd2 = b2Dot( r, d2 );
+	float d12 = b2Dot( d1, d2 );
+	float denom = dd1 * dd2 - d12 * d12;
+	float f1 = 0.0f;
+	if ( denom != 0.0f )
+	{
+		f1 = b2ClampFloat( ( d12 * rd2 - rd1 * dd2 ) / denom, 0.0f, 1.0f );
+	}
+
+	float f2 = ( d12 * f1 + rd2 ) / dd2;
+	if ( f2 < 0.0f )
+	{
+		f2 = 0.0f;
+		f1 = b2ClampFloat( -rd1 / dd1, 0.0f, 1.0f );
+	}
+	else if ( f2 > 1.0f )
+	{
+		f2 = 1.0f;
+		f1 = b2ClampFloat( ( d12 - rd1 ) / dd1, 0.0f, 1.0f );
+	}
+
+	b2Vec2 closest1 = b2MulAdd( p1, f1, d1 );
+	b2Vec2 closest2 = b2MulAdd( p2, f2, d2 );
+	float distanceSquared = b2DistanceSquared( closest1, closest2 );
+
+	b2LocalManifold manifold = {};
+	float radiusA = capsuleA->radius;
+	float radiusB = capsuleB->radius;
+	float radius = radiusA + radiusB;
+	float maxDistance = radius + B2_SPECULATIVE_DISTANCE;
+	if ( distanceSquared > maxDistance * maxDistance )
+	{
+		return manifold;
+	}
+
+	float distance = sqrtf( distanceSquared );
+	float length1, length2;
+	b2Vec2 u1 = b2GetLengthAndNormalize( &length1, d1 );
+	b2Vec2 u2 = b2GetLengthAndNormalize( &length2, d2 );
+	float fp2 = b2Dot( b2Sub( p2, p1 ), u1 );
+	float fq2 = b2Dot( b2Sub( q2, p1 ), u1 );
+	bool outsideA = ( fp2 <= 0.0f && fq2 <= 0.0f ) || ( fp2 >= length1 && fq2 >= length1 );
+	float fp1 = b2Dot( b2Sub( p1, p2 ), u2 );
+	float fq1 = b2Dot( b2Sub( q1, p2 ), u2 );
+	bool outsideB = ( fp1 <= 0.0f && fq1 <= 0.0f ) || ( fp1 >= length2 && fq1 >= length2 );
+
+	if ( outsideA == false && outsideB == false )
+	{
+		b2Vec2 normalA;
+		float separationA;
+		{
+			normalA = b2LeftPerp( u1 );
+			float ss1 = b2Dot( b2Sub( p2, p1 ), normalA );
+			float ss2 = b2Dot( b2Sub( q2, p1 ), normalA );
+			float s1p = ss1 < ss2 ? ss1 : ss2;
+			float s1n = -ss1 < -ss2 ? -ss1 : -ss2;
+			if ( s1p > s1n )
+			{
+				separationA = s1p;
+			}
+			else
+			{
+				separationA = s1n;
+				normalA = b2Neg( normalA );
+			}
+		}
+
+		b2Vec2 normalB;
+		float separationB;
+		{
+			normalB = b2LeftPerp( u2 );
+			float ss1 = b2Dot( b2Sub( p1, p2 ), normalB );
+			float ss2 = b2Dot( b2Sub( q1, p2 ), normalB );
+			float s1p = ss1 < ss2 ? ss1 : ss2;
+			float s1n = -ss1 < -ss2 ? -ss1 : -ss2;
+			if ( s1p > s1n )
+			{
+				separationB = s1p;
+			}
+			else
+			{
+				separationB = s1n;
+				normalB = b2Neg( normalB );
+			}
+		}
+
+		if ( separationA + 0.1f * B2_LINEAR_SLOP >= separationB )
+		{
+			manifold.normal = normalA;
+			b2Vec2 cp = p2;
+			b2Vec2 cq = q2;
+			if ( fp2 < 0.0f && fq2 > 0.0f )
+			{
+				cp = b2Lerp( p2, q2, ( 0.0f - fp2 ) / ( fq2 - fp2 ) );
+			}
+			else if ( fq2 < 0.0f && fp2 > 0.0f )
+			{
+				cq = b2Lerp( q2, p2, ( 0.0f - fq2 ) / ( fp2 - fq2 ) );
+			}
+
+			if ( fp2 > length1 && fq2 < length1 )
+			{
+				cp = b2Lerp( p2, q2, ( fp2 - length1 ) / ( fp2 - fq2 ) );
+			}
+			else if ( fq2 > length1 && fp2 < length1 )
+			{
+				cq = b2Lerp( q2, p2, ( fq2 - length1 ) / ( fq2 - fp2 ) );
+			}
+
+			float sp = b2Dot( b2Sub( cp, p1 ), normalA );
+			float sq = b2Dot( b2Sub( cq, p1 ), normalA );
+			if ( sp <= distance + B2_LINEAR_SLOP || sq <= distance + B2_LINEAR_SLOP )
+			{
+				manifold.points[0].point = b2MulAdd( cp, 0.5f * ( radiusA - radiusB - sp ), normalA );
+				manifold.points[0].separation = sp - radius;
+				manifold.points[0].id = B2_MAKE_ID( 0, 0 );
+				manifold.points[1].point = b2MulAdd( cq, 0.5f * ( radiusA - radiusB - sq ), normalA );
+				manifold.points[1].separation = sq - radius;
+				manifold.points[1].id = B2_MAKE_ID( 0, 1 );
+				manifold.pointCount = 2;
+			}
+		}
+		else
+		{
+			manifold.normal = b2Neg( normalB );
+			b2Vec2 cp = p1;
+			b2Vec2 cq = q1;
+			if ( fp1 < 0.0f && fq1 > 0.0f )
+			{
+				cp = b2Lerp( p1, q1, ( 0.0f - fp1 ) / ( fq1 - fp1 ) );
+			}
+			else if ( fq1 < 0.0f && fp1 > 0.0f )
+			{
+				cq = b2Lerp( q1, p1, ( 0.0f - fq1 ) / ( fp1 - fq1 ) );
+			}
+
+			if ( fp1 > length2 && fq1 < length2 )
+			{
+				cp = b2Lerp( p1, q1, ( fp1 - length2 ) / ( fp1 - fq1 ) );
+			}
+			else if ( fq1 > length2 && fp1 < length2 )
+			{
+				cq = b2Lerp( q1, p1, ( fq1 - length2 ) / ( fq1 - fp1 ) );
+			}
+
+			float sp = b2Dot( b2Sub( cp, p2 ), normalB );
+			float sq = b2Dot( b2Sub( cq, p2 ), normalB );
+			if ( sp <= distance + B2_LINEAR_SLOP || sq <= distance + B2_LINEAR_SLOP )
+			{
+				manifold.points[0].point = b2MulAdd( cp, 0.5f * ( radiusB - radiusA - sp ), normalB );
+				manifold.points[0].separation = sp - radius;
+				manifold.points[0].id = B2_MAKE_ID( 0, 0 );
+				manifold.points[1].point = b2MulAdd( cq, 0.5f * ( radiusB - radiusA - sq ), normalB );
+				manifold.points[1].separation = sq - radius;
+				manifold.points[1].id = B2_MAKE_ID( 1, 0 );
+				manifold.pointCount = 2;
+			}
+		}
+	}
+
+	if ( manifold.pointCount == 0 )
+	{
+		b2Vec2 normal = b2Sub( closest2, closest1 );
+		if ( b2Dot( normal, normal ) > epsSqr )
+		{
+			normal = b2Normalize( normal );
+		}
+		else
+		{
+			normal = b2LeftPerp( u1 );
+		}
+
+		b2Vec2 c1 = b2MulAdd( closest1, radiusA, normal );
+		b2Vec2 c2 = b2MulAdd( closest2, -radiusB, normal );
+		int i1 = f1 == 0.0f ? 0 : 1;
+		int i2 = f2 == 0.0f ? 0 : 1;
+		manifold.normal = normal;
+		manifold.points[0].point = b2Lerp( c1, c2, 0.5f );
+		manifold.points[0].separation = sqrtf( distanceSquared ) - radius;
+		manifold.points[0].id = B2_MAKE_ID( i1, i2 );
+		manifold.pointCount = 1;
+	}
+
+	for ( int i = 0; i < manifold.pointCount; ++i )
+	{
+		manifold.points[i].point = b2Add( manifold.points[i].point, origin );
 	}
 
 	return manifold;
