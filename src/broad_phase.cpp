@@ -130,10 +130,25 @@ static void b2FlushCandidatePairs( b2PairContext* context )
         const b2CandidatePair* pair = context->batch+i;
         uint64_t key = (uint64_t)(uint32_t)pair->shapeIdA << 32 | (uint32_t)pair->shapeIdB;
         uint64_t hash = b2KeyHash( key );
-        if ( b2ContainsHashedKey( &context->world->broadPhase.pairSet, key, hash ) == false )
+        if ( b2ContainsHashedKey( &context->world->broadPhase.pairSet, key, hash ) )
         {
-            b2Array_Push( *context->pairKeys, key );
+            continue;
         }
+        const b2Shape* a = context->world->shapes.data+pair->shapeIdA;
+        const b2Shape* b = context->world->shapes.data+pair->shapeIdB;
+        if ( a->bodyId == b->bodyId || b2ShouldShapesCollide( a->filter, b->filter ) == false )
+        {
+            continue;
+        }
+        // This is the support pattern of the reference contact registry.
+        // Edge-edge pairs have no manifold function.
+        bool edgeA = a->type == b2_segmentShape || a->type == b2_chainSegmentShape;
+        bool edgeB = b->type == b2_segmentShape || b->type == b2_chainSegmentShape;
+        if ( edgeA && edgeB )
+        {
+            continue;
+        }
+        b2Array_Push( *context->pairKeys, key );
     }
     context->batchCount = 0;
 }

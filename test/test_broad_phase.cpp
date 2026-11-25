@@ -248,3 +248,66 @@ int BroadPhaseSortTest( void )
     ENSURE( values[0] == 123 && values[512] == 123 );
     return 0;
 }
+
+
+static int FilteredPairCount( b2Filter a, b2Filter b, bool sameBody, bool segments )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId worldId = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    bd.type = b2_dynamicBody;
+    b2BodyId bodyA = b2CreateBody( worldId, &bd );
+    b2BodyId bodyB = sameBody ? bodyA : b2CreateBody( worldId, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2Segment segment = { { -1.0f, 0.0f }, { 1.0f, 0.0f } };
+    sd.filter = a;
+    if ( segments ) { b2CreateSegmentShape( bodyA, &sd, &segment ); }
+    else { b2CreateCircleShape( bodyA, &sd, &circle ); }
+    sd.filter = b;
+    if ( segments ) { b2CreateSegmentShape( bodyB, &sd, &segment ); }
+    else { b2CreateCircleShape( bodyB, &sd, &circle ); }
+    b2DynamicArray<uint64_t> keys = {};
+    b2CollectCandidatePairs( b2_worlds+worldId.index1-1, &keys );
+    int count = keys.count;
+    b2Array_Destroy( keys );
+    b2DestroyWorld( worldId );
+    return count;
+}
+
+int BroadPhaseFilterTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2Filter a = b2DefaultFilter(), b = b2DefaultFilter();
+    ENSURE( FilteredPairCount( a, b, false, false ) == 1 );
+    ENSURE( FilteredPairCount( a, b, true, false ) == 0 );
+    ENSURE( FilteredPairCount( a, b, false, true ) == 0 );
+    a.maskBits = 0;
+    ENSURE( FilteredPairCount( a, b, false, false ) == 0 );
+    a.groupIndex = b.groupIndex = 3;
+    b.maskBits = 0;
+    ENSURE( FilteredPairCount( a, b, false, false ) == 1 );
+    a.groupIndex = b.groupIndex = -3;
+    ENSURE( FilteredPairCount( a, b, false, false ) == 0 );
+    a = b2DefaultFilter(); b = b2DefaultFilter();
+    a.categoryBits = 2; a.maskBits = 4;
+    b.categoryBits = 4; b.maskBits = 2;
+    ENSURE( FilteredPairCount( a, b, false, false ) == 1 );
+    b.maskBits = 1;
+    ENSURE( FilteredPairCount( a, b, false, false ) == 0 );
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId worldId = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    bd.type = b2_dynamicBody;
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2ShapeId shapeId = b2CreateCircleShape( b2CreateBody( worldId, &bd ), &sd, &circle );
+    b2Shape_SetFilter( shapeId, a );
+    ENSURE( b2Shape_GetFilter( shapeId ).categoryBits == 2 );
+    b2World* world = b2_worlds+worldId.index1-1;
+    b2Shape* shape = world->shapes.data+shapeId.index1-1;
+    ENSURE( b2DynamicTree_GetCategoryBits( world->broadPhase.trees+b2_dynamicBody, B2_PROXY_ID(shape->proxyKey) ) == 2 );
+    b2DestroyWorld( worldId );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

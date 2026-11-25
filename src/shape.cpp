@@ -805,3 +805,29 @@ void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transfor
         }
     }
 }
+
+
+b2Filter b2Shape_GetFilter( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL );
+    return shape->filter;
+}
+
+void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    if ( shape == NULL || b2_worlds[id.world0].locked ||
+         (shape->filter.categoryBits == filter.categoryBits && shape->filter.maskBits == filter.maskBits && shape->filter.groupIndex == filter.groupIndex) )
+    {
+        return;
+    }
+    b2World* world = b2_worlds+id.world0;
+    b2Body* body = world->bodies.data+shape->bodyId;
+    shape->filter = filter;
+    b2DestroyShapeProxy( shape, &world->broadPhase );
+    if ( body->isEnabled )
+    {
+        b2CreateShapeProxy( world, shape, body->type, body->transform, true );
+    }
+}

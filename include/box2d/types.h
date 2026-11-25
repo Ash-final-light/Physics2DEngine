@@ -227,3 +227,6 @@ B2_API int b2Body_GetShapeCount( b2BodyId bodyId );
 B2_API int b2Body_GetShapes( b2BodyId bodyId, b2ShapeId* shapeArray, int capacity );
 B2_API b2BodyId b2Shape_GetBody( b2ShapeId shapeId );
 B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
+
+B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
+B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );

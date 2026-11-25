@@ -59,3 +59,13 @@ void b2CreateShapeProxy( b2World* world, b2Shape* shape, b2BodyType type, b2Worl
 void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* broadPhase );
 
 void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform );
+
+
+inline bool b2ShouldShapesCollide( b2Filter a, b2Filter b )
+{
+    if ( a.groupIndex == b.groupIndex && a.groupIndex != 0 )
+    {
+        return a.groupIndex > 0;
+    }
+    return (a.maskBits & b.categoryBits) != 0 && (a.categoryBits & b.maskBits) != 0;
+}
