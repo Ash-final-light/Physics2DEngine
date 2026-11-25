@@ -64,8 +64,11 @@ void* b2GrowAllocZero( void* oldMem, size_t oldSize, size_t newSize );
 #ifdef __cplusplus
 #include <type_traits>
 #define B2_TYPE_OF( A ) std::remove_cvref_t<decltype( A )>
+#define B2_GROW_ZERO( A, N, M )                                                                                                  \
+	static_cast<std::remove_reference_t<decltype( A )>>( b2GrowAllocZero( ( A ), ( N ) * sizeof( *( A ) ), ( M ) * sizeof( *( A ) ) ) )
 #else
 #define B2_TYPE_OF( A ) __typeof__( A )
+#define B2_GROW_ZERO( A, N, M ) (A)
 #endif
 
 #define B2_SWAP( x, y )                                                                                                          \

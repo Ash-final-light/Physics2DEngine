@@ -25,3 +25,32 @@ int DynamicTreeCreateTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+static bool SameBounds( b2AABB a, b2AABB b )
+{
+	return a.lowerBound.x == b.lowerBound.x && a.lowerBound.y == b.lowerBound.y && a.upperBound.x == b.upperBound.x &&
+		   a.upperBound.y == b.upperBound.y;
+}
+
+int DynamicTreeInsertTest( void )
+{
+	b2AABB first = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+	b2AABB second = { { 3.0f, 0.0f }, { 4.0f, 2.0f } };
+	size_t before = b2GetByteCount();
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	int id1 = b2CreateTreeProxy( tree, first, 1, 42 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 1 );
+	ENSURE( b2DynamicTree_GetUserData( tree, id1 ) == 42 );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), first ) );
+
+	int id2 = b2CreateTreeProxy( tree, second, 1, 43 );
+	ENSURE( id2 != id1 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 2 );
+	ENSURE( b2DynamicTree_GetUserData( tree, id1 ) == 42 );
+	ENSURE( b2DynamicTree_GetUserData( tree, id2 ) == 43 );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id1 ), first ) );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id2 ), second ) );
+	b2DestroyDynamicTree( tree );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

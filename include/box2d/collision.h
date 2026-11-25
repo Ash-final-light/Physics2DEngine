@@ -300,3 +300,7 @@ typedef struct b2DynamicTree b2DynamicTree;
 
 B2_API b2DynamicTree* b2CreateDynamicTree( int proxyCapacity );
 B2_API void b2DestroyDynamicTree( b2DynamicTree* tree );
+B2_API int b2CreateTreeProxy( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData );
+B2_API int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree );
+B2_API uint64_t b2DynamicTree_GetUserData( const b2DynamicTree* tree, int proxyId );
+B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId );

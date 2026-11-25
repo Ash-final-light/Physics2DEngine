@@ -55,6 +55,26 @@ struct b2DynamicTree
 	bool dfsOrdered;
 };
 
+B2_FORCE_INLINE bool b2IsLeaf( const b2TreeNode* node )
+{
+	return ( node->flagIndex & B2_LEAF_NODE ) == B2_LEAF_NODE;
+}
+
+B2_FORCE_INLINE bool b2IsEmptyNode( const b2TreeNode* node )
+{
+	return node->flagIndex == B2_EMPTY_NODE;
+}
+
+B2_FORCE_INLINE int b2GetLeftChild( const b2TreeNode* node )
+{
+	return (int)( node->flagIndex & B2_NODE_INDEX_MASK );
+}
+
+B2_FORCE_INLINE int b2GetProxyId( const b2TreeNode* node )
+{
+	return (int)( node->flagIndex & B2_NODE_INDEX_MASK );
+}
+
 B2_FORCE_INLINE b2TreeNode b2MakeEmptyNode( void )
 {
 	return b2TreeNode{
