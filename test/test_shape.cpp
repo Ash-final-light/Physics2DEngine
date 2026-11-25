@@ -446,3 +446,34 @@ int ChainMaterialTest( void )
     b2DestroyWorld( world );
     return 0;
 }
+
+
+int ObjectRelationshipTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef();
+    b2BodyId body = b2CreateBody( world, &bd );
+    b2BodyId other = b2CreateBody( world, &bd );
+    ENSURE( b2Body_GetShapeCount( body ) == 0 );
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2ShapeId first = b2CreateCircleShape( body, &sd, &circle );
+    b2ShapeId second = b2CreateCircleShape( body, &sd, &circle );
+    ENSURE( b2Body_GetShapeCount( body ) == 2 && b2Body_GetShapeCount( other ) == 0 );
+    ENSURE( b2Body_GetWorld( body ).index1 == world.index1 );
+    ENSURE( b2Shape_GetBody( first ).index1 == body.index1 );
+    ENSURE( b2Shape_GetBody( first ).generation == body.generation );
+    ENSURE( b2Shape_GetWorld( second ).index1 == world.index1 );
+    b2ShapeId shapes[3] = {};
+    ENSURE( b2Body_GetShapes( body, shapes, 1 ) == 1 && shapes[1].index1 == 0 );
+    ENSURE( b2Body_GetShapes( body, shapes, 3 ) == 2 );
+    ENSURE( shapes[0].index1 == second.index1 && shapes[1].index1 == first.index1 );
+    b2DestroyShape( first, true );
+    ENSURE( b2Body_GetShapeCount( body ) == 1 );
+    ENSURE( b2Body_GetShapes( body, shapes, 3 ) == 1 );
+    ENSURE( shapes[0].index1 == second.index1 );
+    ENSURE( b2Body_GetShapes( body, NULL, 0 ) == 0 );
+    b2DestroyWorld( world );
+    return 0;
+}

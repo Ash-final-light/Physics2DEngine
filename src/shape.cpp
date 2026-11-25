@@ -679,3 +679,18 @@ b2SurfaceMaterial b2Chain_GetSurfaceMaterial( b2ChainId id, int segmentIndex )
     B2_ASSERT( chain != NULL && segmentIndex >= 0 && segmentIndex < chain->segmentCount );
     return b2_worlds[id.world0].shapes.data[chain->shapeIndices[segmentIndex]].material;
 }
+
+
+b2BodyId b2Shape_GetBody( b2ShapeId id )
+{
+    b2Shape* shape = b2GetShapeFromId( id );
+    B2_ASSERT( shape != NULL );
+    b2Body* body = b2_worlds[id.world0].bodies.data + shape->bodyId;
+    return b2BodyId{ body->id+1, id.world0, body->generation };
+}
+
+b2WorldId b2Shape_GetWorld( b2ShapeId id )
+{
+    B2_ASSERT( b2Shape_IsValid( id ) );
+    return b2WorldId{ (uint16_t)(id.world0+1), b2_worlds[id.world0].generation };
+}

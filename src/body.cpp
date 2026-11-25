@@ -452,3 +452,32 @@ void b2Body_SetMassData( b2BodyId id, b2MassData data )
     }
     body->dirtyMass = false;
 }
+
+
+b2WorldId b2Body_GetWorld( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2WorldId{ (uint16_t)(id.world0+1), b2_worlds[id.world0].generation };
+}
+
+int b2Body_GetShapeCount( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2GetBodyFullId( b2_worlds+id.world0, id )->shapeCount;
+}
+
+int b2Body_GetShapes( b2BodyId id, b2ShapeId* output, int capacity )
+{
+    if ( b2Body_IsValid( id ) == false || capacity <= 0 || output == NULL )
+    {
+        return 0;
+    }
+    b2World* world = b2_worlds + id.world0;
+    b2Body* body = b2GetBodyFullId( world, id );
+    int count = 0;
+    for ( int shapeId = body->headShapeId; shapeId != B2_NULL_INDEX && count < capacity; shapeId = world->shapes.data[shapeId].nextShapeId )
+    {
+        output[count++] = b2ShapeId{ shapeId+1, id.world0, world->shapes.data[shapeId].generation };
+    }
+    return count;
+}
