@@ -57,6 +57,7 @@ if(BUILD_TESTING)
 		test/test_geometry.cpp
 		test/test_distance.cpp
 		test/test_collision.cpp
+		test/test_chain.cpp
 		test/test_hull.cpp
 		test/toolchain_c.c
 	)

@@ -5,6 +5,7 @@ add_library(box2d
 	geometry.cpp
 	distance.cpp
 	manifold.cpp
+	chain_builder.cpp
 	hull.cpp
 	bitset.cpp
 	id_pool.cpp

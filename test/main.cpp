@@ -73,6 +73,7 @@ int SegmentPolygonManifoldTest( void );
 int ChainCircleManifoldTest( void );
 int ChainCapsuleManifoldTest( void );
 int ChainPolygonManifoldTest( void );
+int ChainBuildTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -486,6 +487,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ChainPolygonManifoldTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ChainBuildTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ChainBuildTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

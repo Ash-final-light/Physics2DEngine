@@ -272,3 +272,26 @@ B2_API b2LocalManifold b2CollideChainSegmentAndCapsule( const b2ChainSegment* se
 													   b2SimplexCache* cache );
 B2_API b2LocalManifold b2CollideChainSegmentAndPolygon( const b2ChainSegment* segmentA, const b2Polygon* polygonB, b2Transform xf,
 														b2SimplexCache* cache );
+
+typedef enum b2ChainStatus
+{
+	b2_chainStatusSuccess,
+	b2_chainStatusCornerTouch,
+	b2_chainStatusOverlap,
+} b2ChainStatus;
+
+typedef struct b2ChainData
+{
+	b2Vec2* points;
+	int count;
+} b2ChainData;
+
+typedef struct b2ChainResult
+{
+	b2ChainData* chains;
+	int chainCount;
+	b2ChainStatus status;
+} b2ChainResult;
+
+B2_API b2ChainResult b2ComputeChains( const b2Polygon* polygons, int polygonCount, float weldTolerance );
+B2_API void b2FreeChains( b2ChainResult* result );
