@@ -262,3 +262,5 @@ B2_API void b2Body_ApplyLinearImpulse( b2BodyId bodyId, b2Vec2 impulse, b2Pos po
 B2_API void b2Body_ApplyLinearImpulseToCenter( b2BodyId bodyId, b2Vec2 impulse, bool wake );
 
 B2_API void b2Body_ApplyAngularImpulse( b2BodyId bodyId, float impulse, bool wake );
+
+B2_API void b2Body_SetTargetTransform( b2BodyId bodyId, b2WorldTransform target, float timeStep, bool wake );

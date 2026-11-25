@@ -216,3 +216,32 @@ int BodyAngularImpulseTest( void )
     ENSURE(b2Body_GetAngularVelocity(locked)==0.0f);
     b2DestroyWorld(world);return 0;
 }
+
+
+int BodyTargetTransformTest( void )
+{
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId world=b2CreateWorld(&wd);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId body=b2CreateBody(world,&bd);
+    b2WorldTransform target={{2.0f,4.0f},b2Rot_identity};
+    b2Body_SetTargetTransform(body,target,0.5f,true);
+    ENSURE(b2Body_GetPosition(body).x==0.0f);
+    ENSURE(b2Body_GetLinearVelocity(body).x==4.0f && b2Body_GetLinearVelocity(body).y==8.0f);
+    b2World_Step(world,0.5f,4);
+    ENSURE_SMALL(b2Body_GetPosition(body).x-2.0f,0.00001f);
+    ENSURE_SMALL(b2Body_GetPosition(body).y-4.0f,0.00001f);
+    target.q={0.0f,1.0f};
+    b2Body_SetTargetTransform(body,target,2.0f,true);
+    ENSURE_SMALL(b2Body_GetAngularVelocity(body)-0.25f*B2_PI,0.0001f);
+    b2Body_SetTargetTransform(body,b2WorldTransform_identity,0.0f,true);
+    ENSURE_SMALL(b2Body_GetAngularVelocity(body)-0.25f*B2_PI,0.0001f);
+    bd.isAwake=false;
+    b2BodyId asleep=b2CreateBody(world,&bd);
+    target={{1.0f,0.0f},b2Rot_identity};
+    b2Body_SetTargetTransform(asleep,target,1.0f,false);
+    ENSURE(b2Body_GetLinearVelocity(asleep).x==0.0f);
+    b2Body_SetTargetTransform(asleep,target,1.0f,true);
+    ENSURE(b2Body_GetLinearVelocity(asleep).x==1.0f);
+    b2DestroyWorld(world);return 0;
+}

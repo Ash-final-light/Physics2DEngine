@@ -733,3 +733,32 @@ void b2Body_ApplyAngularImpulse( b2BodyId id, float impulse, bool wake )
         body->angularVelocity += body->invInertia*impulse;
     }
 }
+
+
+void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float timeStep, bool wake )
+{
+    if ( b2Body_IsValid(id)==false || b2IsValidTransform(target)==false || b2IsValidFloat(timeStep)==false || timeStep<=0.0f )
+    {
+        return;
+    }
+    b2Body* body=b2GetBodyFullId(b2_worlds+id.world0,id);
+    if ( body->isEnabled==false || body->type==b2_staticBody || (body->isAwake==false && wake==false) )
+    {
+        return;
+    }
+    b2Vec2 delta=b2Sub(b2TransformPoint(target,body->localCenter),body->center);
+    float inverseTime=1.0f/timeStep;
+    b2Vec2 velocity=b2MulSV(inverseTime,delta);
+    float angularVelocity=inverseTime*b2RelativeAngle(body->transform.q,target.q);
+    if ( body->isAwake==false )
+    {
+        float maximum=b2Length(velocity)+b2AbsFloat(angularVelocity)*body->maxExtent;
+        if ( maximum<body->sleepThreshold )
+        {
+            return;
+        }
+        body->isAwake=true;
+    }
+    body->linearVelocity=velocity;
+    body->angularVelocity=angularVelocity;
+}
