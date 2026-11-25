@@ -17,3 +17,6 @@
 #else
 #define B2_HUGE ( ( 100.0f * 1000.0f ) * b2_lengthUnitsPerMeter )
 #endif
+
+#define B2_MAX_WORLDS 128
+#define B2_MAX_RESTITUTION_ITERATIONS 63

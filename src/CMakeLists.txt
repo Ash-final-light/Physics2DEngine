@@ -13,6 +13,8 @@ add_library(box2d
 	table.cpp
 	arena_allocator.cpp
 	timer.cpp
+	types.cpp
+	physics_world.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 
