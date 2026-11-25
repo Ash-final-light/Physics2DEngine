@@ -216,3 +216,17 @@ int ArrayConstraintTest( void )
 	ENSURE( slots.data == nullptr && slots.capacity == 0 );
 	return 0;
 }
+
+int SwapValuesTest( void )
+{
+	int values[] = { 1, 2 };
+	B2_SWAP( values[0], values[1] );
+	ENSURE( values[0] == 2 && values[1] == 1 );
+
+	int* first = values;
+	int* second = values + 1;
+	B2_SWAP( first, second );
+	ENSURE( first == values + 1 && second == values );
+	ENSURE( *first == 1 && *second == 2 );
+	return 0;
+}

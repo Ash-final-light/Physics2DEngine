@@ -60,3 +60,19 @@ void b2Free( void* mem, size_t size );
 void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize );
 void* b2AllocZero( size_t size );
 void* b2GrowAllocZero( void* oldMem, size_t oldSize, size_t newSize );
+
+#ifdef __cplusplus
+#include <type_traits>
+#define B2_TYPE_OF( A ) std::remove_cvref_t<decltype( A )>
+#else
+#define B2_TYPE_OF( A ) __typeof__( A )
+#endif
+
+#define B2_SWAP( x, y )                                                                                                          \
+	do                                                                                                                           \
+	{                                                                                                                            \
+		B2_TYPE_OF( x ) B2_SWAP_TEMP = x;                                                                                        \
+		x = y;                                                                                                                   \
+		y = B2_SWAP_TEMP;                                                                                                        \
+	}                                                                                                                            \
+	while ( 0 )
