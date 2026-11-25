@@ -117,6 +117,7 @@ int ContactRestitutionControlTest( void );
 int ContactMaterialCallbackTest( void );
 int SpeculativeContactTest( void );
 int ContinuousCollisionTest( void );
+int WorldSolverSwitchTest( void );
 int BulletCollisionTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
@@ -932,6 +933,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"BulletCollisionTest")==0) { ran=1; RUN_TEST(BulletCollisionTest); }
 	if(filter==NULL || strcmp(filter,"BodySafetyAndSpeedTest")==0) { ran=1; RUN_TEST(BodySafetyAndSpeedTest); }
 	if(filter==NULL || strcmp(filter,"WorldGravityControlTest")==0) { ran=1; RUN_TEST(WorldGravityControlTest); }
+	if(filter==NULL || strcmp(filter,"WorldSolverSwitchTest")==0) { ran=1; RUN_TEST(WorldSolverSwitchTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

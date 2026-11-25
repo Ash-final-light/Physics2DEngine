@@ -307,3 +307,13 @@ b2Vec2 b2World_GetGravity(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL?world->gravity:b2Vec2_zero;
 }
+
+void b2World_EnableContinuous(b2WorldId id,bool flag)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->enableContinuous=flag;
+}
+
+bool b2World_IsContinuousEnabled(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableContinuous;
+}

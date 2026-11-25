@@ -656,3 +656,25 @@ int BulletCollisionTest(void)
     }
     return 0;
 }
+
+int WorldSolverSwitchTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    ENSURE(b2World_IsContinuousEnabled(id)==wd.enableContinuous);
+    b2World_EnableContinuous(id,false);b2World_EnableWarmStarting(id,false);
+    ENSURE(!b2World_IsContinuousEnabled(id) && !b2World_IsWarmStartingEnabled(id));
+    world->locked=true;b2World_EnableContinuous(id,true);b2World_EnableWarmStarting(id,true);world->locked=false;
+    ENSURE(!b2World_IsContinuousEnabled(id) && !b2World_IsWarmStartingEnabled(id));
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};bd.isBullet=true;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.1f};b2CreateCircleShape(body,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,0};bd.isBullet=false;b2BodyId obstacle=b2CreateBody(id,&bd);
+    b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(obstacle,&sd,&wall);
+    b2World_Step(id,0.05f,1);ENSURE_SMALL(b2Body_GetPosition(body).x-3,0.00001f);
+    b2Body_SetTransform(body,{-2,0},b2Rot_identity);b2Body_SetLinearVelocity(body,{100,0});
+    b2World_EnableContinuous(id,true);ENSURE(b2World_IsContinuousEnabled(id) && !b2World_IsWarmStartingEnabled(id));
+    b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(body).x<0);
+    b2World_EnableWarmStarting(id,true);ENSURE(b2World_IsContinuousEnabled(id) && b2World_IsWarmStartingEnabled(id));
+    b2World_EnableContinuous(id,false);ENSURE(!b2World_IsContinuousEnabled(id) && b2World_IsWarmStartingEnabled(id));
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
