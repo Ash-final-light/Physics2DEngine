@@ -25,6 +25,8 @@ if(PROJECT_IS_TOP_LEVEL)
 	include(CTest)
 endif()
 
+add_subdirectory(src)
+
 add_executable(toolchain_check
 	test/toolchain_c.c
 	test/toolchain_cpp.cpp
@@ -34,8 +36,10 @@ if(BUILD_TESTING)
 	add_executable(unit_tests
 		test/main.cpp
 		test/test_toolchain.cpp
+		test/test_version.c
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/test")
+	target_link_libraries(unit_tests PRIVATE box2d)
 	add_test(NAME unit_tests COMMAND unit_tests)
 endif()

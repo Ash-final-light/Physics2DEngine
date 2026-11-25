@@ -7,6 +7,7 @@
 #include <string.h>
 
 extern int ToolchainTest( void );
+extern "C" int VersionCTest( void );
 
 int main( int argc, char** argv )
 {
@@ -23,6 +24,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ToolchainTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "VersionCTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( VersionCTest );
 	}
 
 	if ( ran == 0 )
