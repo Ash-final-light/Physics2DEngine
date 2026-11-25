@@ -99,3 +99,32 @@ bool b2World_IsValid( b2WorldId id )
 	}
 	return id.generation == world->generation;
 }
+
+static b2World* b2GetWorldFromId( b2WorldId id )
+{
+	if ( b2World_IsValid( id ) == false )
+	{
+		return NULL;
+	}
+	return b2_worlds + ( id.index1 - 1 );
+}
+
+void b2World_SetUserData( b2WorldId worldId, void* userData )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	if ( world == NULL )
+	{
+		return;
+	}
+	world->userData = userData;
+}
+
+void* b2World_GetUserData( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	if ( world == NULL )
+	{
+		return NULL;
+	}
+	return world->userData;
+}

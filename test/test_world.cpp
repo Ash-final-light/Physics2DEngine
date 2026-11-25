@@ -62,3 +62,24 @@ int WorldIdTest( void )
 	ENSURE( b2World_IsValid( reused ) == false );
 	return 0;
 }
+
+int WorldUserDataTest( void )
+{
+	int marker = 7;
+	int other = 9;
+	b2WorldDef def = b2DefaultWorldDef();
+	def.userData = &marker;
+	b2WorldId worldId = b2CreateWorld( &def );
+	ENSURE( b2World_GetUserData( worldId ) == &marker );
+	b2World_SetUserData( worldId, &other );
+	ENSURE( b2World_GetUserData( worldId ) == &other );
+
+	b2WorldDef plain = b2DefaultWorldDef();
+	b2WorldId second = b2CreateWorld( &plain );
+	ENSURE( b2World_GetUserData( second ) == NULL );
+	b2DestroyWorld( worldId );
+	ENSURE( b2World_GetUserData( worldId ) == NULL );
+	ENSURE( b2World_GetUserData( second ) == NULL );
+	b2DestroyWorld( second );
+	return 0;
+}

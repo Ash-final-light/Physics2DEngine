@@ -45,3 +45,5 @@ B2_API b2WorldDef b2DefaultWorldDef( void );
 B2_API b2WorldId b2CreateWorld( const b2WorldDef* def );
 B2_API void b2DestroyWorld( b2WorldId worldId );
 B2_API bool b2World_IsValid( b2WorldId id );
+B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
+B2_API void* b2World_GetUserData( b2WorldId worldId );

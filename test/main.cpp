@@ -87,6 +87,7 @@ int DynamicTreeBoxCastTest( void );
 int DynamicTreeStatsTest( void );
 int WorldCreateTest( void );
 int WorldIdTest( void );
+int WorldUserDataTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -584,6 +585,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( WorldIdTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "WorldUserDataTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( WorldUserDataTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
