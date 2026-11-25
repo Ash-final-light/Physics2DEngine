@@ -100,6 +100,7 @@ int ContactIslandTest( void );
 int ConstraintGraphTest( void );
 int ContactPrepareTest( void );
 int ContactNormalSolveTest( void );
+int ContactImpulseStoreTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
@@ -888,6 +889,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ConstraintGraphTest")==0) { ran=1; RUN_TEST(ConstraintGraphTest); }
 	if(filter==NULL || strcmp(filter,"ContactPrepareTest")==0) { ran=1; RUN_TEST(ContactPrepareTest); }
 	if(filter==NULL || strcmp(filter,"ContactNormalSolveTest")==0) { ran=1; RUN_TEST(ContactNormalSolveTest); }
+	if(filter==NULL || strcmp(filter,"ContactImpulseStoreTest")==0) { ran=1; RUN_TEST(ContactImpulseStoreTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

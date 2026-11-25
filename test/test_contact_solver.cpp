@@ -100,3 +100,29 @@ int ContactNormalSolveTest(void)
     ENSURE_SMALL(b2Body_GetPosition(a).y,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y,0.0001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactImpulseStoreTest(void)
+{
+    size_t before=b2GetByteCount();
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-2};
+    b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2BodyId body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&c);
+    b2Body_SetMassData(body,b2MassData{2,{0,0},1});
+    bd.type=b2_staticBody;bd.position={0,-2};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+    b2World_Step(id,0.01f,1);
+    b2Contact* contact=world->contacts.data;b2ContactSim* sim=b2GetContactSim(world,contact);
+    ENSURE_SMALL(sim->manifold.points[0].normalImpulse-4,0.00001f);
+    ENSURE_SMALL(sim->manifold.points[0].totalNormalImpulse-4,0.00001f);
+    b2ContactData data[1];ENSURE(b2Body_GetContactData(body,data,1)==1);
+    ENSURE_SMALL(data[0].manifold.points[0].normalImpulse-4,0.00001f);
+    b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
+    ENSURE(sim->manifold.points[0].persisted);
+    ENSURE_SMALL(sim->manifold.points[0].normalImpulse-4,0.00001f);
+    ENSURE(sim->manifold.points[0].totalNormalImpulse==0);
+    b2World_Step(id,0.01f,1);sim=b2GetContactSim(world,contact);
+    ENSURE_SMALL(sim->manifold.points[0].normalImpulse,0.00001f);
+    ENSURE_SMALL(sim->manifold.points[0].totalNormalImpulse,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

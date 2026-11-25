@@ -114,3 +114,22 @@ void b2SolveNormalContacts(b2StepContext* context)
     b2SolveNormalColor(context,B2_OVERFLOW_INDEX);
     for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i); }
 }
+
+void b2StoreContactImpulses(b2StepContext* context)
+{
+    for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c)
+    {
+        b2GraphColor* color=context->graph->colors+c;
+        for(int i=0;i<color->contactSims.count;++i)
+        {
+            b2Manifold* manifold=&color->contactSims.data[i].manifold;
+            const b2ContactConstraint* constraint=color->overflowConstraints+i;
+            B2_ASSERT(manifold->pointCount==constraint->pointCount);
+            for(int j=0;j<manifold->pointCount;++j)
+            {
+                manifold->points[j].normalImpulse=constraint->points[j].normalImpulse;
+                manifold->points[j].totalNormalImpulse=constraint->points[j].totalNormalImpulse;
+            }
+        }
+    }
+}

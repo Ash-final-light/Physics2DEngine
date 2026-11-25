@@ -48,5 +48,6 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
+    b2StoreContactImpulses(&context);
     b2ReleaseContactConstraints(&context);
 }
