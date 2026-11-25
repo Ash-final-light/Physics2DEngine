@@ -38,9 +38,13 @@ if(BUILD_TESTING)
 		test/test_toolchain.cpp
 		test/test_version.c
 		test/test_assert.c
+		test/test_log.cpp
 		test/toolchain_c.c
 	)
-	target_include_directories(unit_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/test")
+	target_include_directories(unit_tests PRIVATE
+		"${CMAKE_CURRENT_SOURCE_DIR}/test"
+		"${CMAKE_CURRENT_SOURCE_DIR}/src"
+	)
 	target_link_libraries(unit_tests PRIVATE box2d)
 	add_test(NAME unit_tests COMMAND unit_tests)
 endif()

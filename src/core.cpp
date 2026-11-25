@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
-#include "box2d/base.h"
+#include "core.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 
 b2Version b2GetVersion( void )
@@ -49,3 +50,26 @@ int b2InternalAssert( const char* condition, const char* fileName, int lineNumbe
 	return result;
 }
 #endif
+
+static void b2DefaultLogFcn( const char* message )
+{
+	printf( "Box2D: %s\n", message );
+}
+
+static b2LogCallbackFcn* b2LogHandler = b2DefaultLogFcn;
+
+void b2SetLogCallback( b2LogCallbackFcn* logFcn )
+{
+	B2_ASSERT( logFcn != NULL );
+	b2LogHandler = logFcn;
+}
+
+void b2Log( const char* format, ... )
+{
+	va_list args;
+	va_start( args, format );
+	char buffer[512];
+	vsnprintf( buffer, sizeof( buffer ), format, args );
+	b2LogHandler( buffer );
+	va_end( args );
+}

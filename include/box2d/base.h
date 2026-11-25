@@ -63,6 +63,13 @@ typedef int b2AssertCallbackFcn( const char* condition, const char* fileName, in
 /// @param assertFcn 非空的断言回调
 B2_API void b2SetAssertCallback( b2AssertCallbackFcn* assertFcn );
 
+/// 用户日志回调原型。用于记录警告。
+typedef void b2LogCallbackFcn( const char* message );
+
+/// 覆盖默认日志函数
+/// @param logFcn 非空的日志回调
+B2_API void b2SetLogCallback( b2LogCallbackFcn* logFcn );
+
 #if defined( _MSC_VER )
 #define B2_BREAKPOINT __debugbreak()
 #elif defined( __GNUC__ ) || defined( __clang__ )
