@@ -50,6 +50,7 @@ if(BUILD_TESTING)
 		test/test_array.cpp
 		test/test_bitset.cpp
 		test/test_id_pool.cpp
+		test/test_table.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE

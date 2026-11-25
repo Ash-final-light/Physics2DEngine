@@ -3,6 +3,7 @@ add_library(box2d
 	math_functions.cpp
 	bitset.cpp
 	id_pool.cpp
+	table.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

@@ -32,6 +32,7 @@ int SwapValuesTest( void );
 int BitSetTest( void );
 int BitSetGrowTest( void );
 int IdPoolTest( void );
+int HashSetInsertTest( void );
 
 int main( int argc, char** argv )
 {
@@ -198,6 +199,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( IdPoolTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "HashSetInsertTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( HashSetInsertTest );
 	}
 
 	if ( ran == 0 )
