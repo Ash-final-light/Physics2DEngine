@@ -20,6 +20,7 @@ int RotationTest( void );
 int TransformTest( void );
 int MatrixTest( void );
 int TrigTest( void );
+int ArrayCreateTest( void );
 
 int main( int argc, char** argv )
 {
@@ -114,6 +115,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( TrigTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ArrayCreateTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ArrayCreateTest );
 	}
 
 	if ( ran == 0 )
