@@ -163,3 +163,30 @@ int SegmentCircleManifoldTest( void )
 	ENSURE( b2CollideSegmentAndCircle( &segment, &circle, away ).pointCount == 0 );
 	return 0;
 }
+
+int SegmentCapsuleManifoldTest( void )
+{
+	b2Segment segment = { { -1.0f, 0.0f }, { 1.0f, 0.0f } };
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 0.5f };
+	b2Transform side = { { 0.0f, 0.4f }, b2Rot_identity };
+	b2LocalManifold parallel = b2CollideSegmentAndCapsule( &segment, &capsule, side );
+	ENSURE( parallel.pointCount == 2 );
+	ENSURE( parallel.normal.y > 0.9f );
+	ENSURE( parallel.points[0].separation < 0.0f );
+	ENSURE( parallel.points[1].separation < 0.0f );
+
+	b2Transform below = { { 0.0f, -0.4f }, b2Rot_identity };
+	b2LocalManifold otherSide = b2CollideSegmentAndCapsule( &segment, &capsule, below );
+	ENSURE( otherSide.pointCount == 2 );
+	ENSURE( otherSide.normal.y < -0.9f );
+
+	b2Capsule tip = { { 1.2f, 0.0f }, { 3.0f, 0.0f }, 0.5f };
+	b2LocalManifold end = b2CollideSegmentAndCapsule( &segment, &tip, b2Transform_identity );
+	ENSURE( end.pointCount == 1 );
+	ENSURE( end.normal.x > 0.9f );
+	ENSURE( end.points[0].separation < 0.0f );
+
+	b2Transform far = { { 0.0f, 3.0f }, b2Rot_identity };
+	ENSURE( b2CollideSegmentAndCapsule( &segment, &capsule, far ).pointCount == 0 );
+	return 0;
+}

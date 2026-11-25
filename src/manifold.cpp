@@ -380,3 +380,9 @@ b2LocalManifold b2CollideSegmentAndCircle( const b2Segment* segmentA, const b2Ci
 	b2Capsule capsuleA = { segmentA->point1, segmentA->point2, 0.0f };
 	return b2CollideCapsuleAndCircle( &capsuleA, circleB, xf );
 }
+
+b2LocalManifold b2CollideSegmentAndCapsule( const b2Segment* segmentA, const b2Capsule* capsuleB, b2Transform xf )
+{
+	b2Capsule capsuleA = { segmentA->point1, segmentA->point2, 0.0f };
+	return b2CollideCapsules( &capsuleA, capsuleB, xf );
+}
