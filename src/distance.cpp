@@ -4,6 +4,7 @@
 #include "core.h"
 
 #include "box2d/collision.h"
+#include "box2d/constants.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>
@@ -455,6 +456,79 @@ b2DistanceOutput b2ComputeShapeDistance( const b2DistanceInput* input, b2Simplex
 		output.distance = b2MaxFloat( 0.0f, output.distance - radiusA - radiusB );
 		output.pointA = b2MulAdd( output.pointA, radiusA, normal );
 		output.pointB = b2MulSub( output.pointB, radiusB, normal );
+	}
+
+	return output;
+}
+
+b2CastOutput b2CastShape( const b2ShapeCastPairInput* input )
+{
+	float linearSlop = B2_LINEAR_SLOP;
+	float totalRadius = input->proxyA.radius + input->proxyB.radius;
+	float target = b2MaxFloat( linearSlop, totalRadius - linearSlop );
+	float tolerance = 0.25f * linearSlop;
+
+	B2_ASSERT( target > tolerance );
+
+	b2SimplexCache cache = {};
+	float fraction = 0.0f;
+
+	b2DistanceInput distanceInput = {};
+	distanceInput.proxyA = input->proxyA;
+	distanceInput.proxyB = input->proxyB;
+	distanceInput.useRadii = false;
+	distanceInput.transform = input->transform;
+
+	b2Vec2 delta2 = input->translationB;
+	b2CastOutput output = {};
+	int iteration = 0;
+	const int maxIterations = 20;
+
+	for ( ; iteration < maxIterations; ++iteration )
+	{
+		output.iterations += 1;
+		b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+		if ( distanceOutput.distance < target + tolerance )
+		{
+			if ( iteration == 0 )
+			{
+				if ( input->canEncroach && distanceOutput.distance > 2.0f * linearSlop )
+				{
+					target = distanceOutput.distance - linearSlop;
+				}
+				else
+				{
+					output.hit = true;
+					b2Vec2 c1 = b2MulAdd( distanceOutput.pointA, input->proxyA.radius, distanceOutput.normal );
+					b2Vec2 c2 = b2MulAdd( distanceOutput.pointB, -input->proxyB.radius, distanceOutput.normal );
+					output.point = b2Lerp( c1, c2, 0.5f );
+					return output;
+				}
+			}
+			else
+			{
+				output.fraction = fraction;
+				output.point = b2MulAdd( distanceOutput.pointA, input->proxyA.radius, distanceOutput.normal );
+				output.normal = distanceOutput.normal;
+				output.hit = true;
+				return output;
+			}
+		}
+
+		float denominator = b2Dot( delta2, distanceOutput.normal );
+		if ( denominator >= 0.0f )
+		{
+			return output;
+		}
+
+		fraction += ( target - distanceOutput.distance ) / denominator;
+		if ( fraction >= input->maxFraction )
+		{
+			return output;
+		}
+
+		distanceInput.transform.p = b2MulAdd( input->transform.p, fraction, delta2 );
 	}
 
 	return output;

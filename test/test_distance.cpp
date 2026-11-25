@@ -4,6 +4,7 @@
 #include "test_macros.h"
 
 #include "box2d/collision.h"
+#include "box2d/constants.h"
 #include "box2d/math_functions.h"
 
 #include <float.h>
@@ -157,5 +158,63 @@ int ShapeDistanceTest( void )
 	b2DistanceOutput moved = b2ComputeShapeDistance( &shifted, &shiftedCache, NULL, 0 );
 	ENSURE_SMALL( moved.distance - 2.0f, 0.0001f );
 	ENSURE_SMALL( moved.pointB.x - 3.0f, 0.0001f );
+	return 0;
+}
+
+int ShapeCastTest( void )
+{
+	b2Vec2 box[4] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+	b2Vec2 edge[2] = { { 2.0f, -1.0f }, { 2.0f, 1.0f } };
+
+	b2ShapeCastPairInput input = {};
+	input.proxyA = b2MakeProxy( box, 4, 0.0f );
+	input.proxyB = b2MakeProxy( edge, 2, 0.0f );
+	input.transform = b2Transform_identity;
+	input.translationB = { -2.0f, 0.0f };
+	input.maxFraction = 1.0f;
+	input.canEncroach = false;
+
+	b2CastOutput output = b2CastShape( &input );
+	ENSURE( output.hit == true );
+	ENSURE_SMALL( output.fraction - 0.5f, 0.005f );
+	ENSURE( output.normal.x > 0.0f );
+
+	input.translationB = { 2.0f, 0.0f };
+	b2CastOutput miss = b2CastShape( &input );
+	ENSURE( miss.hit == false );
+
+	input.translationB = { -2.0f, 0.0f };
+	input.maxFraction = 0.25f;
+	ENSURE( b2CastShape( &input ).hit == false );
+
+	b2ShapeCastPairInput overlap = {};
+	overlap.proxyA = b2MakeProxy( box, 4, 0.0f );
+	overlap.proxyB = b2MakeProxy( box, 4, 0.0f );
+	overlap.transform = b2Transform_identity;
+	overlap.translationB = { -1.0f, 0.0f };
+	overlap.maxFraction = 1.0f;
+	overlap.canEncroach = false;
+	b2CastOutput already = b2CastShape( &overlap );
+	ENSURE( already.hit == true );
+	ENSURE_SMALL( already.fraction, FLT_EPSILON );
+
+	float halfThickness = 0.0016f;
+	b2Vec2 corners[4] = {
+		{ -0.5f, -halfThickness },
+		{ 0.5f, -halfThickness },
+		{ 0.5f, halfThickness },
+		{ -0.5f, halfThickness },
+	};
+	b2Vec2 point = { 0.5f + B2_LINEAR_SLOP, 0.0f };
+	b2DistanceInput thin;
+	thin.proxyA = b2MakeProxy( corners, 4, 0.0f );
+	thin.proxyB = b2MakeProxy( &point, 1, 0.0f );
+	thin.transform = b2Transform_identity;
+	thin.useRadii = false;
+	b2SimplexCache thinCache = {};
+	b2DistanceOutput thinDistance = b2ComputeShapeDistance( &thin, &thinCache, NULL, 0 );
+	ENSURE( thinDistance.distance > 0.0f );
+	ENSURE( b2IsNormalized( thinDistance.normal ) );
+	ENSURE_SMALL( thinDistance.distance - B2_LINEAR_SLOP, 1.0e-6f );
 	return 0;
 }

@@ -170,3 +170,15 @@ typedef struct b2Simplex
 } b2Simplex;
 
 B2_API b2DistanceOutput b2ComputeShapeDistance( const b2DistanceInput* input, b2SimplexCache* cache, b2Simplex* simplexes, int simplexCapacity );
+
+typedef struct b2ShapeCastPairInput
+{
+	b2ShapeProxy proxyA;
+	b2ShapeProxy proxyB;
+	b2Transform transform;
+	b2Vec2 translationB;
+	float maxFraction;
+	bool canEncroach;
+} b2ShapeCastPairInput;
+
+B2_API b2CastOutput b2CastShape( const b2ShapeCastPairInput* input );
