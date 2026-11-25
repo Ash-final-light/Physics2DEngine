@@ -137,3 +137,29 @@ int CapsuleManifoldTest( void )
 	ENSURE( b2CollideCapsules( &lower, &upper, far ).pointCount == 0 );
 	return 0;
 }
+
+int SegmentCircleManifoldTest( void )
+{
+	b2Segment segment = { { 0.0f, -1.0f }, { 0.0f, 1.0f } };
+	b2Circle circle = { { 0.0f, 0.0f }, 0.5f };
+	b2Transform right = { { 0.4f, 0.0f }, b2Rot_identity };
+	b2LocalManifold front = b2CollideSegmentAndCircle( &segment, &circle, right );
+	ENSURE( front.pointCount == 1 );
+	ENSURE( front.normal.x > 0.9f );
+	ENSURE( front.points[0].separation < 0.0f );
+
+	b2Transform left = { { -0.4f, 0.0f }, b2Rot_identity };
+	b2LocalManifold back = b2CollideSegmentAndCircle( &segment, &circle, left );
+	ENSURE( back.pointCount == 1 );
+	ENSURE( back.normal.x < -0.9f );
+	ENSURE( back.points[0].separation < 0.0f );
+
+	b2Transform end = { { 0.0f, 1.4f }, b2Rot_identity };
+	b2LocalManifold cap = b2CollideSegmentAndCircle( &segment, &circle, end );
+	ENSURE( cap.pointCount == 1 );
+	ENSURE( cap.normal.y > 0.9f );
+
+	b2Transform away = { { 2.0f, 0.0f }, b2Rot_identity };
+	ENSURE( b2CollideSegmentAndCircle( &segment, &circle, away ).pointCount == 0 );
+	return 0;
+}
