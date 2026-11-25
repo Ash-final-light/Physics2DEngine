@@ -381,3 +381,22 @@ bool b2PointInCircle( const b2Circle* shape, b2Vec2 point )
 	b2Vec2 center = shape->center;
 	return b2DistanceSquared( point, center ) <= shape->radius * shape->radius;
 }
+
+bool b2PointInCapsule( const b2Capsule* shape, b2Vec2 point )
+{
+	float rr = shape->radius * shape->radius;
+	b2Vec2 p1 = shape->center1;
+	b2Vec2 p2 = shape->center2;
+
+	b2Vec2 d = b2Sub( p2, p1 );
+	float dd = b2Dot( d, d );
+	if ( dd == 0.0f )
+	{
+		return b2DistanceSquared( point, p1 ) <= rr;
+	}
+
+	float t = b2Dot( b2Sub( point, p1 ), d ) / dd;
+	t = b2ClampFloat( t, 0.0f, 1.0f );
+	b2Vec2 c = b2MulAdd( p1, t, d );
+	return b2DistanceSquared( point, c ) <= rr;
+}

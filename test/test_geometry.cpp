@@ -343,3 +343,31 @@ int PointInCircleTest( void )
 	ENSURE( b2PointInCircle( &dot, near ) == false );
 	return 0;
 }
+
+int PointInCapsuleTest( void )
+{
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2Vec2 middle = { 0.0f, 0.0f };
+	b2Vec2 side = { 0.0f, 1.0f };
+	b2Vec2 sideOut = { 0.0f, 1.001f };
+	b2Vec2 cap = { 2.0f, 0.0f };
+	b2Vec2 capOut = { 2.001f, 0.0f };
+	b2Vec2 capTop = { 1.0f, 1.0f };
+	b2Vec2 capTopOut = { 1.0f, 1.001f };
+	ENSURE( b2PointInCapsule( &capsule, middle ) == true );
+	ENSURE( b2PointInCapsule( &capsule, side ) == true );
+	ENSURE( b2PointInCapsule( &capsule, sideOut ) == false );
+	ENSURE( b2PointInCapsule( &capsule, cap ) == true );
+	ENSURE( b2PointInCapsule( &capsule, capOut ) == false );
+	ENSURE( b2PointInCapsule( &capsule, capTop ) == true );
+	ENSURE( b2PointInCapsule( &capsule, capTopOut ) == false );
+
+	b2Capsule point = { { 1.0f, 2.0f }, { 1.0f, 2.0f }, 1.0f };
+	b2Circle circle = { { 1.0f, 2.0f }, 1.0f };
+	b2Vec2 samples[4] = { { 1.0f, 2.0f }, { 2.0f, 2.0f }, { 2.001f, 2.0f }, { 0.0f, 0.0f } };
+	for ( int i = 0; i < 4; ++i )
+	{
+		ENSURE( b2PointInCapsule( &point, samples[i] ) == b2PointInCircle( &circle, samples[i] ) );
+	}
+	return 0;
+}
