@@ -28,6 +28,7 @@
 #define B2_API extern "C" BOX2D_EXPORT
 #define B2_INLINE inline
 #define B2_LITERAL( T ) T
+#define B2_ZERO_INIT {}
 #if defined( _MSC_VER )
 #define B2_FORCE_INLINE __forceinline
 #elif defined( __GNUC__ ) || defined( __clang__ )
@@ -39,6 +40,7 @@
 #define B2_API BOX2D_EXPORT
 #define B2_INLINE static inline
 #define B2_LITERAL( T ) ( T )
+#define B2_ZERO_INIT { 0 }
 #if defined( _MSC_VER )
 #define B2_FORCE_INLINE static __forceinline
 #elif defined( __GNUC__ ) || defined( __clang__ )

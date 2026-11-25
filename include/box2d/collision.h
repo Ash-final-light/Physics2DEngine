@@ -125,3 +125,48 @@ typedef struct b2ShapeProxy
 
 B2_API b2ShapeProxy b2MakeProxy( const b2Vec2* points, int count, float radius );
 B2_API b2ShapeProxy b2MakeOffsetProxy( const b2Vec2* points, int count, float radius, b2Vec2 position, b2Rot rotation );
+
+typedef struct b2SimplexCache
+{
+	uint16_t count;
+	uint8_t indexA[3];
+	uint8_t indexB[3];
+} b2SimplexCache;
+
+static const b2SimplexCache b2_emptySimplexCache = B2_ZERO_INIT;
+
+typedef struct b2DistanceInput
+{
+	b2ShapeProxy proxyA;
+	b2ShapeProxy proxyB;
+	b2Transform transform;
+	bool useRadii;
+} b2DistanceInput;
+
+typedef struct b2DistanceOutput
+{
+	b2Vec2 pointA;
+	b2Vec2 pointB;
+	b2Vec2 normal;
+	float distance;
+	int iterations;
+	int simplexCount;
+} b2DistanceOutput;
+
+typedef struct b2SimplexVertex
+{
+	b2Vec2 wA;
+	b2Vec2 wB;
+	b2Vec2 w;
+	float a;
+	int indexA;
+	int indexB;
+} b2SimplexVertex;
+
+typedef struct b2Simplex
+{
+	b2SimplexVertex v1, v2, v3;
+	int count;
+} b2Simplex;
+
+B2_API b2DistanceOutput b2ComputeShapeDistance( const b2DistanceInput* input, b2SimplexCache* cache, b2Simplex* simplexes, int simplexCapacity );

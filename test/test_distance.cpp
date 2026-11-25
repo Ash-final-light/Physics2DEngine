@@ -103,3 +103,59 @@ int ShapeProxyTest( void )
 	ENSURE( plain.points[0].x == 1.0f && plain.points[0].y == 0.0f );
 	return 0;
 }
+
+int ShapeDistanceTest( void )
+{
+	b2Vec2 box[4] = { { -1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } };
+	b2Vec2 edge[2] = { { 2.0f, -1.0f }, { 2.0f, 1.0f } };
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeProxy( box, 4, 0.0f );
+	input.proxyB = b2MakeProxy( edge, 2, 0.0f );
+	input.transform = b2Transform_identity;
+	input.useRadii = false;
+
+	b2SimplexCache cache = b2_emptySimplexCache;
+	b2DistanceOutput output = b2ComputeShapeDistance( &input, &cache, NULL, 0 );
+	ENSURE_SMALL( output.distance - 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( output.pointA.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( output.pointB.x - 2.0f, 0.0001f );
+	ENSURE( output.iterations > 0 );
+	ENSURE( cache.count > 0 );
+
+	b2DistanceOutput again = b2ComputeShapeDistance( &input, &cache, NULL, 0 );
+	ENSURE_SMALL( again.distance - 1.0f, FLT_EPSILON );
+	ENSURE( again.iterations <= output.iterations );
+
+	b2DistanceInput overlap = input;
+	overlap.proxyB = b2MakeProxy( box, 4, 0.0f );
+	b2SimplexCache overlapCache = b2_emptySimplexCache;
+	b2DistanceOutput hit = b2ComputeShapeDistance( &overlap, &overlapCache, NULL, 0 );
+	ENSURE_SMALL( hit.distance, FLT_EPSILON );
+
+	b2Vec2 origin = { 0.0f, 0.0f };
+	b2Vec2 other = { 3.0f, 0.0f };
+	b2DistanceInput radii;
+	radii.proxyA = b2MakeProxy( &origin, 1, 1.0f );
+	radii.proxyB = b2MakeProxy( &other, 1, 1.0f );
+	radii.transform = b2Transform_identity;
+	radii.useRadii = true;
+	b2SimplexCache radiiCache = b2_emptySimplexCache;
+	b2DistanceOutput round = b2ComputeShapeDistance( &radii, &radiiCache, NULL, 0 );
+	ENSURE_SMALL( round.distance - 1.0f, 0.0001f );
+	ENSURE_SMALL( round.pointA.x - 1.0f, 0.0001f );
+	ENSURE_SMALL( round.pointB.x - 2.0f, 0.0001f );
+	ENSURE_SMALL( round.normal.x - 1.0f, 0.0001f );
+
+	b2Vec2 local = { 0.0f, 0.0f };
+	b2DistanceInput shifted;
+	shifted.proxyA = b2MakeProxy( box, 4, 0.0f );
+	shifted.proxyB = b2MakeProxy( &local, 1, 0.0f );
+	shifted.transform = { { 3.0f, 0.0f }, b2Rot_identity };
+	shifted.useRadii = false;
+	b2SimplexCache shiftedCache = b2_emptySimplexCache;
+	b2DistanceOutput moved = b2ComputeShapeDistance( &shifted, &shiftedCache, NULL, 0 );
+	ENSURE_SMALL( moved.distance - 2.0f, 0.0001f );
+	ENSURE_SMALL( moved.pointB.x - 3.0f, 0.0001f );
+	return 0;
+}

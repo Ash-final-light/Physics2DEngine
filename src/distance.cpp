@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "core.h"
+
 #include "box2d/collision.h"
 #include "box2d/math_functions.h"
 
@@ -95,4 +97,365 @@ b2ShapeProxy b2MakeOffsetProxy( const b2Vec2* points, int count, float radius, b
 	proxy.count = count;
 	proxy.radius = radius;
 	return proxy;
+}
+
+static inline b2Vec2 b2Weight2( float a1, b2Vec2 w1, float a2, b2Vec2 w2 )
+{
+	return b2Vec2{ a1 * w1.x + a2 * w2.x, a1 * w1.y + a2 * w2.y };
+}
+
+static inline b2Vec2 b2Weight3( float a1, b2Vec2 w1, float a2, b2Vec2 w2, float a3, b2Vec2 w3 )
+{
+	return b2Vec2{ a1 * w1.x + a2 * w2.x + a3 * w3.x, a1 * w1.y + a2 * w2.y + a3 * w3.y };
+}
+
+static inline int b2FindSupport( const b2ShapeProxy* proxy, b2Vec2 direction )
+{
+	const b2Vec2* points = proxy->points;
+	int count = proxy->count;
+	int bestIndex = 0;
+	float bestValue = b2Dot( points[0], direction );
+	for ( int i = 1; i < count; ++i )
+	{
+		float value = b2Dot( points[i], direction );
+		if ( value > bestValue )
+		{
+			bestIndex = i;
+			bestValue = value;
+		}
+	}
+	return bestIndex;
+}
+
+static b2Simplex b2MakeSimplexFromCache( b2SimplexCache cache, const b2ShapeProxy* proxyA, const b2ShapeProxy* proxyB )
+{
+	B2_ASSERT( cache.count <= 3 );
+	b2Simplex s;
+	s.count = cache.count;
+
+	b2SimplexVertex* vertices[] = { &s.v1, &s.v2, &s.v3 };
+	for ( int i = 0; i < s.count; ++i )
+	{
+		b2SimplexVertex* v = vertices[i];
+		v->indexA = cache.indexA[i];
+		v->indexB = cache.indexB[i];
+		v->wA = proxyA->points[v->indexA];
+		v->wB = proxyB->points[v->indexB];
+		v->w = b2Sub( v->wA, v->wB );
+		v->a = -1.0f;
+	}
+
+	if ( s.count == 0 )
+	{
+		b2SimplexVertex* v = vertices[0];
+		v->indexA = 0;
+		v->indexB = 0;
+		v->wA = proxyA->points[0];
+		v->wB = proxyB->points[0];
+		v->w = b2Sub( v->wA, v->wB );
+		v->a = 1.0f;
+		s.count = 1;
+	}
+
+	return s;
+}
+
+static b2SimplexCache b2MakeSimplexCache( const b2Simplex* simplex )
+{
+	b2SimplexCache cache = {};
+	cache.count = (uint16_t)simplex->count;
+	const b2SimplexVertex* vertices[] = { &simplex->v1, &simplex->v2, &simplex->v3 };
+	for ( int i = 0; i < simplex->count; ++i )
+	{
+		cache.indexA[i] = (uint8_t)vertices[i]->indexA;
+		cache.indexB[i] = (uint8_t)vertices[i]->indexB;
+	}
+	return cache;
+}
+
+static void b2ComputeWitnessPoints( const b2Simplex* s, b2Vec2* a, b2Vec2* b )
+{
+	switch ( s->count )
+	{
+		case 1:
+			*a = s->v1.wA;
+			*b = s->v1.wB;
+			break;
+
+		case 2:
+			*a = b2Weight2( s->v1.a, s->v1.wA, s->v2.a, s->v2.wA );
+			*b = b2Weight2( s->v1.a, s->v1.wB, s->v2.a, s->v2.wB );
+			break;
+
+		case 3:
+			*a = b2Weight3( s->v1.a, s->v1.wA, s->v2.a, s->v2.wA, s->v3.a, s->v3.wA );
+			*b = *a;
+			break;
+
+		default:
+			*a = b2Vec2_zero;
+			*b = b2Vec2_zero;
+			B2_ASSERT( false );
+			break;
+	}
+}
+
+static b2Vec2 b2SolveSimplex2( b2Simplex* s )
+{
+	b2Vec2 w1 = s->v1.w;
+	b2Vec2 w2 = s->v2.w;
+	b2Vec2 e12 = b2Sub( w2, w1 );
+
+	float d12_2 = -b2Dot( w1, e12 );
+	if ( d12_2 <= 0.0f )
+	{
+		s->v1.a = 1.0f;
+		s->count = 1;
+		return b2Neg( w1 );
+	}
+
+	float d12_1 = b2Dot( w2, e12 );
+	if ( d12_1 <= 0.0f )
+	{
+		s->v2.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v2;
+		return b2Neg( w2 );
+	}
+
+	float inv_d12 = 1.0f / ( d12_1 + d12_2 );
+	s->v1.a = d12_1 * inv_d12;
+	s->v2.a = d12_2 * inv_d12;
+	s->count = 2;
+	return b2CrossSV( b2Cross( b2Add( w1, w2 ), e12 ), e12 );
+}
+
+static b2Vec2 b2SolveSimplex3( b2Simplex* s )
+{
+	b2Vec2 w1 = s->v1.w;
+	b2Vec2 w2 = s->v2.w;
+	b2Vec2 w3 = s->v3.w;
+
+	b2Vec2 e12 = b2Sub( w2, w1 );
+	float d12_1 = b2Dot( w2, e12 );
+	float d12_2 = -b2Dot( w1, e12 );
+
+	b2Vec2 e13 = b2Sub( w3, w1 );
+	float d13_1 = b2Dot( w3, e13 );
+	float d13_2 = -b2Dot( w1, e13 );
+
+	b2Vec2 e23 = b2Sub( w3, w2 );
+	float d23_1 = b2Dot( w3, e23 );
+	float d23_2 = -b2Dot( w2, e23 );
+
+	float n123 = b2Cross( e12, e13 );
+	float d123_1 = n123 * b2Cross( w2, w3 );
+	float d123_2 = n123 * b2Cross( w3, w1 );
+	float d123_3 = n123 * b2Cross( w1, w2 );
+
+	if ( d12_2 <= 0.0f && d13_2 <= 0.0f )
+	{
+		s->v1.a = 1.0f;
+		s->count = 1;
+		return b2Neg( w1 );
+	}
+
+	if ( d12_1 > 0.0f && d12_2 > 0.0f && d123_3 <= 0.0f )
+	{
+		float inv_d12 = 1.0f / ( d12_1 + d12_2 );
+		s->v1.a = d12_1 * inv_d12;
+		s->v2.a = d12_2 * inv_d12;
+		s->count = 2;
+		return b2CrossSV( b2Cross( b2Add( w1, w2 ), e12 ), e12 );
+	}
+
+	if ( d13_1 > 0.0f && d13_2 > 0.0f && d123_2 <= 0.0f )
+	{
+		float inv_d13 = 1.0f / ( d13_1 + d13_2 );
+		s->v1.a = d13_1 * inv_d13;
+		s->v3.a = d13_2 * inv_d13;
+		s->count = 2;
+		s->v2 = s->v3;
+		return b2CrossSV( b2Cross( b2Add( w1, w3 ), e13 ), e13 );
+	}
+
+	if ( d12_1 <= 0.0f && d23_2 <= 0.0f )
+	{
+		s->v2.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v2;
+		return b2Neg( w2 );
+	}
+
+	if ( d13_1 <= 0.0f && d23_1 <= 0.0f )
+	{
+		s->v3.a = 1.0f;
+		s->count = 1;
+		s->v1 = s->v3;
+		return b2Neg( w3 );
+	}
+
+	if ( d23_1 > 0.0f && d23_2 > 0.0f && d123_1 <= 0.0f )
+	{
+		float inv_d23 = 1.0f / ( d23_1 + d23_2 );
+		s->v2.a = d23_1 * inv_d23;
+		s->v3.a = d23_2 * inv_d23;
+		s->count = 2;
+		s->v1 = s->v3;
+		return b2CrossSV( b2Cross( b2Add( w2, w3 ), e23 ), e23 );
+	}
+
+	float inv_d123 = 1.0f / ( d123_1 + d123_2 + d123_3 );
+	s->v1.a = d123_1 * inv_d123;
+	s->v2.a = d123_2 * inv_d123;
+	s->v3.a = d123_3 * inv_d123;
+	s->count = 3;
+	return b2Vec2_zero;
+}
+
+b2DistanceOutput b2ComputeShapeDistance( const b2DistanceInput* input, b2SimplexCache* cache, b2Simplex* simplexes, int simplexCapacity )
+{
+	B2_ASSERT( input->proxyA.count > 0 && input->proxyB.count > 0 );
+	B2_ASSERT( input->proxyA.radius >= 0.0f );
+	B2_ASSERT( input->proxyB.radius >= 0.0f );
+
+	b2DistanceOutput output = {};
+	const b2ShapeProxy* proxyA = &input->proxyA;
+
+	b2ShapeProxy localProxyB;
+	localProxyB.count = input->proxyB.count;
+	localProxyB.radius = input->proxyB.radius;
+	for ( int i = 0; i < localProxyB.count; ++i )
+	{
+		localProxyB.points[i] = b2TransformPoint( input->transform, input->proxyB.points[i] );
+	}
+
+	b2Simplex simplex = b2MakeSimplexFromCache( *cache, proxyA, &localProxyB );
+	int simplexIndex = 0;
+	if ( simplexes != NULL && simplexIndex < simplexCapacity )
+	{
+		simplexes[simplexIndex] = simplex;
+		simplexIndex += 1;
+	}
+
+	b2SimplexVertex* vertices[] = { &simplex.v1, &simplex.v2, &simplex.v3 };
+	b2Vec2 nonUnitNormal = b2Vec2_zero;
+	int saveA[3], saveB[3];
+	const int maxIterations = 20;
+	int iteration = 0;
+	while ( iteration < maxIterations )
+	{
+		int saveCount = simplex.count;
+		for ( int i = 0; i < saveCount; ++i )
+		{
+			saveA[i] = vertices[i]->indexA;
+			saveB[i] = vertices[i]->indexB;
+		}
+
+		b2Vec2 d = {};
+		switch ( simplex.count )
+		{
+			case 1:
+				d = b2Neg( simplex.v1.w );
+				break;
+
+			case 2:
+				d = b2SolveSimplex2( &simplex );
+				break;
+
+			case 3:
+				d = b2SolveSimplex3( &simplex );
+				break;
+
+			default:
+				B2_ASSERT( false );
+				break;
+		}
+
+		if ( simplex.count == 3 )
+		{
+			*cache = b2MakeSimplexCache( &simplex );
+			b2Vec2 localPointA, localPointB;
+			b2ComputeWitnessPoints( &simplex, &localPointA, &localPointB );
+			output.distance = 0.0f;
+			output.pointA = localPointA;
+			output.pointB = localPointB;
+			return output;
+		}
+
+#ifndef NDEBUG
+		if ( simplexes != NULL && simplexIndex < simplexCapacity )
+		{
+			simplexes[simplexIndex] = simplex;
+			simplexIndex += 1;
+		}
+#endif
+
+		if ( b2Dot( d, d ) < 1000.0f * FLT_MIN )
+		{
+			*cache = b2MakeSimplexCache( &simplex );
+			b2Vec2 localPointA, localPointB;
+			b2ComputeWitnessPoints( &simplex, &localPointA, &localPointB );
+			output.distance = 0.0f;
+			output.pointA = localPointA;
+			output.pointB = localPointB;
+			return output;
+		}
+
+		nonUnitNormal = d;
+		b2SimplexVertex* vertex = vertices[simplex.count];
+		vertex->indexA = b2FindSupport( proxyA, d );
+		vertex->wA = proxyA->points[vertex->indexA];
+		vertex->indexB = b2FindSupport( &localProxyB, b2Neg( d ) );
+		vertex->wB = localProxyB.points[vertex->indexB];
+		vertex->w = b2Sub( vertex->wA, vertex->wB );
+		++iteration;
+
+		bool duplicate = false;
+		for ( int i = 0; i < saveCount; ++i )
+		{
+			if ( vertex->indexA == saveA[i] && vertex->indexB == saveB[i] )
+			{
+				duplicate = true;
+				break;
+			}
+		}
+
+		if ( duplicate )
+		{
+			break;
+		}
+
+		simplex.count += 1;
+	}
+
+#ifndef NDEBUG
+	if ( simplexes != NULL && simplexIndex < simplexCapacity )
+	{
+		simplexes[simplexIndex] = simplex;
+		simplexIndex += 1;
+	}
+#endif
+
+	b2Vec2 normal = b2Normalize( nonUnitNormal );
+	b2Vec2 localPointA, localPointB;
+	b2ComputeWitnessPoints( &simplex, &localPointA, &localPointB );
+	output.normal = normal;
+	output.distance = b2Distance( localPointA, localPointB );
+	output.pointA = localPointA;
+	output.pointB = localPointB;
+	output.iterations = iteration;
+	output.simplexCount = simplexIndex;
+	*cache = b2MakeSimplexCache( &simplex );
+
+	if ( input->useRadii )
+	{
+		float radiusA = input->proxyA.radius;
+		float radiusB = input->proxyB.radius;
+		output.distance = b2MaxFloat( 0.0f, output.distance - radiusA - radiusB );
+		output.pointA = b2MulAdd( output.pointA, radiusA, normal );
+		output.pointB = b2MulSub( output.pointB, radiusB, normal );
+	}
+
+	return output;
 }

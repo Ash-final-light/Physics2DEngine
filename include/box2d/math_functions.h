@@ -171,6 +171,14 @@ B2_INLINE b2Vec2 b2Max( b2Vec2 a, b2Vec2 b )
 	return B2_LITERAL( b2Vec2 ){ b2MaxFloat( a.x, b.x ), b2MaxFloat( a.y, b.y ) };
 }
 
+/// 两点之间的距离。
+B2_INLINE float b2Distance( b2Vec2 a, b2Vec2 b )
+{
+	float dx = b.x - a.x;
+	float dy = b.y - a.y;
+	return sqrtf( dx * dx + dy * dy );
+}
+
 /// 两点距离的平方。
 B2_INLINE float b2DistanceSquared( b2Vec2 a, b2Vec2 b )
 {
