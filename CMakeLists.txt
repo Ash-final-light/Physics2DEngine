@@ -54,6 +54,7 @@ if(BUILD_TESTING)
 		test/test_stack.cpp
 		test/test_timer.cpp
 		test/test_aabb.cpp
+		test/test_geometry.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE

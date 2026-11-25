@@ -14,3 +14,17 @@ typedef struct b2CastOutput
 	int iterations;
 	bool hit;
 } b2CastOutput;
+
+/// 实心圆。
+typedef struct b2Circle
+{
+	b2Vec2 center;
+	float radius;
+} b2Circle;
+
+/// 具有双侧碰撞的线段。
+typedef struct b2Segment
+{
+	b2Vec2 point1;
+	b2Vec2 point2;
+} b2Segment;

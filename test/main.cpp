@@ -39,6 +39,7 @@ int StackAllocatorTest( void );
 int TimerTest( void );
 int AABBTest( void );
 int AABBRayCastTest( void );
+int CircleSegmentTest( void );
 
 int main( int argc, char** argv )
 {
@@ -247,6 +248,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( AABBRayCastTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "CircleSegmentTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( CircleSegmentTest );
 	}
 
 	if ( ran == 0 )
