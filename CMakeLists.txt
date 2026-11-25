@@ -40,6 +40,7 @@ if(BUILD_TESTING)
 		test/test_assert.c
 		test/test_log.cpp
 		test/test_length.cpp
+		test/test_memory.cpp
 		test/toolchain_c.c
 	)
 	target_include_directories(unit_tests PRIVATE

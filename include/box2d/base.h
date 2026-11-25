@@ -4,6 +4,8 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef BOX2D_USER_CONFIG
 #include BOX2D_USER_CONFIG
@@ -69,6 +71,22 @@ typedef void b2LogCallbackFcn( const char* message );
 /// 覆盖默认日志函数
 /// @param logFcn 非空的日志回调
 B2_API void b2SetLogCallback( b2LogCallbackFcn* logFcn );
+
+/// 用户分配函数原型
+/// @param size 分配大小，单位为字节
+/// @param alignment 所需对齐，保证为 2 的幂
+typedef void* b2AllocCallbackFcn( size_t size, int alignment );
+
+/// 用户释放函数原型
+/// @param mem 先前通过 `b2AllocCallbackFcn` 分配的内存
+/// @param size 分配大小，单位为字节
+typedef void b2FreeCallbackFcn( void* mem, size_t size );
+
+/// 允许用户覆盖分配函数。应在应用程序启动期间设置。
+B2_API void b2SetAllocator( b2AllocCallbackFcn* allocFcn, b2FreeCallbackFcn* freeFcn );
+
+/// @return Box2D 已分配的总字节数
+B2_API size_t b2GetByteCount( void );
 
 #if defined( _MSC_VER )
 #define B2_BREAKPOINT __debugbreak()

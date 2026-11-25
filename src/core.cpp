@@ -7,7 +7,13 @@
 
 #include <cmath>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
+
+#if defined( B2_PLATFORM_WINDOWS )
+#include <malloc.h>
+#endif
 
 b2Version b2GetVersion( void )
 {
@@ -94,4 +100,72 @@ void b2SetLengthUnitsPerMeter( float lengthUnits )
 float b2GetLengthUnitsPerMeter( void )
 {
 	return b2_lengthUnitsPerMeter;
+}
+
+static b2AllocCallbackFcn* b2_allocFcn = NULL;
+static b2FreeCallbackFcn* b2_freeFcn = NULL;
+static b2AtomicI64 b2_byteCount;
+
+void b2SetAllocator( b2AllocCallbackFcn* allocFcn, b2FreeCallbackFcn* freeFcn )
+{
+	b2_allocFcn = allocFcn;
+	b2_freeFcn = freeFcn;
+}
+
+size_t b2GetByteCount( void )
+{
+	return (size_t)b2AtomicLoadI64( &b2_byteCount );
+}
+
+void* b2Alloc( size_t size )
+{
+	if ( size == 0 )
+	{
+		return NULL;
+	}
+
+	b2AtomicFetchAddI64( &b2_byteCount, (int64_t)size );
+	size_t alignedSize = ( ( size - 1 ) | ( B2_ALIGNMENT - 1 ) ) + 1;
+
+	void* ptr;
+	if ( b2_allocFcn != NULL )
+	{
+		ptr = b2_allocFcn( alignedSize, B2_ALIGNMENT );
+	}
+	else
+	{
+#ifdef B2_PLATFORM_WINDOWS
+		ptr = _aligned_malloc( alignedSize, B2_ALIGNMENT );
+#else
+		ptr = aligned_alloc( B2_ALIGNMENT, alignedSize );
+#endif
+	}
+
+	B2_ASSERT( ptr != NULL );
+	B2_ASSERT( ( (uintptr_t)ptr & ( B2_ALIGNMENT - 1 ) ) == 0 );
+	return ptr;
+}
+
+void b2Free( void* mem, size_t size )
+{
+	if ( mem == NULL )
+	{
+		return;
+	}
+
+	if ( b2_freeFcn != NULL )
+	{
+		size_t alignedSize = size > 0 ? ( ( size - 1 ) | ( B2_ALIGNMENT - 1 ) ) + 1 : 0;
+		b2_freeFcn( mem, alignedSize );
+	}
+	else
+	{
+#ifdef B2_PLATFORM_WINDOWS
+		_aligned_free( mem );
+#else
+		free( mem );
+#endif
+	}
+
+	b2AtomicFetchAddI64( &b2_byteCount, -(int64_t)size );
 }
