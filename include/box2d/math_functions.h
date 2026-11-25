@@ -381,6 +381,52 @@ B2_INLINE b2Vec2 b2Solve22( b2Mat22 A, b2Vec2 b )
 	return x;
 }
 
+/// 上下界都是有限值，且上界不小于下界。
+B2_API bool b2IsValidAABB( b2AABB a );
+
+/// a 是否完全包含 b。
+B2_INLINE bool b2AABB_Contains( b2AABB a, b2AABB b )
+{
+	bool s = true;
+	s = s && a.lowerBound.x <= b.lowerBound.x;
+	s = s && a.lowerBound.y <= b.lowerBound.y;
+	s = s && b.upperBound.x <= a.upperBound.x;
+	s = s && b.upperBound.y <= a.upperBound.y;
+	return s;
+}
+
+/// 获取 AABB 的中心。
+B2_INLINE b2Vec2 b2AABB_Center( b2AABB a )
+{
+	b2Vec2 b = { 0.5f * ( a.lowerBound.x + a.upperBound.x ), 0.5f * ( a.lowerBound.y + a.upperBound.y ) };
+	return b;
+}
+
+/// 获取 AABB 的半宽半高。
+B2_INLINE b2Vec2 b2AABB_Extents( b2AABB a )
+{
+	b2Vec2 b = { 0.5f * ( a.upperBound.x - a.lowerBound.x ), 0.5f * ( a.upperBound.y - a.lowerBound.y ) };
+	return b;
+}
+
+/// 两个 AABB 的并集。
+B2_INLINE b2AABB b2AABB_Union( b2AABB a, b2AABB b )
+{
+	b2AABB c;
+	c.lowerBound.x = b2MinFloat( a.lowerBound.x, b.lowerBound.x );
+	c.lowerBound.y = b2MinFloat( a.lowerBound.y, b.lowerBound.y );
+	c.upperBound.x = b2MaxFloat( a.upperBound.x, b.upperBound.x );
+	c.upperBound.y = b2MaxFloat( a.upperBound.y, b.upperBound.y );
+	return c;
+}
+
+/// a 与 b 是否重叠。边界相接算重叠。
+B2_INLINE bool b2AABB_Overlaps( b2AABB a, b2AABB b )
+{
+	return !( b.lowerBound.x > a.upperBound.x || b.lowerBound.y > a.upperBound.y || a.lowerBound.x > b.upperBound.x ||
+			  a.lowerBound.y > b.upperBound.y );
+}
+
 /// 设置每米对应的长度单位。只接受有限且大于 0 的值，非法值保持原值。
 /// 默认值为 1。
 B2_API void b2SetLengthUnitsPerMeter( float lengthUnits );

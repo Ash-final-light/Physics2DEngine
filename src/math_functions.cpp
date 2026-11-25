@@ -33,6 +33,14 @@ bool b2IsValidVec2( b2Vec2 v )
 	return true;
 }
 
+bool b2IsValidAABB( b2AABB a )
+{
+	b2Vec2 d = b2Sub( a.upperBound, a.lowerBound );
+	bool valid = d.x >= 0.0f && d.y >= 0.0f;
+	valid = valid && b2IsValidVec2( a.lowerBound ) && b2IsValidVec2( a.upperBound );
+	return valid;
+}
+
 b2Rot b2ComputeRotationBetweenUnitVectors( b2Vec2 v1, b2Vec2 v2 )
 {
 	B2_ASSERT( b2AbsFloat( 1.0f - b2Length( v1 ) ) < 100.0f * FLT_EPSILON );

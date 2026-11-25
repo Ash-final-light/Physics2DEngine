@@ -44,3 +44,10 @@ typedef struct b2Mat22
 } b2Mat22;
 
 static const b2Mat22 b2Mat22_zero = { { 0.0f, 0.0f }, { 0.0f, 0.0f } };
+
+/// 轴对齐包围盒。
+typedef struct b2AABB
+{
+	b2Vec2 lowerBound;
+	b2Vec2 upperBound;
+} b2AABB;

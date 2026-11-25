@@ -37,6 +37,7 @@ int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
 int StackAllocatorTest( void );
 int TimerTest( void );
+int AABBTest( void );
 
 int main( int argc, char** argv )
 {
@@ -233,6 +234,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( TimerTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "AABBTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( AABBTest );
 	}
 
 	if ( ran == 0 )
