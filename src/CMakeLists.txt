@@ -18,6 +18,7 @@ add_library(box2d
 	broad_phase.cpp
 	body.cpp
 	shape.cpp
+	solver.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

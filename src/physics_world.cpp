@@ -4,6 +4,7 @@
 #include "world.h"
 
 #include "core.h"
+#include "solver.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -148,4 +149,21 @@ void* b2World_GetUserData( b2WorldId worldId )
 		return NULL;
 	}
 	return world->userData;
+}
+
+
+void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
+{
+    if ( b2World_IsValid( id ) == false || b2IsValidFloat( timeStep ) == false || timeStep <= 0.0f || subStepCount <= 0 )
+    {
+        return;
+    }
+    b2World* world = b2_worlds+id.index1-1;
+    if ( world->inUse == false || world->locked )
+    {
+        return;
+    }
+    world->locked = true;
+    b2SolveFreeBodies( world, timeStep, subStepCount );
+    world->locked = false;
 }
