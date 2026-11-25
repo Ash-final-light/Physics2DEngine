@@ -71,3 +71,27 @@ int BodyVelocityTest( void )
     ENSURE( b2Body_GetLinearVelocity( fixed ).x == 0.0f );
     b2DestroyWorld( world ); return 0;
 }
+
+
+int BodyGravityTest( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody;
+    b2BodyId normal = b2CreateBody( world, &bd );
+    b2BodyId scaled = b2CreateBody( world, &bd );
+    b2BodyId massless = b2CreateBody( world, &bd );
+    b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    b2CreateCircleShape( normal, &sd, &circle ); b2CreateCircleShape( scaled, &sd, &circle );
+    b2Body_SetGravityScale( scaled, 2.0f ); b2Body_SetGravityScale( scaled, NAN );
+    ENSURE( b2Body_GetGravityScale( scaled ) == 2.0f );
+    b2World_Step( world, 0.5f, 4 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( normal ).y+5.0f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetPosition( normal ).y+1.5625f, 0.00001f );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( scaled ).y+10.0f, 0.00001f );
+    ENSURE( b2Body_GetLinearVelocity( massless ).y == 0.0f );
+    b2Body_SetGravityScale( normal, 0.0f );
+    b2World_Step( world, 0.1f, 2 );
+    ENSURE_SMALL( b2Body_GetLinearVelocity( normal ).y+5.0f, 0.00001f );
+    b2DestroyWorld( world ); return 0;
+}

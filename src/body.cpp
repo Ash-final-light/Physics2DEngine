@@ -566,3 +566,18 @@ b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId id, b2Pos point )
     }
     return b2Add( body->linearVelocity, b2CrossSV( body->angularVelocity, b2Sub( point, body->center ) ) );
 }
+
+
+void b2Body_SetGravityScale( b2BodyId id, float scale )
+{
+    if ( b2Body_IsValid( id ) && b2IsValidFloat( scale ) )
+    {
+        b2GetBodyFullId( b2_worlds+id.world0, id )->gravityScale = scale;
+    }
+}
+
+float b2Body_GetGravityScale( b2BodyId id )
+{
+    B2_ASSERT( b2Body_IsValid( id ) );
+    return b2GetBodyFullId( b2_worlds+id.world0, id )->gravityScale;
+}

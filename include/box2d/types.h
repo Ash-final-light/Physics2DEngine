@@ -240,3 +240,6 @@ B2_API void b2Body_SetLinearVelocity( b2BodyId bodyId, b2Vec2 linearVelocity );
 B2_API void b2Body_SetAngularVelocity( b2BodyId bodyId, float angularVelocity );
 B2_API b2Vec2 b2Body_GetLocalPointVelocity( b2BodyId bodyId, b2Vec2 localPoint );
 B2_API b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId bodyId, b2Pos worldPoint );
+
+B2_API void b2Body_SetGravityScale( b2BodyId bodyId, float gravityScale );
+B2_API float b2Body_GetGravityScale( b2BodyId bodyId );
