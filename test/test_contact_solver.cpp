@@ -393,3 +393,46 @@ int ContactTangentSpeedTest(void)
     ENSURE_SMALL(b2Body_GetLinearVelocity(body).x+1,0.0001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactRestitutionTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    const float restitution[4]={0,0.5f,1,0.75f};
+    for(int run=0;run<4;++run)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-4};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.material.friction=0;sd.material.restitution=run==3?0.25f:restitution[run];
+        b2Circle c={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);
+        bd.type=b2_staticBody;bd.position={0,-2};sd.material.restitution=run==3?0.75f:0;
+        b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+        b2World_Step(id,0.01f,4);
+        b2ContactSim* sim=b2GetContactSim(world,world->contacts.data);
+        ENSURE(sim->restitution==restitution[run]);
+        ENSURE_SMALL(b2Body_GetLinearVelocity(body).y-4*restitution[run],0.0001f);
+        ENSURE(b2Body_GetLinearVelocity(body).y<=4.0001f);
+        b2Shape_SetRestitution(shape,0.2f);b2Shape_SetRestitution(shape,-1);b2Shape_SetRestitution(shape,NAN);
+        ENSURE(b2Shape_GetRestitution(shape)==0.2f);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={4,0};
+    b2ShapeDef sd=b2DefaultShapeDef();sd.material.restitution=1;sd.material.friction=0;b2Circle c={{0,0},1};
+    b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.position={2,0};bd.linearVelocity={-4,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.01f,4);
+    float va=b2Body_GetLinearVelocity(a).x,vb=b2Body_GetLinearVelocity(b).x;
+    ENSURE_SMALL(va+4,0.0001f);ENSURE_SMALL(vb-4,0.0001f);ENSURE_SMALL(va+vb,0.0001f);
+    ENSURE(va*va+vb*vb<=32.0001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // A separating contact does not gain another restitution impulse.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,4};
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.type=b2_staticBody;bd.position={0,-2};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y-4,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // An approaching speculative point with no compression impulse must not bounce.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-4};
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.type=b2_staticBody;bd.position={0,-2.01f};
+    b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.001f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y+4,0.00001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

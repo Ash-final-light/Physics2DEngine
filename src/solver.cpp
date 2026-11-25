@@ -38,6 +38,9 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         }
         b2SolveNormalContacts(&context);
     }
+    b2ApplyContactRestitution(&context);
+    b2StoreContactImpulses(&context);
+    b2ReleaseContactConstraints(&context);
     for(int i=0;i<set->bodySims.count;++i)
     {
         b2BodySim* sim=set->bodySims.data+i;
@@ -50,6 +53,4 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
-    b2StoreContactImpulses(&context);
-    b2ReleaseContactConstraints(&context);
 }

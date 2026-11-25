@@ -38,6 +38,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->indexB=b2DecodeAwakeIndex(sim->encodedBodySimB)+1;
             constraint->normal=manifold->normal;
             constraint->friction=sim->friction;
+            constraint->restitution=sim->restitution;
             constraint->tangentSpeed=sim->tangentSpeed;
             constraint->rollingResistance=sim->rollingResistance;
             constraint->rollingImpulse=warmStartScale*manifold->rollingImpulse;
@@ -49,7 +50,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->rollingMass=iA+iB>0.0f?1.0f/(iA+iB):0.0f;
             for(int j=0;j<manifold->pointCount;++j)
             {
-                const b2ManifoldPoint* mp=manifold->points+j;
+                b2ManifoldPoint* mp=manifold->points+j;
                 b2ContactConstraintPoint* cp=constraint->points+j;
                 b2Vec2 rA=mp->anchorA,rB=mp->anchorB;
                 cp->anchorA=rA;cp->anchorB=rB;
@@ -63,6 +64,16 @@ void b2PrepareContactConstraints(b2StepContext* context)
                 float rtA=b2Cross(rA,tangent),rtB=b2Cross(rB,tangent);
                 float kTangent=mA+mB+iA*rtA*rtA+iB*rtB*rtB;
                 cp->tangentMass=kTangent>0.0f?1.0f/kTangent:0.0f;
+                if(sim->restitution>0.0f)
+                {
+                    b2BodyState dummy=b2_identityBodyState;
+                    const b2BodyState* stateA=constraint->indexA==0?&dummy:context->states+constraint->indexA-1;
+                    const b2BodyState* stateB=constraint->indexB==0?&dummy:context->states+constraint->indexB-1;
+                    b2Vec2 vrA=b2Add(stateA->linearVelocity,b2CrossSV(stateA->angularVelocity,rA));
+                    b2Vec2 vrB=b2Add(stateB->linearVelocity,b2CrossSV(stateB->angularVelocity,rB));
+                    cp->relativeVelocity=b2Dot(constraint->normal,b2Sub(vrB,vrA));
+                }
+                mp->normalVelocity=cp->relativeVelocity;
             }
         }
     }
@@ -229,4 +240,128 @@ void b2WarmStartContacts(b2StepContext* context)
             if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
         }
     }
+}
+
+static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )
+{
+
+	b2ConstraintGraph* graph = context->graph;
+	b2GraphColor* color = graph->colors + colorIndex;
+	b2ContactConstraint* constraints = color->overflowConstraints;
+	int contactCount = color->contactSims.count;
+	b2World* world = context->world;
+	b2SolverSet* awakeSet = b2Array_Get( world->solverSets, b2_awakeSet );
+	b2BodyState* states = awakeSet->bodyStates.data;
+
+	float threshold = world->restitutionThreshold;
+	float inv_h = context->inv_h;
+	bool propagate = false;
+
+	b2BodyState dummyState = b2_identityBodyState;
+
+	for ( int i = 0; i < contactCount; ++i )
+	{
+		b2ContactConstraint* constraint = constraints + i;
+		if ( propagate == false && constraint->restitution == 0.0f )
+		{
+			continue;
+		}
+
+		float mA = constraint->invMassA;
+		float iA = constraint->invIA;
+		float mB = constraint->invMassB;
+		float iB = constraint->invIB;
+
+		int indexA = constraint->indexA - 1;
+		int indexB = constraint->indexB - 1;
+
+		b2BodyState* stateA = indexA == B2_NULL_INDEX ? &dummyState : states + indexA;
+		b2Vec2 vA = stateA->linearVelocity;
+		float wA = stateA->angularVelocity;
+		b2Rot dqA = stateA->deltaRotation;
+
+		b2BodyState* stateB = indexB == B2_NULL_INDEX ? &dummyState : states + indexB;
+		b2Vec2 vB = stateB->linearVelocity;
+		float wB = stateB->angularVelocity;
+		b2Rot dqB = stateB->deltaRotation;
+
+		b2Vec2 dp = b2Sub( stateB->deltaPosition, stateA->deltaPosition );
+
+		b2Vec2 normal = constraint->normal;
+		float restitution = constraint->restitution;
+		int pointCount = constraint->pointCount;
+
+		for ( int j = 0; j < pointCount; ++j )
+		{
+			b2ContactConstraintPoint* cp = constraint->points + j;
+
+			b2Vec2 rA = cp->anchorA;
+			b2Vec2 rB = cp->anchorB;
+
+			// 预测性接触点的总法向冲量为 0。
+			float compressionImpulse = cp->totalNormalImpulse - cp->restitutionImpulse;
+			bool armed = restitution > 0.0f && cp->relativeVelocity < -threshold && compressionImpulse > 0.0f;
+
+			float velocityBias;
+			if ( armed )
+			{
+				velocityBias = restitution * cp->relativeVelocity;
+			}
+			else
+			{
+				b2Vec2 ds = b2Add( dp, b2Sub( b2RotateVector( dqB, rB ), b2RotateVector( dqA, rA ) ) );
+				float s = cp->baseSeparation + b2Dot( ds, normal );
+
+				velocityBias = s > 0.0f ? s * inv_h : 0.0f;
+			}
+
+			b2Vec2 vrA = b2Add( vA, b2CrossSV( wA, rA ) );
+			b2Vec2 vrB = b2Add( vB, b2CrossSV( wB, rB ) );
+			float vn = b2Dot( b2Sub( vrB, vrA ), normal );
+
+			float impulse = -cp->normalMass * ( vn + velocityBias );
+
+			float newImpulse = b2MaxFloat( cp->normalImpulse + impulse, 0.0f );
+			impulse = newImpulse - cp->normalImpulse;
+
+			float approachImpulse = b2MinFloat( b2MaxFloat( -cp->normalMass * vn, 0.0f ), b2MaxFloat( impulse, 0.0f ) );
+
+			if ( armed )
+			{
+				// Poisson 动能恢复保证不增能。
+				float allowance = restitution * ( compressionImpulse + approachImpulse ) - cp->restitutionImpulse;
+				impulse = b2MinFloat( impulse, approachImpulse + b2MaxFloat( allowance, 0.0f ) );
+			}
+
+			cp->normalImpulse += impulse;
+			cp->restitutionImpulse += impulse - approachImpulse;
+			cp->totalNormalImpulse += impulse;
+
+			b2Vec2 P = b2MulSV( impulse, normal );
+			vA = b2MulSub( vA, mA, P );
+			wA -= iA * b2Cross( rA, P );
+
+			vB = b2MulAdd( vB, mB, P );
+			wB += iB * b2Cross( rB, P );
+		}
+
+		if ( stateA->flags & b2_dynamicFlag )
+		{
+			stateA->linearVelocity = vA;
+			stateA->angularVelocity = wA;
+		}
+
+		if ( stateB->flags & b2_dynamicFlag )
+		{
+			stateB->linearVelocity = vB;
+			stateB->angularVelocity = wB;
+		}
+	}
+
+}
+
+void b2ApplyContactRestitution(b2StepContext* context)
+{
+    b2ApplyRestitutionColor(context,B2_OVERFLOW_INDEX);
+    for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2ApplyRestitutionColor(context,i); }
 }

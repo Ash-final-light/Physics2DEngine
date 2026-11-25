@@ -291,6 +291,7 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
 {
     (void)world;
     sim->friction=sqrtf(a->material.friction*b->material.friction);
+    sim->restitution=b2MaxFloat(a->material.restitution,b->material.restitution);
     sim->tangentSpeed=a->material.tangentSpeed+b->material.tangentSpeed;
     sim->rollingResistance=0.0f;
     if(a->material.rollingResistance>0 || b->material.rollingResistance>0)

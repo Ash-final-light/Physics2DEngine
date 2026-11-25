@@ -13,6 +13,8 @@ struct b2ContactConstraintPoint
     float normalMass;
     float tangentImpulse;
     float tangentMass;
+    float relativeVelocity;
+    float restitutionImpulse;
 };
 
 struct b2ContactConstraint
@@ -24,6 +26,7 @@ struct b2ContactConstraint
     float invMassA, invMassB;
     float invIA, invIB;
     float friction;
+    float restitution;
     float tangentSpeed;
     float rollingResistance;
     float rollingMass;
@@ -37,4 +40,5 @@ void b2ReleaseContactConstraints(b2StepContext* context);
 void b2SolveNormalContacts(b2StepContext* context);
 void b2PushNormalContacts(b2StepContext* context);
 void b2WarmStartContacts(b2StepContext* context);
+void b2ApplyContactRestitution(b2StepContext* context);
 void b2StoreContactImpulses(b2StepContext* context);

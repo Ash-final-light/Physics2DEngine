@@ -108,6 +108,7 @@ int ContactRecycleTest( void );
 int ContactFrictionTest( void );
 int ContactRollingResistanceTest( void );
 int ContactTangentSpeedTest( void );
+int ContactRestitutionTest( void );
 int ContactLifecycleTest( void );
 int ContactDataQueryTest( void );
 int ContactPersistenceTest( void );
@@ -904,6 +905,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ContactFrictionTest")==0) { ran=1; RUN_TEST(ContactFrictionTest); }
 	if(filter==NULL || strcmp(filter,"ContactRollingResistanceTest")==0) { ran=1; RUN_TEST(ContactRollingResistanceTest); }
 	if(filter==NULL || strcmp(filter,"ContactTangentSpeedTest")==0) { ran=1; RUN_TEST(ContactTangentSpeedTest); }
+	if(filter==NULL || strcmp(filter,"ContactRestitutionTest")==0) { ran=1; RUN_TEST(ContactRestitutionTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

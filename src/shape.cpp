@@ -891,3 +891,14 @@ b2SurfaceMaterial b2Shape_GetSurfaceMaterial(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material:b2SurfaceMaterial{};
 }
+
+void b2Shape_SetRestitution(b2ShapeId id,float restitution)
+{
+    if(!b2IsValidFloat(restitution) || restitution<0.0f || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2GetShapeFromId(id)->material.restitution=restitution;
+}
+
+float b2Shape_GetRestitution(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL?shape->material.restitution:0.0f;
+}
