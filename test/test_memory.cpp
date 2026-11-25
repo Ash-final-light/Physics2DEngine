@@ -114,3 +114,39 @@ int GrowAllocTest( void )
 	}
 	return 0;
 }
+
+int ZeroAllocTest( void )
+{
+	unsigned char* block = static_cast<unsigned char*>( b2AllocZero( 8 ) );
+	if ( block == NULL || b2GetByteCount() != 8 )
+	{
+		return 1;
+	}
+	for ( int i = 0; i < 8; ++i )
+	{
+		if ( block[i] != 0 )
+		{
+			b2Free( block, 8 );
+			return 1;
+		}
+	}
+	block[0] = 9;
+	block[1] = 8;
+
+	unsigned char* grown = static_cast<unsigned char*>( b2GrowAllocZero( block, 8, 16 ) );
+	if ( grown == NULL || grown[0] != 9 || grown[1] != 8 || b2GetByteCount() != 16 )
+	{
+		return 1;
+	}
+	for ( int i = 2; i < 16; ++i )
+	{
+		if ( grown[i] != 0 )
+		{
+			b2Free( grown, 16 );
+			return 1;
+		}
+	}
+
+	b2Free( grown, 16 );
+	return b2GetByteCount() == 0 ? 0 : 1;
+}

@@ -182,3 +182,24 @@ void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize )
 	}
 	return newMem;
 }
+
+void* b2AllocZero( size_t size )
+{
+	void* memory = b2Alloc( size );
+	memset( memory, 0, size );
+	return memory;
+}
+
+void* b2GrowAllocZero( void* oldMem, size_t oldSize, size_t newSize )
+{
+	B2_ASSERT( newSize > oldSize );
+	void* newMem = b2Alloc( newSize );
+	if ( oldSize > 0 )
+	{
+		memcpy( newMem, oldMem, oldSize );
+		b2Free( oldMem, oldSize );
+	}
+
+	memset( (char*)newMem + oldSize, 0, newSize - oldSize );
+	return newMem;
+}

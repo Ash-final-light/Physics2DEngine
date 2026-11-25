@@ -58,3 +58,5 @@ void b2Log( const char* format, ... );
 void* b2Alloc( size_t size );
 void b2Free( void* mem, size_t size );
 void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize );
+void* b2AllocZero( size_t size );
+void* b2GrowAllocZero( void* oldMem, size_t oldSize, size_t newSize );
