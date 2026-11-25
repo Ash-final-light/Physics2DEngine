@@ -30,6 +30,8 @@ inline void b2Array_Create( b2DynamicArray<T>& a )
 template <typename T>
 inline void b2Array_CreateN( b2DynamicArray<T>& a, int n )
 {
+	static_assert( std::is_trivial_v<T> && std::is_standard_layout_v<T> );
+	static_assert( alignof( T ) <= B2_ALIGNMENT );
 	B2_ASSERT( n >= 0 );
 	a.data = n > 0 ? static_cast<T*>( b2GrowAlloc( nullptr, 0, n * sizeof( T ) ) ) : nullptr;
 	a.count = 0;
@@ -39,6 +41,7 @@ inline void b2Array_CreateN( b2DynamicArray<T>& a, int n )
 template <typename T>
 inline void b2Array_Destroy( b2DynamicArray<T>& a )
 {
+	static_assert( std::is_trivial_v<T> && std::is_standard_layout_v<T> );
 	b2Free( a.data, a.capacity * sizeof( T ) );
 	a = {};
 }
@@ -46,6 +49,8 @@ inline void b2Array_Destroy( b2DynamicArray<T>& a )
 template <typename T>
 inline void b2Array_Reserve( b2DynamicArray<T>& a, int n )
 {
+	static_assert( std::is_trivial_v<T> && std::is_standard_layout_v<T> );
+	static_assert( alignof( T ) <= B2_ALIGNMENT );
 	B2_ASSERT( n >= 0 );
 	if ( a.capacity < n )
 	{

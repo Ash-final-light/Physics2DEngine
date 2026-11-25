@@ -27,6 +27,7 @@ int ArrayIndexTest( void );
 int ArrayPopTest( void );
 int ArrayRemoveSwapTest( void );
 int ArrayResizeTest( void );
+int ArrayConstraintTest( void );
 
 int main( int argc, char** argv )
 {
@@ -163,6 +164,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( ArrayResizeTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ArrayConstraintTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ArrayConstraintTest );
 	}
 
 	if ( ran == 0 )

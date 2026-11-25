@@ -4,6 +4,8 @@
 #include "container.h"
 #include "test_macros.h"
 
+#include <type_traits>
+
 int ArrayCreateTest( void )
 {
 	size_t before = b2GetByteCount();
@@ -187,5 +189,30 @@ int ArrayResizeTest( void )
 	b2Array_Clear( values );
 	ENSURE( values.count == 0 && values.capacity >= 8 && values.data != nullptr );
 	b2Array_Destroy( values );
+	return 0;
+}
+
+struct ArraySlot
+{
+	alignas( 64 ) int value;
+};
+
+int ArrayConstraintTest( void )
+{
+	static_assert( std::is_trivial_v<int> && std::is_standard_layout_v<int> );
+	static_assert( alignof( int ) <= B2_ALIGNMENT );
+	static_assert( std::is_trivial_v<ArraySlot> && std::is_standard_layout_v<ArraySlot> );
+	static_assert( alignof( ArraySlot ) <= B2_ALIGNMENT );
+
+	b2DynamicArray<ArraySlot> slots;
+	b2Array_CreateN( slots, 2 );
+	ENSURE( slots.capacity == 2 && slots.count == 0 );
+	ArraySlot slot = {};
+	slot.value = 9;
+	b2Array_Push( slots, slot );
+	b2Array_Reserve( slots, 4 );
+	ENSURE( slots.count == 1 && slots.capacity >= 4 && slots.data[0].value == 9 );
+	b2Array_Destroy( slots );
+	ENSURE( slots.data == nullptr && slots.capacity == 0 );
 	return 0;
 }
