@@ -95,3 +95,11 @@ B2_API void b2Body_SetName( b2BodyId bodyId, const char* name );
 B2_API const char* b2Body_GetName( b2BodyId bodyId );
 B2_API void b2Body_SetUserData( b2BodyId bodyId, void* userData );
 B2_API void* b2Body_GetUserData( b2BodyId bodyId );
+
+B2_API b2Pos b2Body_GetPosition( b2BodyId bodyId );
+B2_API b2Rot b2Body_GetRotation( b2BodyId bodyId );
+B2_API b2WorldTransform b2Body_GetTransform( b2BodyId bodyId );
+B2_API b2Vec2 b2Body_GetLocalPoint( b2BodyId bodyId, b2Pos worldPoint );
+B2_API b2Pos b2Body_GetWorldPoint( b2BodyId bodyId, b2Vec2 localPoint );
+B2_API b2Vec2 b2Body_GetLocalVector( b2BodyId bodyId, b2Vec2 worldVector );
+B2_API b2Vec2 b2Body_GetWorldVector( b2BodyId bodyId, b2Vec2 localVector );

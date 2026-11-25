@@ -4,6 +4,7 @@
 #include "test_macros.h"
 
 #include "box2d/base.h"
+#include "box2d/math_functions.h"
 #include "box2d/types.h"
 
 #include <math.h>
@@ -164,5 +165,51 @@ int BodyNameTest( void )
 	ENSURE( strcmp( b2Body_GetName( bodyId ), "" ) == 0 );
 	b2DestroyBody( second );
 	b2DestroyWorld( worldId );
+	return 0;
+}
+
+int BodyTransformQueryTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2WorldDef worldDef = b2DefaultWorldDef();
+	b2WorldId worldId = b2CreateWorld( &worldDef );
+	b2BodyDef def = b2DefaultBodyDef();
+	def.position = { 5.0f, -3.0f };
+	def.rotation = { 0.0f, 1.0f };
+	b2BodyId body = b2CreateBody( worldId, &def );
+	b2Pos position = b2Body_GetPosition( body );
+	b2Rot rotation = b2Body_GetRotation( body );
+	b2WorldTransform transform = b2Body_GetTransform( body );
+	ENSURE( position.x == 5.0f && position.y == -3.0f );
+	ENSURE( rotation.c == 0.0f && rotation.s == 1.0f );
+	ENSURE( transform.p.x == position.x && transform.p.y == position.y );
+	ENSURE( transform.q.c == rotation.c && transform.q.s == rotation.s );
+
+	b2Vec2 localPoint = { 2.0f, 4.0f };
+	b2Pos worldPoint = b2Body_GetWorldPoint( body, localPoint );
+	ENSURE_SMALL( worldPoint.x - 1.0f, 0.00001f );
+	ENSURE_SMALL( worldPoint.y + 1.0f, 0.00001f );
+	b2Vec2 restored = b2Body_GetLocalPoint( body, worldPoint );
+	ENSURE_SMALL( restored.x - localPoint.x, 0.00001f );
+	ENSURE_SMALL( restored.y - localPoint.y, 0.00001f );
+
+	b2Vec2 worldVector = b2Body_GetWorldVector( body, localPoint );
+	ENSURE( worldVector.x == -4.0f && worldVector.y == 2.0f );
+	b2Vec2 localVector = b2Body_GetLocalVector( body, worldVector );
+	ENSURE( localVector.x == localPoint.x && localVector.y == localPoint.y );
+
+	def.position = { -100.0f, 40.0f };
+	b2BodyId other = b2CreateBody( worldId, &def );
+	b2Vec2 otherVector = b2Body_GetWorldVector( other, localPoint );
+	ENSURE( otherVector.x == worldVector.x && otherVector.y == worldVector.y );
+	ENSURE( b2Body_GetPosition( body ).x == 5.0f );
+	ENSURE( b2Body_GetPosition( other ).x == -100.0f );
+
+	b2BodyDef identity = b2DefaultBodyDef();
+	b2BodyId origin = b2CreateBody( worldId, &identity );
+	worldPoint = b2Body_GetWorldPoint( origin, localPoint );
+	ENSURE( worldPoint.x == localPoint.x && worldPoint.y == localPoint.y );
+	b2DestroyWorld( worldId );
+	ENSURE( b2GetByteCount() == before );
 	return 0;
 }

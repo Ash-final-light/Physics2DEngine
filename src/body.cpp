@@ -193,3 +193,45 @@ void* b2Body_GetUserData( b2BodyId bodyId )
 	}
 	return body->userData;
 }
+
+static b2WorldTransform b2GetBodyTransformFromId( b2BodyId bodyId )
+{
+	B2_ASSERT( b2Body_IsValid( bodyId ) );
+	b2Body* body = b2GetBody( b2_worlds + bodyId.world0, bodyId );
+	return body->transform;
+}
+
+b2Pos b2Body_GetPosition( b2BodyId bodyId )
+{
+	return b2GetBodyTransformFromId( bodyId ).p;
+}
+
+b2Rot b2Body_GetRotation( b2BodyId bodyId )
+{
+	return b2GetBodyTransformFromId( bodyId ).q;
+}
+
+b2WorldTransform b2Body_GetTransform( b2BodyId bodyId )
+{
+	return b2GetBodyTransformFromId( bodyId );
+}
+
+b2Vec2 b2Body_GetLocalPoint( b2BodyId bodyId, b2Pos worldPoint )
+{
+	return b2InvTransformPoint( b2GetBodyTransformFromId( bodyId ), worldPoint );
+}
+
+b2Pos b2Body_GetWorldPoint( b2BodyId bodyId, b2Vec2 localPoint )
+{
+	return b2TransformPoint( b2GetBodyTransformFromId( bodyId ), localPoint );
+}
+
+b2Vec2 b2Body_GetLocalVector( b2BodyId bodyId, b2Vec2 worldVector )
+{
+	return b2InvRotateVector( b2GetBodyTransformFromId( bodyId ).q, worldVector );
+}
+
+b2Vec2 b2Body_GetWorldVector( b2BodyId bodyId, b2Vec2 localVector )
+{
+	return b2RotateVector( b2GetBodyTransformFromId( bodyId ).q, localVector );
+}

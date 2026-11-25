@@ -13,7 +13,7 @@ struct b2Body
 	int id;
 	uint16_t generation;
 	b2BodyType type;
-	b2Transform transform;
+	b2WorldTransform transform;
 	b2Vec2 linearVelocity;
 	float angularVelocity;
 	float linearDamping;
