@@ -169,3 +169,39 @@ int CircleMassTest( void )
 	ENSURE( heavy.center.x == 1.0f && heavy.center.y == 0.0f );
 	return 0;
 }
+
+int CapsuleMassTest( void )
+{
+	b2Capsule capsule = { { -1.0f, 0.0f }, { 1.0f, 0.0f }, 1.0f };
+	b2MassData md = b2ComputeCapsuleMass( &capsule, 1.0f );
+	float circleMass = B2_PI;
+	float boxMass = 4.0f;
+	ENSURE_SMALL( md.mass - ( circleMass + boxMass ), FLT_EPSILON );
+	ENSURE_SMALL( md.center.x, FLT_EPSILON );
+	ENSURE_SMALL( md.center.y, FLT_EPSILON );
+
+	float lc = 4.0f / ( 3.0f * B2_PI );
+	float circleInertia = circleMass * ( 0.5f + 1.0f + 2.0f * lc );
+	float boxInertia = boxMass * ( 4.0f + 4.0f ) / 12.0f;
+	ENSURE_SMALL( md.rotationalInertia - ( circleInertia + boxInertia ), 4.0f * FLT_EPSILON );
+
+	b2Capsule swapped = { { 1.0f, 0.0f }, { -1.0f, 0.0f }, 1.0f };
+	b2MassData flipped = b2ComputeCapsuleMass( &swapped, 1.0f );
+	ENSURE_SMALL( flipped.mass - md.mass, FLT_EPSILON );
+	ENSURE_SMALL( flipped.rotationalInertia - md.rotationalInertia, FLT_EPSILON );
+	ENSURE_SMALL( flipped.center.x, FLT_EPSILON );
+
+	b2Capsule point = { { 1.0f, 2.0f }, { 1.0f, 2.0f }, 1.0f };
+	b2MassData collapsed = b2ComputeCapsuleMass( &point, 1.0f );
+	b2Circle circle = { { 1.0f, 2.0f }, 1.0f };
+	b2MassData round = b2ComputeCircleMass( &circle, 1.0f );
+	ENSURE_SMALL( collapsed.mass - round.mass, FLT_EPSILON );
+	ENSURE( collapsed.center.x == 1.0f && collapsed.center.y == 2.0f );
+	ENSURE_SMALL( collapsed.rotationalInertia - round.rotationalInertia, FLT_EPSILON );
+
+	b2Capsule longer = { { -2.0f, 0.0f }, { 2.0f, 0.0f }, 1.0f };
+	b2MassData stretched = b2ComputeCapsuleMass( &longer, 1.0f );
+	ENSURE( stretched.mass > md.mass );
+	ENSURE( stretched.rotationalInertia > md.rotationalInertia );
+	return 0;
+}

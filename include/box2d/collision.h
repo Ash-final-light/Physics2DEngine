@@ -81,3 +81,4 @@ B2_API b2Polygon b2MakeRoundedBox( float halfWidth, float halfHeight, float radi
 B2_API b2Polygon b2MakeOffsetBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation );
 B2_API b2Polygon b2MakeOffsetRoundedBox( float halfWidth, float halfHeight, b2Vec2 center, b2Rot rotation, float radius );
 B2_API b2MassData b2ComputeCircleMass( const b2Circle* shape, float density );
+B2_API b2MassData b2ComputeCapsuleMass( const b2Capsule* shape, float density );

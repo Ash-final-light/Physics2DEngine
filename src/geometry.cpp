@@ -181,3 +181,29 @@ b2MassData b2ComputeCircleMass( const b2Circle* shape, float density )
 	massData.rotationalInertia = massData.mass * 0.5f * rr;
 	return massData;
 }
+
+b2MassData b2ComputeCapsuleMass( const b2Capsule* shape, float density )
+{
+	float radius = shape->radius;
+	float rr = radius * radius;
+	b2Vec2 p1 = shape->center1;
+	b2Vec2 p2 = shape->center2;
+	float length = b2Length( b2Sub( p2, p1 ) );
+	float ll = length * length;
+
+	float circleMass = density * ( B2_PI * radius * radius );
+	float boxMass = density * ( 2.0f * radius * length );
+
+	b2MassData massData;
+	massData.mass = circleMass + boxMass;
+	massData.center.x = 0.5f * ( p1.x + p2.x );
+	massData.center.y = 0.5f * ( p1.y + p2.y );
+
+	float lc = 4.0f * radius / ( 3.0f * B2_PI );
+	float h = 0.5f * length;
+
+	float circleInertia = circleMass * ( 0.5f * rr + h * h + 2.0f * h * lc );
+	float boxInertia = boxMass * ( 4.0f * rr + ll ) / 12.0f;
+	massData.rotationalInertia = circleInertia + boxInertia;
+	return massData;
+}

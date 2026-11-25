@@ -44,6 +44,7 @@ int CapsuleTest( void );
 int PolygonTest( void );
 int OffsetPolygonTest( void );
 int CircleMassTest( void );
+int CapsuleMassTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -283,6 +284,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( CircleMassTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "CapsuleMassTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( CapsuleMassTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
