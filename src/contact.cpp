@@ -212,11 +212,18 @@ void b2DestroyContact( b2World* world, b2Contact* contact )
         }
         body->contactCount -= 1;
     }
-    b2SolverSet* set=world->solverSets.data+contact->setIndex;
-    int index=contact->localIndex;
-    int moved=b2Array_RemoveSwap(set->contactSims,index);
-    if(moved!=B2_NULL_INDEX)
-    { world->contacts.data[set->contactSims.data[index].contactId].localIndex=index; }
+    if(contact->colorIndex!=B2_NULL_INDEX)
+    {
+        b2RemoveContactFromGraph(world,contact->edges[0].bodyId,contact->edges[1].bodyId,contact->colorIndex,contact->localIndex);
+    }
+    else
+    {
+        b2SolverSet* set=world->solverSets.data+contact->setIndex;
+        int index=contact->localIndex;
+        int moved=b2Array_RemoveSwap(set->contactSims,index);
+        if(moved!=B2_NULL_INDEX)
+        { world->contacts.data[set->contactSims.data[index].contactId].localIndex=index; }
+    }
     b2FreeId(&world->contactIdPool,contact->contactId);
     uint32_t generation = contact->generation;
     *contact = b2Contact{};
@@ -271,6 +278,8 @@ void b2UpdateBroadPhaseContacts( b2World* world )
 
 b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact )
 {
+    if(contact->colorIndex!=B2_NULL_INDEX)
+    { return world->constraintGraph.colors[contact->colorIndex].contactSims.data+contact->localIndex; }
     return world->solverSets.data[contact->setIndex].contactSims.data+contact->localIndex;
 }
 
@@ -336,8 +345,27 @@ void b2UpdateContacts( b2World* world )
             b2Sub(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2Sub(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
         if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
         else { contact->flags &= ~b2_contactTouchingFlag; }
-        if(touching && !wasTouching) { b2LinkContact(world,contact); }
-        else if(!touching && wasTouching) { b2UnlinkContact(world,contact); }
+        if(touching && !wasTouching)
+        {
+            b2LinkContact(world,contact);
+            // Linking can wake an entire set and relocate contact arrays.
+            b2ContactSim copy=*b2GetContactSim(world,contact);
+            int oldIndex=contact->localIndex;
+            b2SolverSet* set=world->solverSets.data+contact->setIndex;
+            b2AddContactToGraph(world,&copy,contact);
+            int moved=b2Array_RemoveSwap(set->contactSims,oldIndex);
+            if(moved!=B2_NULL_INDEX)
+            { world->contacts.data[set->contactSims.data[oldIndex].contactId].localIndex=oldIndex; }
+        }
+        else if(!touching && wasTouching)
+        {
+            b2UnlinkContact(world,contact);
+            b2ContactSim copy=*b2GetContactSim(world,contact);
+            b2RemoveContactFromGraph(world,bodyA->id,bodyB->id,contact->colorIndex,contact->localIndex);
+            b2SolverSet* set=world->solverSets.data+contact->setIndex;
+            contact->colorIndex=B2_NULL_INDEX;contact->localIndex=set->contactSims.count;
+            b2Array_Push(set->contactSims,copy);
+        }
     }
 }
 

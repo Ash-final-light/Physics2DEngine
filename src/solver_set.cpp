@@ -84,7 +84,8 @@ void b2RefreshContactSets( b2World* world )
         b2Body* a=world->bodies.data+contact->edges[0].bodyId;
         b2Body* b=world->bodies.data+contact->edges[1].bodyId;
         int targetIndex=(a->setIndex==b2_awakeSet || b->setIndex==b2_awakeSet) ? b2_awakeSet : b2_disabledSet;
-        if(contact->setIndex!=targetIndex)
+        if(contact->colorIndex!=B2_NULL_INDEX) { B2_ASSERT(targetIndex==b2_awakeSet); }
+        if(contact->colorIndex==B2_NULL_INDEX && contact->setIndex!=targetIndex)
         {
             b2SolverSet* source=world->solverSets.data+contact->setIndex;
             b2SolverSet* target=world->solverSets.data+targetIndex;
@@ -102,6 +103,8 @@ void b2RefreshContactSets( b2World* world )
         b2ContactSim* sim=b2GetContactSim(world,contact);
         sim->encodedBodySimA=b2EncodeBodySimIndex(a);
         sim->encodedBodySimB=b2EncodeBodySimIndex(b);
+        sim->invMassA=b2GetBodySim(world,a)->invMass;sim->invIA=b2GetBodySim(world,a)->invInertia;
+        sim->invMassB=b2GetBodySim(world,b)->invMass;sim->invIB=b2GetBodySim(world,b)->invInertia;
     }
 }
 

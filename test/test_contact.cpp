@@ -81,10 +81,12 @@ int ContactManifoldUpdateTest( void )
     ENSURE_SMALL(sim->manifold.points[0].anchorB.y+0.75f,0.00001f);
     b2Body_SetTransform(b,{100.0f,203.03f},b2Rot_identity);
     b2World_Step(worldId,0.001f,1);
+    sim=b2GetContactSim(world,contact);
     ENSURE(world->broadPhase.pairSet.count==1);
     ENSURE(sim->manifold.pointCount==0 && (contact->flags&b2_contactTouchingFlag)==0);
     b2Body_SetTransform(b,{100.0f,202.5f},b2Rot_identity);
     b2World_Step(worldId,0.001f,1);
+    sim=b2GetContactSim(world,contact);
     ENSURE(sim->manifold.pointCount==1);
     b2DestroyWorld(worldId);return 0;
 }
@@ -111,13 +113,16 @@ int ContactPersistenceTest( void )
     sim->manifold.points[0].normalVelocity=-10.0f;
     sim->manifold.rollingImpulse=0.25f;
     b2UpdateContacts(world);
+    sim=b2GetContactSim(world,world->contacts.data);
     ENSURE(sim->manifold.points[0].persisted && sim->manifold.points[0].id==id);
     ENSURE(sim->manifold.points[0].normalImpulse==3.0f && sim->manifold.points[0].tangentImpulse==0.5f);
     ENSURE(sim->manifold.rollingImpulse==0.25f);
     ENSURE(sim->manifold.points[0].totalNormalImpulse==0.0f && sim->manifold.points[0].normalVelocity==0.0f);
     b2Body_SetTransform(b,{2.03f,0.0f},b2Rot_identity);b2UpdateContacts(world);
+    sim=b2GetContactSim(world,world->contacts.data);
     ENSURE(sim->manifold.pointCount==0);
     b2Body_SetTransform(b,{1.5f,0.0f},b2Rot_identity);b2UpdateContacts(world);
+    sim=b2GetContactSim(world,world->contacts.data);
     ENSURE(sim->manifold.pointCount==1 && sim->manifold.points[0].persisted==false);
     ENSURE(sim->manifold.points[0].normalImpulse==0.0f && sim->manifold.rollingImpulse==0.0f);
     b2DestroyWorld(worldId);return 0;

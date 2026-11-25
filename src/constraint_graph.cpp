@@ -1,0 +1,234 @@
+// SPDX-FileCopyrightText: 2026 Erin Catto
+// SPDX-License-Identifier: MIT
+
+#include "constraint_graph.h"
+
+#include "bitset.h"
+#include "body.h"
+#include "contact.h"
+#include "world.h"
+#include "solver_set.h"
+
+#include <string.h>
+
+// 使用图着色的求解器。岛仅用于休眠。
+// High-Performance Physical Simulations on Next-Generation Architecture with Many Cores
+// http://web.eecs.umich.edu/~msmelyan/papers/physsim_onmanycore_itj.pdf
+
+// 图着色中运动学刚体必须当动态刚体处理。与静态刚体不同，运动学刚体不能用哑求解刚体。
+// 无法高效地从多线程访问运动学刚体，因为 SIMD 求解器刚体 scatter 会从多线程写入同一运动学刚体。
+// 即使这些写入不修改刚体，也会造成严重的缓存停顿。要可行需要有办法屏蔽这些写入。
+// todo 应可在 scatter 上分支以避免写入运动学刚体
+
+// 调试用：让所有约束都分配到溢出。
+// 不要期望溢出与图着色得到相同结果。它们的求解顺序不同。
+#define B2_FORCE_OVERFLOW 0
+
+static int b2GetLinearShare( int total, int rampCount, int rampIndex )
+{
+	int64_t weight = rampCount - rampIndex;
+	int64_t weightSum = (int64_t)rampCount * ( rampCount + 1 ) / 2;
+	return (int)( total * weight / weightSum );
+}
+
+void b2CreateGraph( b2ConstraintGraph* graph, const b2Capacity* capacity )
+{
+	static_assert( B2_GRAPH_COLOR_COUNT >= 2, "must have at least two constraint graph colors" );
+	static_assert( B2_OVERFLOW_INDEX == B2_GRAPH_COLOR_COUNT - 1, "bad over flow index" );
+	static_assert( B2_DYNAMIC_COLOR_COUNT >= 2, "need more dynamic colors" );
+
+	*graph = b2ConstraintGraph{};
+
+	int bodyCapacity = b2MaxInt( capacity->staticBodyCount + capacity->dynamicBodyCount, 16 );
+
+	int staticContactCount = capacity->contactCount / 8;
+	int dynamicContactCount = capacity->contactCount - staticContactCount;
+	int dynamicRampCount = B2_DYNAMIC_COLOR_COUNT / 2;
+	int staticRampCount = B2_GRAPH_COLOR_COUNT - B2_DYNAMIC_COLOR_COUNT;
+
+	// 初始化图颜色位集。
+	// 溢出色没有位集。
+	for ( int i = 0; i < B2_OVERFLOW_INDEX; ++i )
+	{
+		b2GraphColor* color = graph->colors + i;
+		color->bodySet = b2CreateBitSet( bodyCapacity );
+		b2SetBitCountAndClear( &color->bodySet, bodyCapacity );
+
+		int contactCapacity = 0;
+		if ( i < dynamicRampCount )
+		{
+			contactCapacity += b2GetLinearShare( dynamicContactCount, dynamicRampCount, i );
+		}
+
+		int staticRampIndex = B2_OVERFLOW_INDEX - 1 - i;
+		if ( staticRampIndex < staticRampCount )
+		{
+			contactCapacity += b2GetLinearShare( staticContactCount, staticRampCount, staticRampIndex );
+		}
+
+		b2Array_Reserve( color->contactSims, b2MaxInt( 16, contactCapacity ) );
+	}
+}
+
+void b2DestroyGraph( b2ConstraintGraph* graph )
+{
+	for ( int i = 0; i < B2_GRAPH_COLOR_COUNT; ++i )
+	{
+		b2GraphColor* color = graph->colors + i;
+
+		// 溢出色上绝不使用位集
+		B2_ASSERT( i != B2_OVERFLOW_INDEX || color->bodySet.bits == NULL );
+
+		b2DestroyBitSet( &color->bodySet );
+		b2Array_Destroy( color->contactSims );
+	}
+}
+
+// 接触创建时总是非接触状态。发现接触后才移入约束图。
+void b2AddContactToGraph( b2World* world, b2ContactSim* contactSim, b2Contact* contact )
+{
+	B2_ASSERT( contactSim->manifold.pointCount > 0 );
+	B2_ASSERT( contactSim->simFlags & b2_simTouchingFlag );
+	B2_ASSERT( contact->flags & b2_contactTouchingFlag );
+
+	b2ConstraintGraph* graph = &world->constraintGraph;
+	int colorIndex = B2_OVERFLOW_INDEX;
+
+	int bodyIdA = contact->edges[0].bodyId;
+	int bodyIdB = contact->edges[1].bodyId;
+	b2Body* bodyA = b2Array_Get( world->bodies, bodyIdA );
+	b2Body* bodyB = b2Array_Get( world->bodies, bodyIdB );
+
+	b2BodyType typeA = bodyA->type;
+	b2BodyType typeB = bodyB->type;
+	B2_ASSERT( typeA == b2_dynamicBody || typeB == b2_dynamicBody );
+
+#if B2_FORCE_OVERFLOW == 0
+	if ( typeA == b2_dynamicBody && typeB == b2_dynamicBody )
+	{
+		// 动态约束颜色不能侵占为静态约束保留的颜色
+		for ( int i = 0; i < B2_DYNAMIC_COLOR_COUNT; ++i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdA ) || b2GetBit( &color->bodySet, bodyIdB ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdA );
+			b2SetBitGrow( &color->bodySet, bodyIdB );
+			colorIndex = i;
+			break;
+		}
+	}
+	else if ( typeA == b2_dynamicBody )
+	{
+		// 静态约束颜色从末尾构建，以获得高于动态-动态约束的优先级
+		for ( int i = B2_OVERFLOW_INDEX - 1; i >= 1; --i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdA ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdA );
+			colorIndex = i;
+			break;
+		}
+	}
+	else if ( typeB == b2_dynamicBody )
+	{
+		// 静态约束颜色从末尾构建，以获得高于动态-动态约束的优先级
+		for ( int i = B2_OVERFLOW_INDEX - 1; i >= 1; --i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdB ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdB );
+			colorIndex = i;
+			break;
+		}
+	}
+#endif
+
+	b2GraphColor* color = graph->colors + colorIndex;
+	contact->colorIndex = colorIndex;
+	contact->localIndex = color->contactSims.count;
+
+	b2ContactSim* newContact = b2Array_Emplace( color->contactSims );
+	memcpy( newContact, contactSim, sizeof( b2ContactSim ) );
+
+	// todo 若接触已唤醒或许可跳过此步
+
+	if ( typeA == b2_staticBody )
+	{
+		newContact->encodedBodySimA = b2EncodeBodySimIndex( bodyA );
+		newContact->invMassA = 0.0f;
+		newContact->invIA = 0.0f;
+	}
+	else
+	{
+		B2_ASSERT( bodyA->setIndex == b2_awakeSet );
+		b2SolverSet* awakeSet = b2Array_Get( world->solverSets, b2_awakeSet );
+
+		int localIndex = bodyA->localIndex;
+		newContact->encodedBodySimA = localIndex;
+
+		b2BodySim* bodySimA = b2Array_Get( awakeSet->bodySims, localIndex );
+		newContact->invMassA = bodySimA->invMass;
+		newContact->invIA = bodySimA->invInertia;
+	}
+
+	if ( typeB == b2_staticBody )
+	{
+		newContact->encodedBodySimB = b2EncodeBodySimIndex( bodyB );
+		newContact->invMassB = 0.0f;
+		newContact->invIB = 0.0f;
+	}
+	else
+	{
+		B2_ASSERT( bodyB->setIndex == b2_awakeSet );
+		b2SolverSet* awakeSet = b2Array_Get( world->solverSets, b2_awakeSet );
+
+		int localIndex = bodyB->localIndex;
+		newContact->encodedBodySimB = localIndex;
+
+		b2BodySim* bodySimB = b2Array_Get( awakeSet->bodySims, localIndex );
+		newContact->invMassB = bodySimB->invMass;
+		newContact->invIB = bodySimB->invInertia;
+	}
+}
+
+void b2RemoveContactFromGraph( b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex )
+{
+	b2ConstraintGraph* graph = &world->constraintGraph;
+
+	B2_ASSERT( 0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT );
+	b2GraphColor* color = graph->colors + colorIndex;
+
+	if ( colorIndex != B2_OVERFLOW_INDEX )
+	{
+		// 可能清除运动学或静态刚体的位，但无影响
+		b2ClearBit( &color->bodySet, bodyIdA );
+		b2ClearBit( &color->bodySet, bodyIdB );
+	}
+
+	int movedIndex = b2Array_RemoveSwap( color->contactSims, localIndex );
+	if ( movedIndex != B2_NULL_INDEX )
+	{
+		// 修正被交换接触的下标
+		b2ContactSim* movedContactSim = color->contactSims.data + localIndex;
+
+		// 修正被移动的接触
+		int movedId = movedContactSim->contactId;
+		b2Contact* movedContact = b2Array_Get( world->contacts, movedId );
+		B2_ASSERT( movedContact->setIndex == b2_awakeSet );
+		B2_ASSERT( movedContact->colorIndex == colorIndex );
+		B2_ASSERT( movedContact->localIndex == movedIndex );
+		movedContact->localIndex = localIndex;
+	}
+}

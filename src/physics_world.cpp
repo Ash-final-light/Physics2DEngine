@@ -77,6 +77,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->islandIdPool=b2CreateIdPool();
 	b2Array_Create(world->islands);
 	b2CreateSolverSets( world );
+	b2CreateGraph(&world->constraintGraph,&def->capacity);
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -93,6 +94,7 @@ void b2DestroyWorld( b2WorldId worldId )
 		return;
 	}
 
+	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase( &world->broadPhase );
 	b2Array_Destroy( world->contacts );
 	for(int i=0;i<world->islands.count;++i)

@@ -7,6 +7,7 @@
 #include "body.h"
 #include "broad_phase.h"
 #include "contact.h"
+#include "constraint_graph.h"
 #include "solver_set.h"
 #include "container.h"
 #include "id_pool.h"
@@ -23,6 +24,7 @@ struct b2World
 	bool locked;
 	b2Vec2 gravity;
 	b2BroadPhase broadPhase;
+	b2ConstraintGraph constraintGraph;
 	b2IdPool islandIdPool;
 	b2DynamicArray<b2Island> islands;
 	b2IdPool contactIdPool;

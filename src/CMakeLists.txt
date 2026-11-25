@@ -1,4 +1,5 @@
 add_library(box2d
+	constraint_graph.cpp
 	island.cpp
 	contact.cpp
 	core.cpp

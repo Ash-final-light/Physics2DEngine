@@ -21,6 +21,8 @@
 #define B2_MAX_AABB_MARGIN ( 0.05f * b2_lengthUnitsPerMeter )
 #define B2_AABB_MARGIN_FRACTION 0.125f
 
+#define B2_GRAPH_COLOR_COUNT 24
+
 #define B2_MAX_WORLDS 128
 #define B2_NAME_LENGTH 10
 #define B2_MAX_RESTITUTION_ITERATIONS 63
