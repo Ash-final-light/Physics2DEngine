@@ -128,7 +128,12 @@ static void b2FlushCandidatePairs( b2PairContext* context )
     for ( int i = 0; i < context->batchCount; ++i )
     {
         const b2CandidatePair* pair = context->batch+i;
-        b2Array_Push( *context->pairKeys, (uint64_t)(uint32_t)pair->shapeIdA << 32 | (uint32_t)pair->shapeIdB );
+        uint64_t key = (uint64_t)(uint32_t)pair->shapeIdA << 32 | (uint32_t)pair->shapeIdB;
+        uint64_t hash = b2KeyHash( key );
+        if ( b2ContainsHashedKey( &context->world->broadPhase.pairSet, key, hash ) == false )
+        {
+            b2Array_Push( *context->pairKeys, key );
+        }
     }
     context->batchCount = 0;
 }

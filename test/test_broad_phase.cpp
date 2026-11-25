@@ -166,3 +166,52 @@ int BroadPhaseCandidatesTest( void )
     ENSURE( b2GetByteCount() == before );
     return 0;
 }
+
+
+static void MarkAllBroadPhaseProxies( b2World* world )
+{
+    for ( int i = 0; i < world->shapes.count; ++i )
+    {
+        b2Shape* shape = world->shapes.data+i;
+        if ( shape->id != B2_NULL_INDEX && shape->proxyKey != B2_NULL_INDEX )
+        {
+            b2BroadPhase_MoveProxy( &world->broadPhase, shape->proxyKey, world->fatAABBs.data[i] );
+        }
+    }
+}
+
+int BroadPhaseExistingPairsTest( void )
+{
+    size_t before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef();
+    b2WorldId worldId = b2CreateWorld( &wd );
+    b2World* world = b2_worlds+worldId.index1-1;
+    b2ShapeDef sd = b2DefaultShapeDef();
+    b2Circle circle = { { 0.0f, 0.0f }, 1.0f };
+    for ( int i = 0; i < 4; ++i )
+    {
+        b2BodyDef bd = b2DefaultBodyDef();
+        bd.type = b2_dynamicBody;
+        b2CreateCircleShape( b2CreateBody( worldId, &bd ), &sd, &circle );
+    }
+    b2DynamicArray<uint64_t> keys = {};
+    b2CollectCandidatePairs( world, &keys );
+    ENSURE( keys.count == 6 );
+    uint64_t existing = keys.data[0];
+    ENSURE( b2AddKey( &world->broadPhase.pairSet, existing ) == false );
+    MarkAllBroadPhaseProxies( world );
+    b2CollectCandidatePairs( world, &keys );
+    ENSURE( keys.count == 5 );
+    for ( int i = 0; i < keys.count; ++i )
+    {
+        ENSURE( keys.data[i] != existing );
+    }
+    ENSURE( b2RemoveKey( &world->broadPhase.pairSet, existing ) );
+    MarkAllBroadPhaseProxies( world );
+    b2CollectCandidatePairs( world, &keys );
+    ENSURE( keys.count == 6 );
+    b2Array_Destroy( keys );
+    b2DestroyWorld( worldId );
+    ENSURE( b2GetByteCount() == before );
+    return 0;
+}

@@ -95,6 +95,7 @@ int BodyTransformQueryTest( void );
 int BodySetTransformTest( void );
 int BodyBoundsTest( void );
 int BroadPhaseTreeTypesTest( void );
+int BroadPhaseExistingPairsTest( void );
 int BroadPhaseCandidatesTest( void );
 int BroadPhaseMoveTest( void );
 int BroadPhaseProxyLifecycleTest( void );
@@ -745,6 +746,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( BroadPhaseCandidatesTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "BroadPhaseExistingPairsTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( BroadPhaseExistingPairsTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
