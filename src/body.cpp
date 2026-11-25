@@ -879,3 +879,17 @@ int b2Body_GetContactData( b2BodyId id, b2ContactData* output, int capacity )
     }
     return count;
 }
+
+void b2Body_EnableContactRecycling(b2BodyId id,bool flag)
+{
+    if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    uint32_t newFlag=flag?b2_bodyEnableContactRecycling:0;
+    if((body->flags&b2_bodyEnableContactRecycling)==newFlag) { return; }
+    body->flags=(body->flags&~b2_bodyEnableContactRecycling)|newFlag;b2SyncBodyFlags(world,body);
+}
+
+bool b2Body_IsContactRecyclingEnabled(b2BodyId id)
+{
+    return b2Body_IsValid(id) && (b2GetBodyFullId(b2_worlds+id.world0,id)->flags&b2_bodyEnableContactRecycling)!=0;
+}

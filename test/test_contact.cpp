@@ -62,7 +62,7 @@ int ContactManifoldUpdateTest( void )
     b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
     b2WorldId worldId=b2CreateWorld(&wd);
     b2World* world=b2_worlds+worldId.index1-1;
-    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableContactRecycling=false;
     bd.position={100.0f,200.0f};bd.rotation={0.0f,1.0f};
     b2BodyId a=b2CreateBody(worldId,&bd);
     b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{1.0f,0.0f},1.0f};
@@ -97,7 +97,7 @@ int ContactPersistenceTest( void )
     b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
     b2WorldId worldId=b2CreateWorld(&wd);
     b2World* world=b2_worlds+worldId.index1-1;
-    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableContactRecycling=false;
     b2BodyId a=b2CreateBody(worldId,&bd);
     bd.type=b2_staticBody;bd.position={1.5f,0.0f};
     b2BodyId b=b2CreateBody(worldId,&bd);
@@ -134,7 +134,7 @@ int ContactDataQueryTest( void )
     b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
     b2WorldId worldId=b2CreateWorld(&wd);
     b2World* world=b2_worlds+worldId.index1-1;
-    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableContactRecycling=false;
     b2BodyId body=b2CreateBody(worldId,&bd);
     b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0.0f,2.0f},1.0f};
     b2ShapeId upper=b2CreateCircleShape(body,&sd,&circle);
@@ -161,4 +161,53 @@ int ContactDataQueryTest( void )
     ENSURE(b2Body_GetContactData(body,data,3)==1);
     ENSURE(b2Shape_GetContactData(upper,data,3)==0);
     b2DestroyWorld(worldId);return 0;
+}
+
+int ContactRecycleTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+    ENSURE(b2World_GetContactRecycleDistance(id)==B2_CONTACT_RECYCLE_DISTANCE);
+    b2World_SetContactRecycleDistance(id,0.05f);
+    b2World_SetContactRecycleDistance(id,NAN);ENSURE(b2World_GetContactRecycleDistance(id)==0.05f);
+    world->locked=true;b2World_SetContactRecycleDistance(id,1);world->locked=false;
+    ENSURE(b2World_GetContactRecycleDistance(id)==0.05f);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+    b2BodyId a=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2ShapeId sa=b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={1.5f,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    ENSURE(b2Body_IsContactRecyclingEnabled(a));b2Body_EnableContactRecycling(a,false);ENSURE(!b2Body_IsContactRecyclingEnabled(a));
+    b2Body_EnableContactRecycling(a,true);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    b2Contact* contact=world->contacts.data;b2ContactSim* sim=b2GetContactSim(world,contact);
+    ENSURE((sim->simFlags&b2_contactRecycleFlag)!=0);
+    float cached=sim->cachedRelativePose.p.x;
+    float oldAnchor=sim->manifold.points[0].anchorA.x;
+    b2Body_SetTransform(b,{1.51f,0},b2Rot_identity);b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
+    ENSURE(sim->cachedRelativePose.p.x==cached && sim->manifold.points[0].anchorA.x==oldAnchor);
+    ENSURE_SMALL(sim->manifold.points[0].separation+0.49f,0.00001f);ENSURE(sim->manifold.points[0].persisted);
+    b2Body_SetTransform(b,{1.56f,0},b2Rot_identity);b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
+    ENSURE_SMALL(sim->cachedRelativePose.p.x-1.56f,0.00001f);
+    ENSURE_SMALL(sim->manifold.points[0].separation+0.44f,0.00001f);
+    b2Body_SetTransform(a,{0,0},b2MakeRot(0.5f));b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
+    ENSURE_SMALL(sim->cachedRotationA.s-b2MakeRot(0.5f).s,0.00001f);
+    b2World_SetContactRecycleDistance(id,0);ENSURE(b2World_GetContactRecycleDistance(id)==0);
+    b2Body_SetTransform(b,{1.561f,0},b2Rot_identity);b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
+    ENSURE_SMALL(b2Length(sim->cachedRelativePose.p)-1.561f,0.00001f);
+    b2ContactId old={contact->contactId+1,id.index1-1,0,contact->generation};
+    b2Filter filter=b2DefaultFilter();filter.maskBits=0;b2Shape_SetFilter(sa,filter);
+    ENSURE(!b2Contact_IsValid(old));ENSURE(world->broadPhase.pairSet.count==0);
+    b2Shape_SetFilter(sa,b2DefaultFilter());b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    contact=world->contacts.data;sim=b2GetContactSim(world,contact);ENSURE(sim->manifold.pointCount==1);
+    c.radius=0.1f;b2Shape_SetCircle(sa,&c);ENSURE(world->broadPhase.pairSet.count==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // A previously non-touching pair must use the tighter threshold to discover collision.
+    id=b2CreateWorld(&wd);world=b2_worlds+id.index1-1;bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;c.radius=1;
+    a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={2.04f,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
+    contact=world->contacts.data;ENSURE(b2GetContactSim(world,contact)->manifold.pointCount==0);
+    b2Body_SetTransform(b,{2.01f,0},b2Rot_identity);b2UpdateContacts(world);
+    ENSURE(b2GetContactSim(world,contact)->manifold.pointCount==1);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

@@ -60,6 +60,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->contactDampingRatio = b2ClampFloat( def->contactDampingRatio, 0.0f, FLT_MAX );
 	world->frictionCallback = def->frictionCallback;
 	world->restitutionCallback = def->restitutionCallback;
+	world->contactRecycleDistance=B2_CONTACT_RECYCLE_DISTANCE;
 	world->enableWarmStarting=true;
 	world->enableSleep = def->enableSleep;
 	world->enableContinuous = def->enableContinuous;
@@ -214,4 +215,16 @@ void b2World_GetContactTuning(b2WorldId id,float* hertz,float* dampingRatio,floa
     b2World* world=b2GetWorldFromId(id);
     if(world==NULL || hertz==NULL || dampingRatio==NULL || pushSpeed==NULL) { return; }
     *hertz=world->contactHertz;*dampingRatio=world->contactDampingRatio;*pushSpeed=world->contactSpeed;
+}
+
+void b2World_SetContactRecycleDistance(b2WorldId id,float distance)
+{
+    if(!b2IsValidFloat(distance)) { return; }
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }
+    world->contactRecycleDistance=b2ClampFloat(distance,0.0f,FLT_MAX);
+}
+
+float b2World_GetContactRecycleDistance(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->contactRecycleDistance:0.0f;
 }

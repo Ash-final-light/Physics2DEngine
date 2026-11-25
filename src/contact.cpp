@@ -153,12 +153,15 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     b2Body* bodyA=world->bodies.data+a->bodyId;
     b2Body* bodyB=world->bodies.data+b->bodyId;
     contact->setIndex=(bodyA->setIndex==b2_awakeSet || bodyB->setIndex==b2_awakeSet)?b2_awakeSet:b2_disabledSet;
+    if((bodyA->flags&b2_bodyEnableContactRecycling)!=0 && (bodyB->flags&b2_bodyEnableContactRecycling)!=0)
+    { contact->flags|=b2_contactRecycleFlag; }
     contact->colorIndex = B2_NULL_INDEX;
     b2SolverSet* set=world->solverSets.data+contact->setIndex;
     contact->localIndex=set->contactSims.count;
     b2ContactSim* sim=b2Array_Emplace(set->contactSims);
     *sim = b2ContactSim{};
     sim->contactId = id;
+    sim->simFlags=contact->flags;
     sim->shapeIdA = a->id;
     sim->shapeIdB = b->id;
 #if B2_ENABLE_VALIDATION
@@ -327,6 +330,72 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
     return touching;
 }
 
+static inline float b2RelativeCos(b2Rot a,b2Rot b)
+{ return a.c*b.c+a.s*b.s; }
+
+static bool b2TryRecycleContact(b2World* world,b2ContactSim* contactSim,b2BodySim* bodySimA,b2BodySim* bodySimB,bool wasTouching)
+{
+    float recycleDistance=world->contactRecycleDistance;
+    float recycleDistanceNonTouching=b2MinFloat(recycleDistance,B2_SPECULATIVE_DISTANCE);
+    b2WorldTransform transformA=bodySimA->transform,transformB=bodySimB->transform;
+    int encodedA=contactSim->encodedBodySimA,encodedB=contactSim->encodedBodySimB;
+    bool hadTimeOfImpact=((bodySimA->flags|bodySimB->flags)&b2_hadTimeOfImpact)!=0;
+// 接触回收优化。若使用此优化请引用此代码。
+// 灵感来自某些物理引擎（如 PhysX）使用的持久接触流形。
+// 但此方案允许更大的相对运动，调参更少（只有一个）。
+if ( ( hadTimeOfImpact == false || wasTouching ) && recycleDistance > 0.0f &&
+	 ( contactSim->simFlags & b2_simRelativeTransformValid ) &&
+	 ( contactSim->simFlags & b2_contactRecycleFlag ) )
+{
+	b2Rot cachedQA = contactSim->cachedRotationA;
+	b2Rot cachedQB = contactSim->cachedRotationB;
+	b2Transform xfc = contactSim->cachedRelativePose;
+	b2Transform xf = b2InvMulTransforms( transformA, transformB );
+
+	float cosA = b2RelativeCos( transformA.q, cachedQA );
+	float cosB = b2RelativeCos( transformB.q, cachedQB );
+	float minCos = b2MinFloat( cosA, cosB );
+
+	float maxExtentA = ( encodedA <= -2 ) ? 0.0f : bodySimA->maxExtent;
+	float maxExtentB = ( encodedB <= -2 ) ? 0.0f : bodySimB->maxExtent;
+	float maxExtent = b2MaxFloat( maxExtentA, maxExtentB );
+	float distance = b2Distance( xf.p, xfc.p );
+	b2Rot qr = b2InvMulRot( xf.q, xfc.q );
+
+	// 此度量用于快速刚体和休眠。来自保守推进。
+	// 注意小角度时 qr.s == sin(theta) ~= theta。非接触形状需要更紧的容差，以免漏掉接触。
+	float tolerance = wasTouching ? recycleDistance : recycleDistanceNonTouching;
+
+	if ( minCos > B2_CONTACT_RECYCLE_COS_ANGLE && distance + maxExtent * b2AbsFloat( qr.s ) < tolerance )
+	{
+		b2Rot dqA = b2MulRot( transformA.q, b2InvertRot( cachedQA ) );
+		b2Rot dqB = b2MulRot( transformB.q, b2InvertRot( cachedQB ) );
+		b2Vec2 normal = contactSim->manifold.normal;
+
+		// 尽量减少舍入
+		b2Vec2 dc = b2Sub( bodySimB->center, bodySimA->center );
+
+		for ( int i = 0; i < contactSim->manifold.pointCount; ++i )
+		{
+			// 保留锚点但更新分离，与子步相同。这可消除抖动。
+			b2ManifoldPoint* mp = contactSim->manifold.points + i;
+			b2Vec2 rA = b2RotateVector( dqA, mp->anchorA );
+			b2Vec2 rB = b2RotateVector( dqB, mp->anchorB );
+			b2Vec2 dp = b2Add( dc, b2Sub( rB, rA ) );
+
+			mp->separation = mp->baseSeparation + b2Dot( dp, normal );
+			mp->normalVelocity = 0.0f;
+			mp->persisted = true;
+		}
+
+		// 接触被回收。这也跳过更新接触的其他方面，如材质参数。
+		return true;
+	}
+}
+
+    return false;
+}
+
 void b2UpdateContacts( b2World* world )
 {
     for ( int i = 0; i < world->contacts.count; ++i )
@@ -341,8 +410,17 @@ void b2UpdateContacts( b2World* world )
         b2Body* bodyA = world->bodies.data+a->bodyId;
         b2Body* bodyB = world->bodies.data+b->bodyId;
         bool wasTouching=(contact->flags & b2_contactTouchingFlag)!=0;
+        b2ContactSim* current=b2GetContactSim(world,contact);
+        b2BodySim* simA=b2GetBodySim(world,bodyA);b2BodySim* simB=b2GetBodySim(world,bodyB);
+        current->invMassA=simA->invMass;current->invIA=simA->invInertia;
+        current->invMassB=simB->invMass;current->invIB=simB->invInertia;
+        if(b2TryRecycleContact(world,current,simA,simB,wasTouching)) { continue; }
+        current->cachedRotationA=simA->transform.q;current->cachedRotationB=simB->transform.q;
+        current->cachedRelativePose=b2InvMulTransforms(simA->transform,simB->transform);
+        current->simFlags|=b2_simRelativeTransformValid;
         bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,b2GetBodySim(world,bodyA)->transform,
             b2Sub(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2Sub(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
+        for(int p=0;p<current->manifold.pointCount;++p) { current->manifold.points[p].baseSeparation=current->manifold.points[p].separation; }
         if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
         else { contact->flags &= ~b2_contactTouchingFlag; }
         if(touching && !wasTouching)

@@ -119,7 +119,7 @@ int ContactImpulseStoreTest(void)
     size_t before=b2GetByteCount();
     b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
     b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
-    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-2};
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableContactRecycling=false;bd.linearVelocity={0,-2};
     b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
     b2BodyId body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&c);
     b2Body_SetMassData(body,b2MassData{2,{0,0},1});

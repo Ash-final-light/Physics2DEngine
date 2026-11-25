@@ -234,6 +234,10 @@ B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 B2_API void b2World_Step( b2WorldId worldId, float timeStep, int subStepCount );
 B2_API void b2World_EnableWarmStarting(b2WorldId worldId,bool flag);
 B2_API bool b2World_IsWarmStartingEnabled(b2WorldId worldId);
+B2_API void b2World_SetContactRecycleDistance(b2WorldId worldId,float recycleDistance);
+B2_API float b2World_GetContactRecycleDistance(b2WorldId worldId);
+B2_API void b2Body_EnableContactRecycling(b2BodyId bodyId,bool flag);
+B2_API bool b2Body_IsContactRecyclingEnabled(b2BodyId bodyId);
 B2_API void b2World_SetContactTuning(b2WorldId worldId,float hertz,float dampingRatio,float pushSpeed);
 B2_API void b2World_GetContactTuning(b2WorldId worldId,float* hertz,float* dampingRatio,float* pushSpeed);
 

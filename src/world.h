@@ -35,6 +35,7 @@ struct b2World
 	int restitutionIterations;
 	bool enableRestitutionPropagation;
 	float hitEventThreshold;
+	float contactRecycleDistance;
 	float contactHertz;
 	float contactDampingRatio;
 	float contactSpeed;
