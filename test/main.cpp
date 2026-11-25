@@ -80,6 +80,7 @@ int DynamicTreeRemoveTest( void );
 int DynamicTreeMoveTest( void );
 int DynamicTreeCategoryTest( void );
 int DynamicTreeRebuildTest( void );
+int DynamicTreeRefitTest( void );
 int HullTest( void );
 
 int main( int argc, char** argv )
@@ -535,6 +536,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( DynamicTreeRebuildTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "DynamicTreeRefitTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( DynamicTreeRefitTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )

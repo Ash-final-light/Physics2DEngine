@@ -954,3 +954,136 @@ int b2DynamicTree_Rebuild( b2DynamicTree* tree, bool fullBuild )
 	b2DynamicTree_ValidateNoMoved( tree );
 	return leafCount;
 }
+
+void b2DynamicTree_MarkProxyMoved( b2DynamicTree* tree, int proxyId, b2AABB aabb )
+{
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	b2TreeNode* nodes = tree->nodes;
+	const int32_t* parents = tree->parents;
+	int index = tree->proxies[proxyId].node;
+	b2TreeNode* node = nodes + index;
+	B2_ASSERT( b2IsLeaf( node ) );
+	B2_VALIDATE( b2AABB_Contains( node->aabb, aabb ) == false );
+	node->aabb = aabb;
+	node->flagIndex |= B2_MOVED_NODE;
+	index = parents[index];
+	while ( index != B2_NULL_INDEX )
+	{
+		nodes[index].flagIndex |= B2_MOVED_NODE;
+		index = parents[index];
+	}
+}
+
+int b2DynamicTree_GatherMovedProxies( const b2DynamicTree* tree, int* proxyIds )
+{
+	const b2TreeNode* nodes = tree->nodes;
+	const b2TreeNode* root = nodes + B2_ROOT_NODE;
+	if ( b2IsNodeMoved( root ) == false )
+	{
+		return 0;
+	}
+	if ( b2IsLeaf( root ) )
+	{
+		proxyIds[0] = b2GetProxyId( root );
+		return 1;
+	}
+
+	int count = 0;
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = b2GetLeftChild( root );
+	while ( stackCount > 0 )
+	{
+		int pair = stack[--stackCount];
+		for ( int i = 0; i < 2; ++i )
+		{
+			const b2TreeNode* node = nodes + pair + i;
+			if ( b2IsNodeMoved( node ) == false )
+			{
+				continue;
+			}
+			if ( b2IsLeaf( node ) )
+			{
+				proxyIds[count++] = b2GetProxyId( node );
+			}
+			else if ( stackCount < B2_TREE_STACK_SIZE )
+			{
+				stack[stackCount++] = b2GetLeftChild( node );
+			}
+		}
+	}
+	return count;
+}
+
+static void b2RefitSubtree( b2TreeNode* nodes, int rootIndex )
+{
+	b2TreeNode* root = nodes + rootIndex;
+	if ( b2IsLeaf( root ) || b2IsNodeMoved( root ) == false )
+	{
+		return;
+	}
+
+	int stack[B2_TREE_STACK_SIZE];
+	int stackCount = 0;
+	stack[stackCount++] = ~rootIndex;
+	stack[stackCount++] = b2GetLeftChild( root );
+	stack[stackCount++] = b2GetLeftChild( root ) + 1;
+	while ( stackCount > 0 )
+	{
+		int item = stack[--stackCount];
+		if ( item < 0 )
+		{
+			b2TreeNode* node = nodes + ~item;
+			int pair = b2GetLeftChild( node );
+			node->aabb = b2AABB_Union( nodes[pair].aabb, nodes[pair + 1].aabb );
+			continue;
+		}
+
+		b2TreeNode* node = nodes + item;
+		if ( b2IsLeaf( node ) || b2IsNodeMoved( node ) == false )
+		{
+			continue;
+		}
+		if ( stackCount + 3 <= B2_TREE_STACK_SIZE )
+		{
+			int pair = b2GetLeftChild( node );
+			stack[stackCount++] = ~item;
+			stack[stackCount++] = pair;
+			stack[stackCount++] = pair + 1;
+		}
+	}
+}
+
+void b2DynamicTree_Refit( b2DynamicTree* tree )
+{
+	if ( b2IsNodeMoved( tree->nodes + B2_ROOT_NODE ) == false )
+	{
+		return;
+	}
+	if ( tree->dfsOrdered == false )
+	{
+		b2RefitSubtree( tree->nodes, B2_ROOT_NODE );
+		return;
+	}
+
+	b2TreeNode* nodes = tree->nodes;
+	for ( int pair = tree->nodeEnd - 2; pair >= 0; pair -= 2 )
+	{
+		uint32_t flags1 = nodes[pair].flagIndex;
+		uint32_t flags2 = nodes[pair + 1].flagIndex;
+		if ( ( ( flags1 | flags2 ) & B2_MOVED_NODE ) == 0 )
+		{
+			continue;
+		}
+		if ( ( flags1 & ( B2_LEAF_NODE | B2_MOVED_NODE ) ) == B2_MOVED_NODE )
+		{
+			int children = (int)( flags1 & B2_NODE_INDEX_MASK );
+			nodes[pair].aabb = b2AABB_Union( nodes[children].aabb, nodes[children + 1].aabb );
+		}
+		if ( ( flags2 & ( B2_LEAF_NODE | B2_MOVED_NODE ) ) == B2_MOVED_NODE )
+		{
+			int children = (int)( flags2 & B2_NODE_INDEX_MASK );
+			nodes[pair + 1].aabb = b2AABB_Union( nodes[children].aabb, nodes[children + 1].aabb );
+		}
+	}
+}

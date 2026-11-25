@@ -185,3 +185,35 @@ int DynamicTreeRebuildTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int DynamicTreeRefitTest( void )
+{
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	b2AABB boxes[4];
+	int ids[4];
+	for ( int i = 0; i < 4; ++i )
+	{
+		boxes[i] = { { (float)i, 0.0f }, { (float)i + 0.4f, 0.4f } };
+		ids[i] = b2CreateTreeProxy( tree, boxes[i], 1, (uint64_t)i );
+	}
+	ENSURE( b2DynamicTree_Rebuild( tree, true ) == 4 );
+	int none[4];
+	ENSURE( b2DynamicTree_GatherMovedProxies( tree, none ) == 0 );
+
+	b2AABB grown = { { 0.0f, 0.0f }, { 0.4f, 5.0f } };
+	b2DynamicTree_MarkProxyMoved( tree, ids[0], grown );
+	int moved[4];
+	int movedCount = b2DynamicTree_GatherMovedProxies( tree, moved );
+	ENSURE( movedCount == 1 );
+	ENSURE( moved[0] == ids[0] );
+	ENSURE( b2AABB_Contains( tree->nodes[B2_ROOT_NODE].aabb, grown ) == false );
+	b2DynamicTree_Refit( tree );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, ids[0] ), grown ) );
+	ENSURE( b2AABB_Contains( tree->nodes[B2_ROOT_NODE].aabb, grown ) );
+	for ( int i = 1; i < 4; ++i )
+	{
+		ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, ids[i] ), boxes[i] ) );
+	}
+	b2DestroyDynamicTree( tree );
+	return 0;
+}

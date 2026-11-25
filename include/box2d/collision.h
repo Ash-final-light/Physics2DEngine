@@ -308,6 +308,9 @@ B2_API void b2DynamicTree_SetCategoryBits( b2DynamicTree* tree, int proxyId, uin
 B2_API uint64_t b2DynamicTree_GetCategoryBits( b2DynamicTree* tree, int proxyId );
 B2_API int b2DynamicTree_Rebuild( b2DynamicTree* tree, bool fullBuild );
 B2_API void b2DynamicTree_Validate( const b2DynamicTree* tree );
+B2_API void b2DynamicTree_MarkProxyMoved( b2DynamicTree* tree, int proxyId, b2AABB aabb );
+B2_API int b2DynamicTree_GatherMovedProxies( const b2DynamicTree* tree, int* proxyIds );
+B2_API void b2DynamicTree_Refit( b2DynamicTree* tree );
 B2_API int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree );
 B2_API uint64_t b2DynamicTree_GetUserData( const b2DynamicTree* tree, int proxyId );
 B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId );
