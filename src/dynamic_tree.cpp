@@ -410,6 +410,51 @@ static void b2InsertLeaf( b2DynamicTree* tree, b2AABB aabb, int proxyId, bool mo
 	}
 }
 
+static void b2FreeProxy( b2DynamicTree* tree, int proxyId )
+{
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	B2_ASSERT( 0 < tree->proxyCount );
+	tree->proxies[proxyId].node = B2_NULL_INDEX;
+	tree->proxies[proxyId].next = tree->proxyFreeList;
+	tree->proxyFreeList = proxyId;
+	--tree->proxyCount;
+}
+
+static void b2FreePair( b2DynamicTree* tree, int pair )
+{
+	B2_ASSERT( ( pair & 1 ) == 0 && 2 <= pair && pair < tree->nodeEnd );
+	tree->nodes[pair] = b2MakeEmptyNode();
+	tree->nodes[pair + 1] = b2MakeEmptyNode();
+	tree->parents[pair] = tree->pairFreeList;
+	tree->parents[pair + 1] = B2_NULL_INDEX;
+	tree->pairFreeList = pair;
+}
+
+static void b2RemoveLeaf( b2DynamicTree* tree, int proxyId )
+{
+	b2TreeNode* nodes = tree->nodes;
+	int32_t* parents = tree->parents;
+	int leaf = tree->proxies[proxyId].node;
+	B2_ASSERT( 0 <= leaf && leaf < tree->nodeEnd );
+	B2_ASSERT( b2IsLeaf( nodes + leaf ) && b2GetProxyId( nodes + leaf ) == proxyId );
+	if ( leaf == B2_ROOT_NODE )
+	{
+		nodes[B2_ROOT_NODE] = b2MakeEmptyNode();
+		return;
+	}
+
+	int parent = parents[leaf];
+	nodes[parent] = nodes[leaf ^ 1];
+	b2LinkChildren( tree, parent );
+	b2FreePair( tree, leaf & ~1 );
+	int index = parents[parent];
+	while ( index != B2_NULL_INDEX )
+	{
+		nodes[index] = b2MakeInternalNode( nodes, b2GetLeftChild( nodes + index ) );
+		index = parents[index];
+	}
+}
+
 int b2CreateTreeProxy( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, uint64_t userData )
 {
 	B2_VALIDATE( b2IsValidAABB( aabb ) );
@@ -419,6 +464,13 @@ int b2CreateTreeProxy( b2DynamicTree* tree, b2AABB aabb, uint64_t categoryBits, 
 	proxy->userData = userData;
 	b2InsertLeaf( tree, aabb, proxyId, false, true );
 	return proxyId;
+}
+
+void b2DestroyTreeProxy( b2DynamicTree* tree, int proxyId )
+{
+	B2_ASSERT( 0 <= proxyId && proxyId < tree->proxyCapacity );
+	b2RemoveLeaf( tree, proxyId );
+	b2FreeProxy( tree, proxyId );
 }
 
 int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree )

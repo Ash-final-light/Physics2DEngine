@@ -54,3 +54,29 @@ int DynamicTreeInsertTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int DynamicTreeRemoveTest( void )
+{
+	b2AABB first = { { 0.0f, 0.0f }, { 1.0f, 1.0f } };
+	b2AABB second = { { 3.0f, 0.0f }, { 4.0f, 2.0f } };
+	b2AABB third = { { 8.0f, 8.0f }, { 9.0f, 9.0f } };
+	size_t before = b2GetByteCount();
+	b2DynamicTree* tree = b2CreateDynamicTree( 16 );
+	int id1 = b2CreateTreeProxy( tree, first, 1, 42 );
+	int id2 = b2CreateTreeProxy( tree, second, 1, 43 );
+	b2DestroyTreeProxy( tree, id1 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 1 );
+	ENSURE( b2DynamicTree_GetUserData( tree, id2 ) == 43 );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id2 ), second ) );
+
+	int id3 = b2CreateTreeProxy( tree, third, 1, 44 );
+	ENSURE( id3 == id1 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 2 );
+	ENSURE( SameBounds( b2DynamicTree_GetProxyBounds( tree, id3 ), third ) );
+	b2DestroyTreeProxy( tree, id2 );
+	b2DestroyTreeProxy( tree, id3 );
+	ENSURE( b2DynamicTree_GetProxyCount( tree ) == 0 );
+	b2DestroyDynamicTree( tree );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
