@@ -4,6 +4,7 @@
 #include "shape.h"
 #include "body.h"
 #include "core.h"
+#include "contact.h"
 #include "world.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -193,6 +194,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
 
 static void b2DestroyShapeInternal( b2World* world, b2Shape* shape, b2Body* body )
 {
+    b2DestroyShapeContacts(world,shape);
     if ( shape->prevShapeId != B2_NULL_INDEX )
     {
         world->shapes.data[shape->prevShapeId].nextShapeId = shape->nextShapeId;
@@ -357,6 +359,7 @@ static void b2SetShapeGeometry( b2ShapeId id, const void* geometry, b2ShapeType 
     }
     shape->type = type;
     b2World* world = b2_worlds + id.world0;
+    b2DestroyShapeContacts(world,shape);
     b2Body* body = world->bodies.data + shape->bodyId;
     shape->aabbMargin = b2ComputeShapeMargin( shape );
     b2DestroyShapeProxy( shape, &world->broadPhase );
@@ -824,6 +827,7 @@ void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
     }
     b2World* world = b2_worlds+id.world0;
     b2Body* body = world->bodies.data+shape->bodyId;
+    b2DestroyShapeContacts(world,shape);
     shape->filter = filter;
     b2DestroyShapeProxy( shape, &world->broadPhase );
     if ( body->isEnabled )

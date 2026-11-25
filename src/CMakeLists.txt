@@ -1,4 +1,5 @@
 add_library(box2d
+	contact.cpp
 	core.cpp
 	math_functions.cpp
 	aabb.cpp

@@ -5,6 +5,7 @@
 #include "core.h"
 #include "world.h"
 #include "simd.h"
+#include "contact.h"
 #include <bit>
 #include <cstring>
 
@@ -142,9 +143,7 @@ static void b2FlushCandidatePairs( b2PairContext* context )
         }
         // This is the support pattern of the reference contact registry.
         // Edge-edge pairs have no manifold function.
-        bool edgeA = a->type == b2_segmentShape || a->type == b2_chainSegmentShape;
-        bool edgeB = b->type == b2_segmentShape || b->type == b2_chainSegmentShape;
-        if ( edgeA && edgeB )
+        if ( b2CanCollide(a->type,b->type) == false )
         {
             continue;
         }

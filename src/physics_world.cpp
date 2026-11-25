@@ -72,6 +72,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->chainIdPool = b2CreateIdPool();
 	b2Array_Create( world->chainShapes );
 	b2CreateBroadPhase( &world->broadPhase, &def->capacity );
+	world->contactIdPool = b2CreateIdPool();
+	b2Array_Create( world->contacts );
 	return b2WorldId{ (uint16_t)( worldId + 1 ), world->generation };
 }
 
@@ -89,6 +91,8 @@ void b2DestroyWorld( b2WorldId worldId )
 	}
 
 	b2DestroyBroadPhase( &world->broadPhase );
+	b2Array_Destroy( world->contacts );
+	b2DestroyIdPool( &world->contactIdPool );
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
     for ( int i = 0; i < world->chainShapes.count; ++i )
@@ -164,6 +168,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
         return;
     }
     world->locked = true;
+    b2UpdateBroadPhaseContacts( world );
     b2SolveFreeBodies( world, timeStep, subStepCount );
     world->locked = false;
 }

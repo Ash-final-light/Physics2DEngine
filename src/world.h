@@ -6,6 +6,7 @@
 #include "arena_allocator.h"
 #include "body.h"
 #include "broad_phase.h"
+#include "contact.h"
 #include "container.h"
 #include "id_pool.h"
 #include "shape.h"
@@ -21,6 +22,8 @@ struct b2World
 	bool locked;
 	b2Vec2 gravity;
 	b2BroadPhase broadPhase;
+	b2IdPool contactIdPool;
+	b2DynamicArray<b2Contact> contacts;
 	float restitutionThreshold;
 	int restitutionIterations;
 	bool enableRestitutionPropagation;

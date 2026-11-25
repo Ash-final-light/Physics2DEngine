@@ -6,6 +6,7 @@
 #include "core.h"
 #include "world.h"
 #include "shape.h"
+#include "contact.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -62,6 +63,7 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 	body->generation = generation;
 	body->id = bodyId;
 	body->headShapeId = B2_NULL_INDEX;
+	body->headContactKey = B2_NULL_INDEX;
 	body->headChainId = B2_NULL_INDEX;
 	body->type = def->type;
 	body->transform.p = def->position;
@@ -106,6 +108,7 @@ void b2DestroyBody( b2BodyId bodyId )
 	}
 
 
+    b2DestroyBodyContacts( world, body );
     while ( body->headChainId != B2_NULL_INDEX )
     {
         b2ChainShape* chain = world->chainShapes.data + body->headChainId;
@@ -784,6 +787,7 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
     {
         return;
     }
+    b2DestroyBodyContacts(world,body);
     body->type=type;
     if(body->isEnabled)
     {

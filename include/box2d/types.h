@@ -268,3 +268,5 @@ B2_API void b2Body_SetTargetTransform( b2BodyId bodyId, b2WorldTransform target,
 B2_API b2BodyType b2Body_GetType( b2BodyId bodyId );
 
 B2_API void b2Body_SetType( b2BodyId bodyId, b2BodyType type );
+
+B2_API bool b2Contact_IsValid( b2ContactId contactId );

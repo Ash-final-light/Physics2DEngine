@@ -12,6 +12,8 @@ struct b2Body
 {
 	int id;
 	int headShapeId;
+	int headContactKey;
+	int contactCount;
 	int headChainId;
 	int shapeCount;
 	bool dirtyMass;
