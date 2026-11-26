@@ -323,3 +323,14 @@ int MoverJointTest(void)
  b2DestroyWorld(id);id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={-1,0};a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={1,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);def=b2DefaultMoverJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.linearVelocity={2,0};def.maxVelocityForce={100,100};j=b2CreateMoverJoint(id,&def);for(int i=0;i<30;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(a).x+1,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-1,0.0001f);
  def.linearVelocity.x=NAN;ENSURE(b2CreateMoverJoint(id,&def).index1==0);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int PogoJointTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={0,1};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2PogoJointDef def=b2DefaultPogoJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.normal={0,1};def.restLength=0.4f;def.hertz=4;def.dampingRatio=1;def.maxTensionForce=50;def.maxCompressionForce=50;def.impulse=0.2f;def.velocity=-0.1f;b2JointId j=b2CreatePogoJoint(id,&def);
+ ENSURE(b2Joint_GetType(j)==b2_pogoJoint);ENSURE_SMALL(b2PogoJoint_GetCurrentLength(j)-1,0.0001f);ENSURE(b2PogoJoint_GetImpulse(j)==0.2f && b2PogoJoint_GetCurrentSpeed(j)==-0.1f && b2PogoJoint_GetRestLength(j)==0.4f);
+ b2PogoJoint_SetSpringHertz(j,6);b2PogoJoint_SetSpringDampingRatio(j,0.7f);b2PogoJoint_SetRestLength(j,0.2f);ENSURE(b2PogoJoint_GetSpringHertz(j)==6 && b2PogoJoint_GetSpringDampingRatio(j)==0.7f && b2PogoJoint_GetRestLength(j)==0.2f);
+ for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }float length=b2PogoJoint_GetCurrentLength(j);ENSURE(length<0.8f && length>0.2f);ENSURE(b2PogoJoint_GetCurrentSpeed(j)<0);
+ b2PogoJoint_SetSpringHertz(j,0);b2Body_SetLinearVelocity(b,{0,-1});b2World_Step(id,0.05f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y+1,0.0001f);ENSURE(b2PogoJoint_GetImpulse(j)==0);
+ def.restLength=-1;ENSURE(b2CreatePogoJoint(id,&def).index1==0);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

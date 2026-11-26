@@ -600,6 +600,13 @@ B2_INLINE float b2PlaneSeparation( b2Plane plane, b2Vec2 point )
 	return b2Dot( plane.normal, point ) - plane.offset;
 }
 
+B2_INLINE float b2SpringDamper( float hertz, float dampingRatio, float position, float velocity, float timeStep )
+{
+	float omega = 2.0f * B2_PI * hertz;
+	float omegaH = omega * timeStep;
+	return ( velocity - omega * omegaH * position ) / ( 1.0f + 2.0f * dampingRatio * omegaH + omegaH * omegaH );
+}
+
 B2_INLINE b2Vec2 b2SubPos( b2Pos a, b2Pos b )
 {
 	return B2_LITERAL( b2Vec2 ){ (float)( a.x - b.x ), (float)( a.y - b.y ) };

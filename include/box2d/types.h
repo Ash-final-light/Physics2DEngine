@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2, b2_moverJoint=3 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2, b2_moverJoint=3, b2_pogoJoint=4 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1300,6 +1300,32 @@ B2_API void b2MoverJoint_SetLinearVelocity( b2JointId jointId, b2Vec2 velocity )
 B2_API b2Vec2 b2MoverJoint_GetLinearVelocity( b2JointId jointId );
 B2_API void b2MoverJoint_SetMaxVelocityForce( b2JointId jointId, b2Vec2 maxForce );
 B2_API b2Vec2 b2MoverJoint_GetMaxVelocityForce( b2JointId jointId );
+
+typedef struct b2PogoJointDef
+{
+	b2JointDef base;
+	b2Vec2 normal;
+	float hertz;
+	float dampingRatio;
+	float restLength;
+	float maxTensionForce;
+	float maxCompressionForce;
+	float impulse;
+	float velocity;
+	int internalValue;
+} b2PogoJointDef;
+
+B2_API b2PogoJointDef b2DefaultPogoJointDef( void );
+B2_API b2JointId b2CreatePogoJoint( b2WorldId worldId, const b2PogoJointDef* def );
+B2_API void b2PogoJoint_SetRestLength( b2JointId jointId, float length );
+B2_API float b2PogoJoint_GetRestLength( b2JointId jointId );
+B2_API void b2PogoJoint_SetSpringHertz( b2JointId jointId, float hertz );
+B2_API float b2PogoJoint_GetSpringHertz( b2JointId jointId );
+B2_API void b2PogoJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2PogoJoint_GetSpringDampingRatio( b2JointId jointId );
+B2_API float b2PogoJoint_GetCurrentLength( b2JointId jointId );
+B2_API float b2PogoJoint_GetImpulse( b2JointId jointId );
+B2_API float b2PogoJoint_GetCurrentSpeed( b2JointId jointId );
 
 B2_API void b2MotorJoint_SetLinearHertz( b2JointId jointId, float hertz );
 B2_API float b2MotorJoint_GetLinearHertz( b2JointId jointId );

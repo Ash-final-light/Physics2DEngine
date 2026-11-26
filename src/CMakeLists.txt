@@ -1,4 +1,5 @@
 add_library(box2d
+	pogo_joint.cpp
 	mover_joint.cpp
 	motor_joint.cpp
 	weld_joint.cpp
