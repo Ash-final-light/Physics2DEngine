@@ -37,6 +37,7 @@ int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
 int StackAllocatorTest( void );
 int TimerTest( void );
+int ParallelBroadPhaseTest( void );
 int MutexTest( void );
 int SemaphoreTest( void );
 int ThreadTest( void );
@@ -903,6 +904,10 @@ int main( int argc, char** argv )
 		RUN_TEST( BroadPhaseTreeTypesTest );
 	}
 
+	if ( filter == NULL || strcmp( filter, "ParallelBroadPhaseTest" ) == 0 )
+	{
+		ran=1; RUN_TEST( ParallelBroadPhaseTest );
+	}
 	if ( filter == NULL || strcmp( filter, "BroadPhaseProxyLifecycleTest" ) == 0 )
 	{
 		ran = 1;

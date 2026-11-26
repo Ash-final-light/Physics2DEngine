@@ -6,6 +6,8 @@
 #include "world.h"
 #include "simd.h"
 #include "contact.h"
+#include "parallel_for.h"
+#include "solver.h"
 #include <bit>
 #include <cstring>
 
@@ -446,4 +448,185 @@ void b2RadixSortKeys( uint64_t* keys, uint64_t* tempKeys, int count )
 	{
 		memcpy( keys, source, count * sizeof( uint64_t ) );
 	}
+}
+
+static void b2SelfPairsTask( int startIndex, int endIndex, int workerIndex, void* context )
+{
+
+
+	b2World* world = static_cast<b2World *>( context );
+	b2BroadPhase* bp = &world->broadPhase;
+	const b2DynamicTree* tree = bp->trees + b2_dynamicBody;
+	const b2TreeNode* nodes = tree->nodes;
+	const int* siblingIndices = bp->movedSiblings;
+
+	b2PairContext pairContext = { .world = world, .pairKeys = &world->taskContexts.data[workerIndex].pairKeys };
+
+	for ( int i = startIndex; i < endIndex; ++i )
+	{
+		int nodeIndex = siblingIndices[i];
+		b2CollideCrossPairs( nodes, nodes, nodes + nodeIndex, nodes + nodeIndex + 1, &pairContext );
+	}
+
+	b2FlushCandidatePairs( &pairContext );
+
+}
+
+typedef struct b2CrossContext
+{
+	b2World* world;
+	b2NodePair seeds[2 * B2_CROSS_SEED_COUNT];
+	int staticSeedCount;
+	int crossMoveCount;
+	int dynamicMoveCount;
+} b2CrossContext;
+
+static void b2CrossPairsTask( int startIndex, int endIndex, int workerIndex, void* context )
+{
+
+
+	b2CrossContext* crossContext = static_cast<b2CrossContext *>( context );
+	b2World* world = crossContext->world;
+	b2BroadPhase* bp = &world->broadPhase;
+	const b2TreeNode* staticNodes = bp->trees[b2_staticBody].nodes;
+	const b2TreeNode* kinematicNodes = bp->trees[b2_kinematicBody].nodes;
+	const b2TreeNode* dynamicNodes = bp->trees[b2_dynamicBody].nodes;
+
+	b2PairContext pairContext = { .world = world, .pairKeys = &world->taskContexts.data[workerIndex].pairKeys };
+
+	for ( int i = startIndex; i < endIndex; ++i )
+	{
+		const b2TreeNode* nodesB = i < crossContext->staticSeedCount ? staticNodes : kinematicNodes;
+		b2NodePair seed = crossContext->seeds[i];
+		b2CollideCrossPairs( dynamicNodes, nodesB, &seed.a, &seed.b, &pairContext );
+	}
+
+	b2FlushCandidatePairs( &pairContext );
+
+}
+
+static void b2UpdateTreesTask( void* context )
+{
+
+
+	b2World* world = static_cast<b2World *>( context );
+	b2DynamicTree_Rebuild( world->broadPhase.trees + b2_dynamicBody, false );
+	b2DynamicTree_Rebuild( world->broadPhase.trees + b2_kinematicBody, false );
+
+}
+
+bool b2BeginPairs( b2World* world )
+{
+	b2BroadPhase* bp = &world->broadPhase;
+
+	bool needUpdate = b2HasTreeMoved( bp->trees + b2_staticBody );
+	needUpdate = needUpdate || b2NeedsRebuild( bp->trees + b2_kinematicBody );
+	needUpdate = needUpdate || b2NeedsRebuild( bp->trees + b2_dynamicBody );
+
+	if ( needUpdate == false )
+	{
+		return false;
+	}
+
+
+	b2Stack* alloc = &world->stack;
+
+	for ( int i = 0; i < world->workerCount; ++i )
+	{
+		b2Array_Clear( world->taskContexts.data[i].pairKeys );
+	}
+
+	// 用动态刚体树查询自身以及运动学树和静态树，生成对。
+
+	// 获取动态刚体树中已移动的兄弟对。
+	const b2DynamicTree* dynamicTree = bp->trees + b2_dynamicBody;
+	int pairCapacity = dynamicTree->nodeEnd / 2;
+	bp->movedSiblings = static_cast<int *>( b2StackAlloc( alloc, pairCapacity * sizeof( int ), "moved pairs" ) );
+	int dynamicMoveCount = b2GatherMovedSiblings( dynamicTree, bp->movedSiblings );
+
+	b2CrossContext* crossContext = static_cast<b2CrossContext *>( b2StackAlloc( alloc, sizeof( b2CrossContext ), "cross context" ) );
+	bp->crossContext = crossContext;
+
+	// 获取与静态树和运动学树碰撞的种子。
+	int staticSeedCount = b2GatherCrossSeeds( dynamicTree, bp->trees + b2_staticBody, crossContext->seeds );
+	B2_ASSERT( staticSeedCount <= B2_CROSS_SEED_COUNT );
+	int kinematicSeedCount =
+		b2GatherCrossSeeds( dynamicTree, bp->trees + b2_kinematicBody, crossContext->seeds + staticSeedCount );
+	B2_ASSERT( kinematicSeedCount <= B2_CROSS_SEED_COUNT );
+
+	crossContext->world = world;
+	crossContext->staticSeedCount = staticSeedCount;
+	crossContext->crossMoveCount = staticSeedCount + kinematicSeedCount;
+	crossContext->dynamicMoveCount = dynamicMoveCount;
+
+	// 让动态刚体树与静态树和运动学树碰撞。
+	b2StageParallelFor( world, b2_taskPairs, &b2CrossPairsTask, crossContext->crossMoveCount, 1, crossContext );
+
+
+	return true;
+}
+
+void b2StageSelfPairs( b2World* world )
+{
+	// 让动态刚体树与自身碰撞。
+	b2StageParallelFor( world, b2_taskPairs, &b2SelfPairsTask, world->broadPhase.crossContext->dynamicMoveCount, 64, world );
+}
+
+void b2EndPairs( b2World* world )
+{
+	b2BroadPhase* bp = &world->broadPhase;
+	b2Stack* alloc = &world->stack;
+
+	b2StackFree( alloc, bp->crossContext );
+	bp->crossContext = NULL;
+
+	b2DynamicTree_ClearMoved( bp->trees + b2_staticBody );
+
+
+	// 更新过期的树。
+	b2UpdateTreesTask( world );
+
+	// 对以确定性顺序到达，但相对刚体和形状顺序是打乱的，
+	// 在此排序可提升求解器性能。
+	int pairCount = 0;
+	for ( int i = 0; i < world->workerCount; ++i )
+	{
+		pairCount += world->taskContexts.data[i].pairKeys.count;
+	}
+
+	uint64_t* pairKeys = static_cast<uint64_t *>( b2StackAlloc( alloc, b2MaxInt( pairCount, 1 ) * sizeof( uint64_t ), "pair keys" ) );
+	int keyCount = 0;
+	for ( int i = 0; i < world->workerCount; ++i )
+	{
+		const b2DynamicArray<uint64_t>* workerKeys = &world->taskContexts.data[i].pairKeys;
+		if ( workerKeys->count > 0 )
+		{
+			memcpy( pairKeys + keyCount, workerKeys->data, workerKeys->count * sizeof( uint64_t ) );
+			keyCount += workerKeys->count;
+		}
+	}
+
+	B2_ASSERT( keyCount == pairCount );
+
+	if ( pairCount > 1 )
+	{
+		uint64_t* tempKeys = static_cast<uint64_t *>( b2StackAlloc( alloc, pairCount * sizeof( uint64_t ), "temp keys" ) );
+		b2RadixSortKeys( pairKeys, tempKeys, pairCount );
+		b2StackFree( alloc, tempKeys );
+	}
+
+	for ( int i = 0; i < keyCount; ++i )
+	{
+		int shapeIdA = (int)( pairKeys[i] >> 32 );
+		int shapeIdB = (int)( pairKeys[i] & 0xFFFFFFFF );
+		b2Shape* shapeA = b2Array_Get( world->shapes, shapeIdA );
+		b2Shape* shapeB = b2Array_Get( world->shapes, shapeIdB );
+		b2CreateContact( world, shapeA, shapeB );
+	}
+
+	b2StackFree( alloc, pairKeys );
+
+	b2StackFree( alloc, bp->movedSiblings );
+	bp->movedSiblings = NULL;
+
 }

@@ -3,6 +3,7 @@
 
 #pragma once
 #include "core.h"
+#include "parallel_for.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/types.h"
@@ -99,5 +100,9 @@ struct b2StepContext
 	b2Task joinTasks[B2_STEP_TASK_CAPACITY];
 	b2StepTask joinStepTasks[B2_STEP_TASK_CAPACITY];
 	b2StepTask stepTasks[B2_STEP_TASK_CAPACITY];
+    b2ParallelForShared parallelFor;
+    b2ParallelForTask parallelForTasks[B2_MAX_WORKERS];
+    bool pairsUpdated;
+    uint64_t pairTicks;
 };
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount );

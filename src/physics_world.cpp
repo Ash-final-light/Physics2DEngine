@@ -8,6 +8,7 @@
 #include "solver.h"
 #include "scheduler.h"
 #include "parallel_for.h"
+#include "platform.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -32,6 +33,14 @@ static void b2DefaultFinishTaskFcn( void* userTask, void* userContext )
 {
 	(void)userTask;
 	(void)userContext;
+}
+
+static void b2ResizeTaskContexts( b2World* world, int count )
+{
+ int oldCount=world->taskContexts.count;
+ for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys); }
+ b2Array_Resize(world->taskContexts,count);
+ for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys); }
 }
 
 b2WorldId b2CreateWorld( const b2WorldDef* def )
@@ -108,6 +117,9 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->userData = def->userData;
 	world->stepContext = static_cast<b2StepContext*>( b2AllocZero( sizeof( b2StepContext ) ) );
 	world->stepContext->phase = 0;
+	world->stepContext->world = world;
+	b2Array_Create(world->taskContexts);
+	b2ResizeTaskContexts(world,world->workerCount);
 	world->bodyIdPool = b2CreateIdPool();
 	b2Array_Create( world->bodies );
 	world->shapeIdPool = b2CreateIdPool();
@@ -174,6 +186,8 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroySolverSets( world );
 	b2DestroyIdPool( &world->contactIdPool );
+	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys); }
+	b2Array_Destroy(world->taskContexts);
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
     for ( int i = 0; i < world->chainShapes.count; ++i )
@@ -262,6 +276,7 @@ void b2World_SetWorkerCount( b2WorldId worldId, int count )
 	{
 		world->scheduler = b2CreateScheduler( clampedCount );
 	}
+	b2ResizeTaskContexts(world,clampedCount);
 	world->workerCount = clampedCount;
 }
 
@@ -297,13 +312,13 @@ static void b2CollisionPhase( void* context )
 {
 	b2World* world = static_cast<b2World*>( context );
 	uint64_t stageTicks = b2GetTicks();
-	b2UpdateBroadPhaseContacts( world );
-	world->profile.pairs = b2GetMillisecondsAndReset( &stageTicks );
 	b2UpdateContacts( world );
 	world->profile.collide = b2GetMillisecondsAndReset( &stageTicks );
 	b2SplitContactIslands( world );
 	world->profile.splitIslands = b2GetMillisecondsAndReset( &stageTicks );
 }
+
+static b2TaskBatch b2ContinueStepInternal( b2World* world );
 
 static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount )
 {
@@ -341,20 +356,40 @@ static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount
 	context->timeStep = timeStep;
 	context->subStepCount = subStepCount;
 	context->phase = 1;
-	b2ResetTaskBatch( context );
-	b2AddTask( context, b2_taskPairs, b2CollisionPhase, world );
-	return b2MakeTaskBatch( context );
+	context->pairTicks=b2GetTicks();
+ for(int i=0;i<world->contacts.count;++i)
+ {
+  b2Contact* contact=world->contacts.data+i;
+  if(contact->contactId!=B2_NULL_INDEX && !b2AABB_Overlaps(world->fatAABBs.data[contact->shapeIdA],world->fatAABBs.data[contact->shapeIdB])) { b2DestroyContact(world,contact); }
+ }
+ return b2ContinueStepInternal(world);
 }
 
 static b2TaskBatch b2ContinueStepInternal( b2World* world )
 {
 	b2StepContext* context = world->stepContext;
-	if ( context->phase != 1 )
-	{
-		return b2TaskBatch{};
-	}
+ for(;;)
+ {
+  b2ResetTaskBatch(context);
+  switch(context->phase)
+  {
+   case 1: context->phase=2;context->pairsUpdated=b2BeginPairs(world);break;
+   case 2: context->phase=3;if(context->pairsUpdated) { b2StageSelfPairs(world); }break;
+   case 3:
+    if(context->pairsUpdated) { b2EndPairs(world); }
+    world->profile.pairs=b2GetMilliseconds(context->pairTicks);
+    context->phase=4;b2AddTask(context,b2_taskCollide,b2CollisionPhase,world);break;
+   case 4: context->phase=0;break;
+   default:return b2TaskBatch{};
+  }
+  if(context->batchTaskCount>0)
+  {
+   b2AtomicStoreInt(&context->pendingCount,context->batchTaskCount);
+   return b2MakeTaskBatch(context);
+  }
+  if(context->phase==0) { break; }
+ }
 
-	context->phase = 0;
 	uint64_t stageTicks = b2GetTicks();
 	b2SolveFreeBodies( world, context->timeStep, context->subStepCount );
 	world->profile.solve = b2GetMillisecondsAndReset( &stageTicks );
@@ -412,9 +447,16 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
 	}
 
 	uint64_t stepTicks = b2GetTicks();
-	b2TaskBatch batch = b2StartStep( world, timeStep, subStepCount );
-	b2RunTaskBatch( world->enqueueTaskFcn, world->finishTaskFcn, world->userTaskContext, batch );
-	b2ContinueStepInternal( world );
+ if(world->useScheduler)
+ {
+  b2ResetScheduler(world->scheduler);world->userTaskContext=world->scheduler;
+ }
+ b2TaskBatch batch=b2StartStep(world,timeStep,subStepCount);
+ while(batch.count>0)
+ {
+  b2RunTaskBatch(world->enqueueTaskFcn,world->finishTaskFcn,world->userTaskContext,batch);
+  batch=b2ContinueStepInternal(world);
+ }
 	world->profile.step = b2GetMilliseconds( stepTicks );
 }
 

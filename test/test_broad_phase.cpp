@@ -3,8 +3,115 @@
 
 #include "test_macros.h"
 #include <algorithm>
+#include <atomic>
+#include <thread>
+#include <vector>
 #include "world.h"
 #include "box2d/types.h"
+#include "box2d/math_functions.h"
+
+struct PairThreadHost
+{
+    std::atomic<int> enqueued{0};
+    std::atomic<int> executed{0};
+};
+
+static void* EnqueuePairThread(b2TaskCallbackFcn* task,void* context,void* user)
+{
+    auto host=static_cast<PairThreadHost*>(user);
+    ++host->enqueued;
+    return new std::thread([=] { ++host->executed;task(context); });
+}
+
+static void FinishPairThread(void* handle,void*)
+{
+    auto thread=static_cast<std::thread*>(handle);
+    thread->join();delete thread;
+}
+
+static b2WorldId MakePairWorld(PairThreadHost* host)
+{
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.enableSleep=false;
+    if(host) { wd.workerCount=4;wd.enqueueTask=EnqueuePairThread;wd.finishTask=FinishPairThread;wd.userTaskContext=host; }
+    b2WorldId id=b2CreateWorld(&wd);
+    b2ShapeDef sd=b2DefaultShapeDef();sd.enableContactEvents=true;
+    b2Circle disk={{0,0},0.4f};
+    for(int i=0;i<180;++i)
+    {
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=(b2BodyType)(i%3);
+        bd.position={float(i%15)*0.6f,float(i/15)*0.6f};
+        b2CreateCircleShape(b2CreateBody(id,&bd),&sd,&disk);
+    }
+    return id;
+}
+
+static std::vector<uint64_t> PairContactKeys(b2WorldId id)
+{
+    b2World* world=b2_worlds+id.index1-1;std::vector<uint64_t> keys;
+    for(int i=0;i<world->contacts.count;++i)
+    {
+        const b2Contact& c=world->contacts.data[i];
+        if(c.contactId!=B2_NULL_INDEX)
+        {
+            uint32_t a=(uint32_t)b2MinInt(c.shapeIdA,c.shapeIdB),b=(uint32_t)b2MaxInt(c.shapeIdA,c.shapeIdB);
+            keys.push_back((uint64_t)a<<32|b);
+        }
+    }
+    return keys;
+}
+
+int ParallelBroadPhaseTest(void)
+{
+    size_t before=b2GetByteCount();PairThreadHost host;
+    b2WorldId serial=MakePairWorld(nullptr),threaded=MakePairWorld(&host),scheduled=MakePairWorld(nullptr),reverse=MakePairWorld(nullptr);
+    b2World_SetWorkerCount(scheduled,4);b2World_SetWorkerCount(reverse,4);
+    std::vector<uint64_t> bruteForce;
+    b2World* initial=b2_worlds+serial.index1-1;
+    for(int a=0;a<initial->shapes.count;++a)
+    {
+        for(int b=a+1;b<initial->shapes.count;++b)
+        {
+            b2BodyType ta=initial->bodies.data[initial->shapes.data[a].bodyId].type;
+            b2BodyType tb=initial->bodies.data[initial->shapes.data[b].bodyId].type;
+            if((ta==b2_dynamicBody || tb==b2_dynamicBody) && b2AABB_Overlaps(initial->fatAABBs.data[a],initial->fatAABBs.data[b]))
+            {
+                bruteForce.push_back((uint64_t)(uint32_t)a<<32|(uint32_t)b);
+            }
+        }
+    }
+    for(int step=0;step<20;++step)
+    {
+        b2World_Step(serial,1.0f/60,4);b2World_Step(threaded,1.0f/60,4);b2World_Step(scheduled,1.0f/60,4);
+        b2TaskBatch batch=b2World_BeginStep(reverse,1.0f/60,4);
+        while(batch.count>0)
+        {
+            for(int i=batch.count-1;i>=0;--i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+            batch=b2World_ContinueStep(reverse);
+        }
+        auto expected=PairContactKeys(serial);ENSURE(!expected.empty());
+        if(step==0) { ENSURE(expected==bruteForce); }
+        ENSURE(expected==PairContactKeys(threaded));ENSURE(expected==PairContactKeys(scheduled));ENSURE(expected==PairContactKeys(reverse));
+        auto ordered=expected;std::sort(ordered.begin(),ordered.end());ENSURE(std::adjacent_find(ordered.begin(),ordered.end())==ordered.end());
+        b2World* a=b2_worlds+serial.index1-1;
+        for(b2WorldId other:{threaded,scheduled,reverse})
+        {
+            b2World* b=b2_worlds+other.index1-1;
+            ENSURE(a->bodyMoveEvents.count==b->bodyMoveEvents.count);
+            for(int i=0;i<a->bodyMoveEvents.count;++i)
+            {
+                ENSURE(a->bodyMoveEvents.data[i].transform.p.x==b->bodyMoveEvents.data[i].transform.p.x);
+                ENSURE(a->bodyMoveEvents.data[i].transform.p.y==b->bodyMoveEvents.data[i].transform.p.y);
+            }
+        }
+        if(step==9) { b2World_SetWorkerCount(scheduled,2);b2World_SetWorkerCount(reverse,2); }
+    }
+    ENSURE(host.enqueued>0 && host.executed==host.enqueued);
+    for(b2WorldId id:{serial,threaded,scheduled,reverse})
+    {
+        b2World* w=b2_worlds+id.index1-1;ENSURE(w->stack.allocation==0);b2DestroyWorld(id);
+    }
+    ENSURE(b2GetByteCount()==before);return 0;
+}
 
 int BroadPhaseTreeTypesTest( void )
 {

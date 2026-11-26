@@ -567,11 +567,12 @@ static StepWorld CreateStepWorld( bool overlapping )
 static b2TaskBatch RunStagedStep( b2WorldId id, float timeStep, int subStepCount )
 {
 	b2TaskBatch batch = b2World_BeginStep( id, timeStep, subStepCount );
-	for ( int i = 0; i < batch.count; ++i )
-	{
-		batch.tasks[i].fcn( batch.tasks[i].context );
-	}
-	return b2World_ContinueStep( id );
+ while(batch.count>0)
+ {
+  for(int i=0;i<batch.count;++i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+  batch=b2World_ContinueStep(id);
+ }
+ return batch;
 }
 
 int StepPhaseTest( void )
@@ -600,12 +601,16 @@ int StepPhaseTest( void )
 	StepWorld work = CreateStepWorld( true );
 	ENSURE( b2World_GetCounters( work.worldId ).contactCount == 0 );
 	b2TaskBatch batch = b2World_BeginStep( work.worldId, 1.0f / 60.0f, 4 );
-	ENSURE( batch.count == 1 && batch.tasks[0].type == b2_taskPairs );
+	ENSURE( batch.count >= 1 && batch.tasks[0].type == b2_taskPairs );
 	b2World* world = b2_worlds + work.worldId.index1 - 1;
-	ENSURE( world->locked && world->stepContext->phase == 1 );
-	batch.tasks[0].fcn( batch.tasks[0].context );
-	ENSURE( b2World_GetCounters( work.worldId ).contactCount > 0 );
-	b2TaskBatch next = b2World_ContinueStep( work.worldId );
+	ENSURE( world->locked && world->stepContext->phase != 0 );
+ while(batch.count>0)
+ {
+  for(int i=0;i<batch.count;++i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+  batch=b2World_ContinueStep(work.worldId);
+ }
+ ENSURE(b2World_GetCounters(work.worldId).contactCount>0);
+ b2TaskBatch next=batch;
 	ENSURE( next.count == 0 && world->locked == false && world->stepContext->phase == 0 );
 
 	// 非法或空闲调用返回空批次
@@ -788,11 +793,12 @@ int StepOrderTest( void )
 	b2TaskBatch active = b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 );
 	ENSURE( active.count > 0 );
 	ENSURE( b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 ).count == 0 );
-	for ( int i = 0; i < active.count; ++i )
-	{
-		active.tasks[i].fcn( active.tasks[i].context );
-	}
-	ENSURE( b2World_ContinueStep( staged.worldId ).count == 0 );
+ while(active.count>0)
+ {
+  for(int i=0;i<active.count;++i) { active.tasks[i].fcn(active.tasks[i].context); }
+  active=b2World_ContinueStep(staged.worldId);
+ }
+ ENSURE(active.count==0);
 	ENSURE( b2World_ContinueStep( staged.worldId ).count == 0 );
 	b2World_Step( staged.worldId, 1.0f / 60.0f, 4 );
 	ENSURE( b2World_IsValid( staged.worldId ) );

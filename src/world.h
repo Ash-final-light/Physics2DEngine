@@ -20,8 +20,14 @@
 
 struct b2Scheduler;
 
+struct b2TaskContext
+{
+    b2DynamicArray<uint64_t> pairKeys;
+};
+
 struct b2World
 {
+    b2DynamicArray<b2TaskContext> taskContexts;
 	uint16_t worldId;
 	uint16_t generation;
 	bool inUse;

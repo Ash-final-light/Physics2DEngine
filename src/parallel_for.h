@@ -7,6 +7,32 @@
 #include "box2d/types.h"
 
 struct b2StepContext;
+struct b2World;
+
+// 分阶段 parallel-for 调用此回调来处理一段元素区间。每个工作线程可能被调用
+// 多次：工作被分成若干块，工作线程以原子方式领取，因此提前完成的工作线程会
+// 领取下一块尚未认领的工作，而不是空闲等待。workerIndex 是工作线程身份，
+// 同一工作线程的所有调用中保持稳定，因此可安全用作每线程状态的索引
+// （例如 world->taskContexts.data + workerIndex）。
+typedef void b2ParallelForCallback( int startIndex, int endIndex, int workerIndex, void* context );
+
+typedef struct b2ParallelForShared
+{
+	b2AtomicInt nextBlock;
+	int blockCount;
+	int blockSize;
+	int itemCount;
+	b2ParallelForCallback* callback;
+	void* context;
+} b2ParallelForShared;
+
+typedef struct b2ParallelForTask
+{
+	b2ParallelForShared* shared;
+	int workerIndex;
+} b2ParallelForTask;
+
+void b2StageParallelFor( b2World* world, b2TaskType type, b2ParallelForCallback* callback, int itemCount, int minRange, void* context );
 
 // 重置当前批次；上一批任务成为下一批必须等待的接合任务。
 void b2ResetTaskBatch( b2StepContext* stepContext );

@@ -39,6 +39,10 @@ static inline void b2BroadPhase_MarkProxyMovedSerial( b2BroadPhase* bp, int prox
 
 struct b2World;
 // Emits raw broad-phase candidates. Collision filtering and contacts are separate stages.
+bool b2BeginPairs( b2World* world );
+void b2StageSelfPairs( b2World* world );
+void b2EndPairs( b2World* world );
+
 void b2CollectCandidatePairs( b2World* world, b2DynamicArray<uint64_t>* pairKeys );
 
 void b2RadixSortKeys( uint64_t* keys, uint64_t* temporary, int count );
