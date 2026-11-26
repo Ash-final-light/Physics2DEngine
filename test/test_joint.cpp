@@ -344,3 +344,14 @@ int FilterJointTest(void)
  b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount==0);ENSURE_SMALL(b2Body_GetLinearVelocity(a).x-2,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x+2,0.0001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int JointCollideConnectedTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;b2BodyId a=b2CreateBody(id,&bd);bd.position={0.5f,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(a,&sd,&c);b2CreateCircleShape(b,&sd,&c);
+ b2FilterJointDef def=b2DefaultFilterJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;b2JointId j=b2CreateFilterJoint(id,&def);
+ ENSURE(b2Joint_GetCollideConnected(j)==false);b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount==0);
+ b2Joint_SetCollideConnected(j,true);ENSURE(b2Joint_GetCollideConnected(j));b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount>0);
+ b2Joint_SetCollideConnected(j,false);ENSURE(b2Joint_GetCollideConnected(j)==false);ENSURE(b2World_GetCounters(id).contactCount==0);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

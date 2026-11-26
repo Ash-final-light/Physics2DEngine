@@ -387,6 +387,69 @@ static b2BodyId b2GetJointBody(b2JointId id,int edgeIndex)
 b2BodyId b2Joint_GetBodyA(b2JointId id) { return b2GetJointBody(id,0); }
 b2BodyId b2Joint_GetBodyB(b2JointId id) { return b2GetJointBody(id,1); }
 void b2Joint_SetUserData(b2JointId id,void* data) { if(b2Joint_IsValid(id)) { b2GetJointFullId(b2_worlds+id.world0,id)->userData=data; } }
+
+void b2Joint_SetCollideConnected( b2JointId jointId, bool shouldCollide )
+{
+	if ( jointId.world0 >= B2_MAX_WORLDS )
+	{
+		return;
+	}
+
+	b2World* world = b2_worlds + jointId.world0;
+	if ( world->inUse == false || world->locked )
+	{
+		return;
+	}
+
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	if ( joint == nullptr || joint->collideConnected == shouldCollide )
+	{
+		return;
+	}
+
+	joint->collideConnected = shouldCollide;
+	b2Body* bodyA = world->bodies.data + joint->edges[0].bodyId;
+	b2Body* bodyB = world->bodies.data + joint->edges[1].bodyId;
+	if ( shouldCollide )
+	{
+		int shapeId = B2_NULL_INDEX;
+		if ( bodyA->type == b2_dynamicBody && bodyB->type == b2_dynamicBody )
+		{
+			shapeId = bodyA->shapeCount < bodyB->shapeCount ? bodyA->headShapeId : bodyB->headShapeId;
+		}
+		else if ( bodyA->type == b2_dynamicBody )
+		{
+			shapeId = bodyA->headShapeId;
+		}
+		else if ( bodyB->type == b2_dynamicBody )
+		{
+			shapeId = bodyB->headShapeId;
+		}
+
+		while ( shapeId != B2_NULL_INDEX )
+		{
+			b2Shape* shape = world->shapes.data + shapeId;
+			if ( shape->proxyKey != B2_NULL_INDEX )
+			{
+				b2BroadPhase_MarkProxyMovedSerial( &world->broadPhase, shape->proxyKey );
+			}
+			shapeId = shape->nextShapeId;
+		}
+	}
+	else
+	{
+		b2DestroyContactsBetweenBodies( world, bodyA, bodyB );
+	}
+}
+
+bool b2Joint_GetCollideConnected( b2JointId jointId )
+{
+	if ( b2Joint_IsValid( jointId ) == false )
+	{
+		return false;
+	}
+	return b2GetJointFullId( b2_worlds + jointId.world0, jointId )->collideConnected;
+}
 void* b2Joint_GetUserData(b2JointId id) { return b2Joint_IsValid(id)?b2GetJointFullId(b2_worlds+id.world0,id)->userData:nullptr; }
 
 static b2JointDef b2DefaultJointDef( void )

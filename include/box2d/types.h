@@ -895,6 +895,8 @@ B2_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
 B2_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
 B2_API void b2Joint_SetUserData(b2JointId jointId,void* userData);
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
+B2_API void b2Joint_SetCollideConnected(b2JointId jointId,bool shouldCollide);
+B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
 B2_API int b2Body_GetJointCount(b2BodyId bodyId);
 B2_API int b2Body_GetJoints(b2BodyId bodyId,b2JointId* jointArray,int capacity);
 

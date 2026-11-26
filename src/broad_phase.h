@@ -29,6 +29,13 @@ void b2BroadPhase_DestroyProxy( b2BroadPhase* bp, int proxyKey );
 
 void b2BroadPhase_MoveProxy( b2BroadPhase* bp, int proxyKey, b2AABB aabb );
 
+static inline void b2BroadPhase_MarkProxyMovedSerial( b2BroadPhase* bp, int proxyKey )
+{
+	b2BodyType proxyType = B2_PROXY_TYPE( proxyKey );
+	int proxyId = B2_PROXY_ID( proxyKey );
+	b2DynamicTree_MarkProxyMovedSerial( bp->trees + proxyType, proxyId );
+}
+
 
 struct b2World;
 // Emits raw broad-phase candidates. Collision filtering and contacts are separate stages.
