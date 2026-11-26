@@ -55,6 +55,7 @@ void b2PreparePrismaticJoint( b2JointSim* base, b2StepContext* context )
 	{
 		joint->impulse = b2Vec2_zero;
 		joint->springImpulse = 0.0f;
+		joint->motorImpulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
 	}
@@ -88,7 +89,7 @@ void b2WarmStartPrismaticJoint( b2JointSim* base, b2StepContext* context )
 	// 冲量施加在刚体 B 的锚点上
 	float a1 = b2Cross( b2Add( rA, d ), axisA );
 	float a2 = b2Cross( rB, axisA );
-	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
+	float axialImpulse = joint->springImpulse + joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
 
 	// 垂直约束
 	b2Vec2 perpA = b2LeftPerp( axisA );
@@ -182,8 +183,25 @@ void b2SolvePrismaticJoint( b2JointSim* base, b2StepContext* context, bool useBi
 		wB += iB * LB;
 	}
 
+	// 求解马达约束
+	if ( joint->enableMotor )
+	{
+		float Cdot = b2Dot( axisA, b2Sub( vB, vA ) ) + a2 * wB - a1 * wA;
+		float impulse = axialMass * ( joint->motorSpeed - Cdot );
+		float oldImpulse = joint->motorImpulse;
+		float maxImpulse = context->h * joint->maxMotorForce;
+		joint->motorImpulse = b2ClampFloat( joint->motorImpulse + impulse, -maxImpulse, maxImpulse );
+		impulse = joint->motorImpulse - oldImpulse;
 
+		b2Vec2 P = b2MulSV( impulse, axisA );
+		float LA = impulse * a1;
+		float LB = impulse * a2;
 
+		vA = b2MulSub( vA, mA, P );
+		wA -= iA * LA;
+		vB = b2MulAdd( vB, mB, P );
+		wB += iB * LB;
+	}
 
 	if ( joint->enableLimit )
 	{
@@ -517,4 +535,58 @@ float b2PrismaticJoint_GetUpperLimit( b2JointId jointId )
 {
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	return joint->prismaticJoint.upperTranslation;
+}
+
+void b2PrismaticJoint_EnableMotor( b2JointId jointId, bool enableMotor )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	if ( enableMotor != joint->prismaticJoint.enableMotor )
+	{
+		joint->prismaticJoint.enableMotor = enableMotor;
+		joint->prismaticJoint.motorImpulse = 0.0f;
+	}
+}
+
+bool b2PrismaticJoint_IsMotorEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.enableMotor;
+}
+
+void b2PrismaticJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
+{
+	if (!(b2IsValidFloat( motorSpeed ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	joint->prismaticJoint.motorSpeed = motorSpeed;
+}
+
+float b2PrismaticJoint_GetTargetMotorSpeed( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.motorSpeed;
+}
+
+float b2PrismaticJoint_GetCurrentMotorForce( b2JointId jointId )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return world->inv_h * base->prismaticJoint.motorImpulse;
+}
+
+void b2PrismaticJoint_SetMaxMotorForce( b2JointId jointId, float force )
+{
+	if (!(b2IsValidFloat( force ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	joint->prismaticJoint.maxMotorForce = force;
+}
+
+float b2PrismaticJoint_GetMaxMotorForce( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.maxMotorForce;
 }

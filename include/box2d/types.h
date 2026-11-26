@@ -1080,14 +1080,40 @@ B2_API float b2RevoluteJoint_GetCurrentMotorTorque( b2JointId jointId );
 
 typedef struct b2PrismaticJointDef
 {
+	/// 基础关节定义
 	b2JointDef base;
+
+	/// 沿棱柱关节轴启用线性弹簧
 	bool enableSpring;
+
+	/// 弹簧刚度赫兹，每秒周期数
 	float hertz;
+
+	/// 弹簧阻尼比，无量纲
 	float dampingRatio;
+
+	/// 关节的目标平移，单位为米。弹簧-阻尼器将驱动到此平移。
 	float targetTranslation;
+
+	/// 启用/禁用关节限位
 	bool enableLimit;
+
+	/// 平移下限
 	float lowerTranslation;
+
+	/// 平移上限
 	float upperTranslation;
+
+	/// 启用/禁用关节马达
+	bool enableMotor;
+
+	/// 最大马达力，通常以牛顿为单位
+	float maxMotorForce;
+
+	/// 期望的马达速度，通常以米每秒为单位
+	float motorSpeed;
+
+	/// 内部用于检测有效定义。请勿设置。
 	int internalValue;
 } b2PrismaticJointDef;
 B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef(void);
@@ -1110,3 +1136,11 @@ B2_API bool b2PrismaticJoint_IsLimitEnabled( b2JointId jointId );
 B2_API void b2PrismaticJoint_SetLimits( b2JointId jointId, float lower, float upper );
 B2_API float b2PrismaticJoint_GetLowerLimit( b2JointId jointId );
 B2_API float b2PrismaticJoint_GetUpperLimit( b2JointId jointId );
+
+B2_API void b2PrismaticJoint_EnableMotor( b2JointId jointId, bool enableMotor );
+B2_API bool b2PrismaticJoint_IsMotorEnabled( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed );
+B2_API float b2PrismaticJoint_GetTargetMotorSpeed( b2JointId jointId );
+B2_API float b2PrismaticJoint_GetCurrentMotorForce( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetMaxMotorForce( b2JointId jointId, float force );
+B2_API float b2PrismaticJoint_GetMaxMotorForce( b2JointId jointId );

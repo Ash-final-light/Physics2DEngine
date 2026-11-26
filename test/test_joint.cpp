@@ -219,3 +219,16 @@ int PrismaticJointLimitTest(void)
  b2PrismaticJoint_EnableLimit(j,false);ENSURE(!b2PrismaticJoint_IsLimitEnabled(j));for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-2,0.005f);b2Vec2 error=PrismaticErrors(j);ENSURE_SMALL(error.x,0.0001f);ENSURE_SMALL(error.y,0.0001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int PrismaticJointMotorTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={1,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=1/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2PrismaticJointDef def=b2DefaultPrismaticJointDef();ENSURE(!def.enableMotor && def.maxMotorForce==0 && def.motorSpeed==0);def.base.bodyIdA=a;def.base.bodyIdB=b;def.enableMotor=true;def.motorSpeed=2;def.maxMotorForce=10;b2JointId j=b2CreatePrismaticJoint(id,&def);ENSURE(b2PrismaticJoint_IsMotorEnabled(j) && b2PrismaticJoint_GetTargetMotorSpeed(j)==2 && b2PrismaticJoint_GetMaxMotorForce(j)==10);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2PrismaticJoint_GetCurrentMotorForce(j)-10,0.0001f);ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)-0.1f,0.0001f);
+ for(int i=0;i<30;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)-2,0.0001f);
+ b2PrismaticJoint_SetTargetMotorSpeed(j,-1);b2PrismaticJoint_SetMaxMotorForce(j,5);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2PrismaticJoint_GetCurrentMotorForce(j)+5,0.0001f);for(int i=0;i<90;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)+1,0.0001f);
+ b2World_EnableWarmStarting(id,false);b2Body_SetTransform(b,{0,0},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,0});b2PrismaticJoint_SetLimits(j,-0.5f,0.5f);b2PrismaticJoint_EnableLimit(j,true);b2PrismaticJoint_SetMaxMotorForce(j,100);b2PrismaticJoint_SetTargetMotorSpeed(j,10);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2PrismaticJoint_GetCurrentTranslation(j)<=0.52f);
+ b2PrismaticJoint_SetTargetMotorSpeed(j,-10);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2PrismaticJoint_GetCurrentTranslation(j)>=-0.52f);
+ b2PrismaticJoint_EnableMotor(j,false);ENSURE(!b2PrismaticJoint_IsMotorEnabled(j) && b2PrismaticJoint_GetCurrentMotorForce(j)==0);b2PrismaticJoint_EnableLimit(j,false);b2Body_SetLinearVelocity(b,{1,0});b2World_Step(id,0.1f,4);ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)-1,0.0001f);b2PrismaticJoint_EnableMotor(j,true);b2PrismaticJoint_SetMaxMotorForce(j,0);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)-1,0.0001f);
+ b2DestroyJoint(j);b2Body_SetLinearVelocity(b,{0,0});def.maxMotorForce=1;def.motorSpeed=10;b2JointId first={};for(int i=0;i<26;++i) { b2JointId next=b2CreatePrismaticJoint(id,&def);ENSURE(next.index1>0);if(i==0) { first=next; } }b2World* world=b2_worlds+id.index1-1;ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-0.26f,0.0001f);b2Vec2 error=PrismaticErrors(first);ENSURE_SMALL(error.x,0.0001f);ENSURE_SMALL(error.y,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
