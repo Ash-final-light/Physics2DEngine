@@ -350,6 +350,8 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
         }
     }
     bool touching = local.pointCount > 0;
+    if(touching && (a->enableHitEvents || b->enableHitEvents)) { sim->simFlags|=b2_simEnableHitEvent; }
+    else { sim->simFlags&=~b2_simEnableHitEvent; }
     if ( touching ) { sim->simFlags |= b2_simTouchingFlag; }
     else { sim->simFlags &= ~b2_simTouchingFlag; }
     return touching;

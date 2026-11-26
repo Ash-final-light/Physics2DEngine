@@ -133,6 +133,31 @@ static void b2IntegrateBodyVelocity( b2World* world, b2BodySim* sim, b2BodyState
     state->angularVelocity=h*sim->invInertia*sim->torque+angularDamping*state->angularVelocity;
 }
 
+static void b2ReportHitEvents(b2World* world)
+{
+    for(int i=0;i<world->contacts.count;++i)
+    {
+        b2Contact* contact=world->contacts.data+i;
+        if(contact->contactId==B2_NULL_INDEX || contact->setIndex!=b2_awakeSet || contact->colorIndex==B2_NULL_INDEX) { continue; }
+        b2ContactSim* sim=b2GetContactSim(world,contact);if((sim->simFlags&b2_simEnableHitEvent)==0) { continue; }
+        b2ContactHitEvent event={};event.approachSpeed=world->hitEventThreshold;
+        b2ManifoldPoint* best=NULL;
+        for(int p=0;p<sim->manifold.pointCount;++p)
+        {
+            b2ManifoldPoint* point=sim->manifold.points+p;float speed=-point->normalVelocity;
+            if(speed>event.approachSpeed && point->totalNormalImpulse>0) { event.approachSpeed=speed;best=point; }
+        }
+        if(best==NULL) { continue; }
+        b2Shape* a=world->shapes.data+contact->shapeIdA;b2Shape* b=world->shapes.data+contact->shapeIdB;
+        b2Body* bodyA=world->bodies.data+a->bodyId;b2Body* bodyB=world->bodies.data+b->bodyId;
+        event.normal=sim->manifold.normal;
+        if(bodyA->type!=b2_staticBody && bodyB->type==b2_staticBody) { event.point=b2Add(b2GetBodySim(world,bodyB)->center,best->anchorB); }
+        else { event.point=b2Add(b2GetBodySim(world,bodyA)->center,best->anchorA); }
+        event.shapeIdA={a->id+1,world->worldId,a->generation};event.shapeIdB={b->id+1,world->worldId,b->generation};
+        event.contactId={contact->contactId+1,world->worldId,0,contact->generation};b2Array_Push(world->contactHitEvents,event);
+    }
+}
+
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
 {
     uint64_t ticks=b2GetTicks();
@@ -225,6 +250,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         }
     }
     world->profile.transforms=b2GetMillisecondsAndReset(&ticks);
+    b2ReportHitEvents(world);world->profile.hitEvents=b2GetMillisecondsAndReset(&ticks);
     for(int i=0;i<bulletCount;++i)
     {
         int index=bulletIndices[i];b2SolveContinuous(world,index,timeStep);

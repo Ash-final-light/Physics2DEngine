@@ -242,3 +242,36 @@ int ContactTouchEventsTest(void)
     b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).beginCount==1);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactHitEventsTest(void)
+{
+    size_t before=b2GetByteCount();
+    for(int run=0;run<5;++run)
+    {
+        b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2World_SetContactRecycleDistance(id,0);
+        b2World_SetHitEventThreshold(id,run==4?0.1f:1.0f);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,run==1?-0.5f:run==2?-1.0f:run==4?-0.25f:-4.0f};
+        b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();ENSURE(!sd.enableHitEvents);sd.enableHitEvents=run!=3;
+        b2Circle circle={{0,0},1};b2ShapeId shape=b2CreateCircleShape(body,&sd,&circle);
+        bd.type=b2_staticBody;bd.position={0,run==4?-2.01f:-2.0f};b2BodyId fixed=b2CreateBody(id,&bd);sd.enableHitEvents=false;b2CreateCircleShape(fixed,&sd,&circle);
+        b2World_Step(id,0.001f,1);b2ContactEvents events=b2World_GetContactEvents(id);ENSURE(events.hitCount==(run==0?1:0));
+        if(run==0)
+        {
+            const b2ContactHitEvent* hit=events.hitEvents;ENSURE(b2Contact_IsValid(hit->contactId) && b2Shape_IsValid(hit->shapeIdA) && b2Shape_IsValid(hit->shapeIdB));
+            ENSURE_SMALL(hit->approachSpeed-4,0.00001f);ENSURE_SMALL(hit->point.x,0.00001f);ENSURE_SMALL(hit->point.y+1,0.00001f);
+            ENSURE_SMALL(hit->normal.y+1,0.00001f);b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).hitCount==0);
+        }
+        b2Shape_EnableHitEvents(shape,false);ENSURE(!b2Shape_AreHitEventsEnabled(shape));b2Body_EnableHitEvents(body,true);ENSURE(b2Shape_AreHitEventsEnabled(shape));
+        float threshold=b2World_GetHitEventThreshold(id);b2World_SetHitEventThreshold(id,NAN);ENSURE(b2World_GetHitEventThreshold(id)==threshold);
+        b2World_SetHitEventThreshold(id,-1);ENSURE(b2World_GetHitEventThreshold(id)==0);
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    // A two-point manifold produces one event for its fastest approaching point.
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.linearVelocity={0,-4};bd.angularVelocity=1;
+    b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.enableHitEvents=true;sd.material.friction=0;
+    b2Polygon box=b2MakeBox(1,0.5f);b2CreatePolygonShape(body,&sd,&box);bd.type=b2_staticBody;bd.position={0,-1};b2BodyId ground=b2CreateBody(id,&bd);
+    b2Polygon floor=b2MakeBox(10,0.5f);b2CreatePolygonShape(ground,&sd,&floor);b2World_Step(id,0.001f,1);
+    b2ContactEvents events=b2World_GetContactEvents(id);ENSURE(events.hitCount==1);ENSURE_SMALL(events.hitEvents[0].approachSpeed-5,0.0001f);
+    ENSURE_SMALL(events.hitEvents[0].point.x+1,0.0001f);ENSURE_SMALL(events.hitEvents[0].point.y+0.5f,0.0001f);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

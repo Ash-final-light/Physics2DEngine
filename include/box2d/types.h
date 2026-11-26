@@ -142,6 +142,7 @@ typedef struct b2ShapeDef
     float density;
     b2Filter filter;
     bool enableContactEvents;
+    bool enableHitEvents;
     bool invokeContactCreation;
     bool updateBodyMass;
     int internalValue;
@@ -264,17 +265,47 @@ typedef struct b2ContactEndTouchEvent
 	/// @see b2Contact_IsValid
 	b2ContactId contactId;
 } b2ContactEndTouchEvent;
+typedef struct b2ContactHitEvent
+{
+	/// 第一个形状的 id
+	b2ShapeId shapeIdA;
+
+	/// 第二个形状的 id
+	b2ShapeId shapeIdB;
+
+	/// 接触的 id。
+	/// @warning 此接触可能已被销毁
+	/// @see b2Contact_IsValid
+	b2ContactId contactId;
+
+	/// 形状命中的点。这是两个表面之间的中点。它可能是预测点，形状在时间步开始时并未接触。
+	/// 该点在步进后重建，因此当两个刚体都在移动时，它可能落后撞击最多一个步进的运动。
+	b2Pos point;
+
+	/// 从形状 A 指向形状 B 的法向量
+	b2Vec2 normal;
+
+	/// 形状接近的速度。始终为正。通常以米每秒为单位。
+	float approachSpeed;
+} b2ContactHitEvent;
 typedef struct b2ContactEvents
 {
     b2ContactBeginTouchEvent* beginEvents;
     b2ContactEndTouchEvent* endEvents;
+    b2ContactHitEvent* hitEvents;
     int beginCount;
     int endCount;
+    int hitCount;
 } b2ContactEvents;
 B2_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
 B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId,bool flag);
 B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
 B2_API void b2Body_EnableContactEvents(b2BodyId bodyId,bool flag);
+B2_API void b2Shape_EnableHitEvents(b2ShapeId shapeId,bool flag);
+B2_API bool b2Shape_AreHitEventsEnabled(b2ShapeId shapeId);
+B2_API void b2Body_EnableHitEvents(b2BodyId bodyId,bool flag);
+B2_API void b2World_SetHitEventThreshold(b2WorldId worldId,float value);
+B2_API float b2World_GetHitEventThreshold(b2WorldId worldId);
 typedef struct b2BodyMoveEvent
 {
 	/// 刚体用户数据。

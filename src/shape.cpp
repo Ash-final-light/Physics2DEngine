@@ -169,6 +169,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     shape->filter = def->filter;
     shape->userData = def->userData;
     shape->enableContactEvents=def->enableContactEvents;
+    shape->enableHitEvents=def->enableHitEvents;
     shape->prevShapeId = B2_NULL_INDEX;
     shape->nextShapeId = body->headShapeId;
     if ( body->headShapeId != B2_NULL_INDEX )
@@ -989,4 +990,14 @@ void b2Shape_EnableContactEvents(b2ShapeId id,bool flag)
 bool b2Shape_AreContactEventsEnabled(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->enableContactEvents;
+}
+
+void b2Shape_EnableHitEvents(b2ShapeId id,bool flag)
+{
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->enableHitEvents=flag;
+}
+
+bool b2Shape_AreHitEventsEnabled(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->enableHitEvents;
 }

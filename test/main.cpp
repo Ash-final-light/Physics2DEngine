@@ -112,6 +112,7 @@ int ContactWarmStartTest( void );
 int ContactTuningTest( void );
 int ContactRecycleTest( void );
 int ContactTouchEventsTest( void );
+int ContactHitEventsTest( void );
 int ContactFrictionTest( void );
 int ContactRollingResistanceTest( void );
 int ContactTangentSpeedTest( void );
@@ -942,6 +943,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"WorldProfileMemoryTest")==0) { ran=1; RUN_TEST(WorldProfileMemoryTest); }
 	if(filter==NULL || strcmp(filter,"BodyMoveEventsTest")==0) { ran=1; RUN_TEST(BodyMoveEventsTest); }
 	if(filter==NULL || strcmp(filter,"ContactTouchEventsTest")==0) { ran=1; RUN_TEST(ContactTouchEventsTest); }
+	if(filter==NULL || strcmp(filter,"ContactHitEventsTest")==0) { ran=1; RUN_TEST(ContactHitEventsTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

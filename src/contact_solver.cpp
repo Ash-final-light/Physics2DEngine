@@ -66,7 +66,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
                 float rtA=b2Cross(rA,tangent),rtB=b2Cross(rB,tangent);
                 float kTangent=mA+mB+iA*rtA*rtA+iB*rtB*rtB;
                 cp->tangentMass=kTangent>0.0f?1.0f/kTangent:0.0f;
-                if(sim->restitution>0.0f)
+                if(sim->restitution>0.0f || (sim->simFlags&b2_simEnableHitEvent)!=0)
                 {
                     b2BodyState dummy=b2_identityBodyState;
                     const b2BodyState* stateA=constraint->indexA==0?&dummy:context->states+constraint->indexA-1;

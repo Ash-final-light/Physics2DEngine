@@ -20,6 +20,7 @@ struct b2Shape
     b2Filter filter;
     void* userData;
     bool enableContactEvents;
+    bool enableHitEvents;
     union
     {
         b2Circle circle;

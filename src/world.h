@@ -26,6 +26,7 @@ struct b2World
 	b2Capacity maxCapacity;
 	b2Profile profile;
 	b2DynamicArray<b2BodyMoveEvent> bodyMoveEvents;
+	b2DynamicArray<b2ContactHitEvent> contactHitEvents;
 	b2DynamicArray<b2ContactBeginTouchEvent> contactBeginEvents;
 	b2DynamicArray<b2ContactEndTouchEvent> contactEndEvents[2];
 	int endEventArrayIndex;

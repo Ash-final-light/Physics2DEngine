@@ -1045,3 +1045,10 @@ void b2Body_EnableContactEvents(b2BodyId id,bool flag)
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { world->shapes.data[shapeId].enableContactEvents=flag; }
 }
+
+void b2Body_EnableHitEvents(b2BodyId id,bool flag)
+{
+    if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+    { world->shapes.data[shapeId].enableHitEvents=flag; }
+}
