@@ -36,6 +36,7 @@ int HashSetInsertTest( void );
 int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
 int StackAllocatorTest( void );
+int ParallelContactTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -897,6 +898,8 @@ int main( int argc, char** argv )
 		ran = 1;
 		RUN_TEST( ObjectRelationshipTest );
 	}
+
+	if(filter==NULL || strcmp(filter,"ParallelContactTest")==0) { ran=1; RUN_TEST(ParallelContactTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

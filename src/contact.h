@@ -147,3 +147,6 @@ b2ContactSim* b2GetContactSim( b2World* world, b2Contact* contact );
 bool b2UpdateContact( b2World* world, b2ContactSim* contactSim, b2Shape* a, b2WorldTransform transformA,
                       b2Vec2 centerOffsetA, b2Shape* b, b2WorldTransform transformB, b2Vec2 centerOffsetB );
 void b2UpdateContacts( b2World* world );
+struct b2StepContext;
+void b2BeginCollide(b2StepContext* context);
+void b2EndCollide(b2StepContext* context);

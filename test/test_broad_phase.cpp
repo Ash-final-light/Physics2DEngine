@@ -113,6 +113,93 @@ int ParallelBroadPhaseTest(void)
     ENSURE(b2GetByteCount()==before);return 0;
 }
 
+static void CountParallelPreSolve(b2ShapeId,b2ShapeId,b2Manifold*,void* user)
+{
+    ++*static_cast<std::atomic<int>*>(user);
+}
+
+static int CompareContactWorlds(b2WorldId lhs,b2WorldId rhs)
+{
+    b2World* a=b2_worlds+lhs.index1-1;b2World* b=b2_worlds+rhs.index1-1;
+    ENSURE(PairContactKeys(lhs)==PairContactKeys(rhs));
+    ENSURE(a->recycledContactCount==b->recycledContactCount);
+    ENSURE(a->contactBeginEvents.count==b->contactBeginEvents.count);
+    auto ea=b2World_GetContactEvents(lhs),eb=b2World_GetContactEvents(rhs);
+    ENSURE(ea.endCount==eb.endCount);
+    for(int i=0;i<ea.beginCount;++i)
+    {
+        ENSURE(ea.beginEvents[i].shapeIdA.index1==eb.beginEvents[i].shapeIdA.index1);
+        ENSURE(ea.beginEvents[i].shapeIdB.index1==eb.beginEvents[i].shapeIdB.index1);
+    }
+    for(int i=0;i<ea.endCount;++i)
+    {
+        ENSURE(ea.endEvents[i].shapeIdA.index1==eb.endEvents[i].shapeIdA.index1);
+        ENSURE(ea.endEvents[i].shapeIdB.index1==eb.endEvents[i].shapeIdB.index1);
+    }
+    for(int i=0;i<a->contacts.count;++i)
+    {
+        const b2Contact* ca=a->contacts.data+i;const b2Contact* cb=b->contacts.data+i;
+        ENSURE(ca->contactId==cb->contactId);
+        if(ca->contactId==B2_NULL_INDEX) { continue; }
+        ENSURE(ca->flags==cb->flags);ENSURE(ca->colorIndex==cb->colorIndex);
+        auto ma=b2GetContactSim(a,const_cast<b2Contact*>(ca))->manifold;
+        auto mb=b2GetContactSim(b,const_cast<b2Contact*>(cb))->manifold;
+        ENSURE(ma.pointCount==mb.pointCount);ENSURE(ma.normal.x==mb.normal.x && ma.normal.y==mb.normal.y);
+        for(int p=0;p<ma.pointCount;++p)
+        {
+            ENSURE(ma.points[p].id==mb.points[p].id);
+            ENSURE(ma.points[p].separation==mb.points[p].separation);
+            ENSURE(ma.points[p].normalImpulse==mb.points[p].normalImpulse);
+            ENSURE(ma.points[p].tangentImpulse==mb.points[p].tangentImpulse);
+        }
+    }
+    return 0;
+}
+
+int ParallelContactTest(void)
+{
+    size_t before=b2GetByteCount();PairThreadHost host;
+    b2WorldId serial=MakePairWorld(nullptr),threaded=MakePairWorld(&host),reverse=MakePairWorld(nullptr);
+    b2World_SetWorkerCount(reverse,4);
+    std::atomic<int> calls[3];for(auto& c:calls) { c=0; }
+    b2WorldId ids[]={serial,threaded,reverse};
+    for(int k=0;k<3;++k)
+    {
+        b2World* w=b2_worlds+ids[k].index1-1;
+        for(int i=0;i<w->shapes.count;++i) { w->shapes.data[i].enablePreSolveEvents=true; }
+        b2World_SetPreSolveCallback(ids[k],CountParallelPreSolve,nullptr,calls+k);
+    }
+    bool sawBegin=false,sawEnd=false;
+    for(int step=0;step<20;++step)
+    {
+        if(step==8 || step==12)
+        {
+            for(auto id:ids)
+            {
+                b2World* w=b2_worlds+id.index1-1;
+                for(int i=0;i<30;++i)
+                {
+                    b2BodyId body={i+1,w->worldId,w->bodies.data[i].generation};
+                    b2Body_SetTransform(body,{float(i%15)*0.6f+(step==8?100.0f:0.0f),float(i/15)*0.6f},b2Rot_identity);
+                }
+            }
+        }
+        b2World_Step(serial,1.0f/60,4);b2World_Step(threaded,1.0f/60,4);
+        b2TaskBatch batch=b2World_BeginStep(reverse,1.0f/60,4);
+        while(batch.count>0)
+        {
+            for(int i=batch.count-1;i>=0;--i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+            batch=b2World_ContinueStep(reverse);
+        }
+        ENSURE(CompareContactWorlds(serial,threaded)==0);ENSURE(CompareContactWorlds(serial,reverse)==0);
+        ENSURE(calls[0]==calls[1] && calls[0]==calls[2]);
+        auto events=b2World_GetContactEvents(serial);sawBegin|=events.beginCount>0;sawEnd|=events.endCount>0;
+    }
+    ENSURE(sawBegin && sawEnd && calls[0]>0 && host.enqueued>0);
+    for(auto id:ids) { b2DestroyWorld(id); }
+    ENSURE(b2GetByteCount()==before);return 0;
+}
+
 int BroadPhaseTreeTypesTest( void )
 {
     size_t before = b2GetByteCount();

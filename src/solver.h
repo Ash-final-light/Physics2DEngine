@@ -72,6 +72,9 @@ typedef struct b2StepTask
 
 #define B2_STEP_TASK_CAPACITY ( B2_MAX_WORKERS + 2 )
 
+struct b2ContactSim;
+struct b2ContactCollideSpan { int start; b2ContactSim* contacts; };
+
 struct b2StepContext
 {
     b2World* world;
@@ -104,5 +107,8 @@ struct b2StepContext
     b2ParallelForTask parallelForTasks[B2_MAX_WORKERS];
     bool pairsUpdated;
     uint64_t pairTicks;
+    uint64_t collideTicks;
+    int collideContactCount;
+    b2ContactCollideSpan collideSpans[B2_GRAPH_COLOR_COUNT+2];
 };
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount );

@@ -23,6 +23,8 @@ struct b2Scheduler;
 struct b2TaskContext
 {
     b2DynamicArray<uint64_t> pairKeys;
+    b2BitSet contactStateBitSet;
+    int recycledContactCount;
 };
 
 struct b2World

@@ -790,6 +790,8 @@ int StepOrderTest( void )
 	ENSURE_SMALL( p1.x - p2.x, 0.000001f );
 	ENSURE_SMALL( p1.y - p2.y, 0.000001f );
 
+	// 确保本步有配对任务，才能验证活跃步进期间的重入保护。
+	b2Body_SetTransform(staged.bodyId,{0,0},b2Rot_identity);
 	b2TaskBatch active = b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 );
 	ENSURE( active.count > 0 );
 	ENSURE( b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 ).count == 0 );

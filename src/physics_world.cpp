@@ -38,9 +38,9 @@ static void b2DefaultFinishTaskFcn( void* userTask, void* userContext )
 static void b2ResizeTaskContexts( b2World* world, int count )
 {
  int oldCount=world->taskContexts.count;
- for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys); }
+ for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet); }
  b2Array_Resize(world->taskContexts,count);
- for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys); }
+ for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys);world->taskContexts.data[i].contactStateBitSet=b2CreateBitSet(1024); }
 }
 
 b2WorldId b2CreateWorld( const b2WorldDef* def )
@@ -186,7 +186,7 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroySolverSets( world );
 	b2DestroyIdPool( &world->contactIdPool );
-	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys); }
+	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet); }
 	b2Array_Destroy(world->taskContexts);
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
@@ -307,17 +307,6 @@ void* b2World_GetUserData( b2WorldId worldId )
 }
 
 
-// 碰撞准备阶段：由任务批次驱动，也可在完整 Step 中同步执行。
-static void b2CollisionPhase( void* context )
-{
-	b2World* world = static_cast<b2World*>( context );
-	uint64_t stageTicks = b2GetTicks();
-	b2UpdateContacts( world );
-	world->profile.collide = b2GetMillisecondsAndReset( &stageTicks );
-	b2SplitContactIslands( world );
-	world->profile.splitIslands = b2GetMillisecondsAndReset( &stageTicks );
-}
-
 static b2TaskBatch b2ContinueStepInternal( b2World* world );
 
 static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount )
@@ -378,8 +367,11 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
    case 3:
     if(context->pairsUpdated) { b2EndPairs(world); }
     world->profile.pairs=b2GetMilliseconds(context->pairTicks);
-    context->phase=4;b2AddTask(context,b2_taskCollide,b2CollisionPhase,world);break;
-   case 4: context->phase=0;break;
+    context->phase=4;context->collideTicks=b2GetTicks();b2BeginCollide(context);break;
+   case 4:
+    b2EndCollide(context);world->profile.collide=b2GetMilliseconds(context->collideTicks);
+    { uint64_t ticks=b2GetTicks();b2SplitContactIslands(world);world->profile.splitIslands=b2GetMilliseconds(ticks); }
+    context->phase=0;break;
    default:return b2TaskBatch{};
   }
   if(context->batchTaskCount>0)
