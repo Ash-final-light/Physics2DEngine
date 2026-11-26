@@ -489,6 +489,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PrepareWeldJoint( joint, context );
 			break;
 
+		case b2_motorJoint:
+			b2PrepareMotorJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -518,6 +522,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartWeldJoint( joint, context );
 			break;
 
+		case b2_motorJoint:
+			b2WarmStartMotorJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -545,6 +553,10 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_weldJoint:
 			b2SolveWeldJoint( joint, context, useBias );
+			break;
+
+		case b2_motorJoint:
+			b2SolveMotorJoint( joint, context );
 			break;
 
 		default:
@@ -762,6 +774,45 @@ b2JointId b2CreateWeldJoint( b2WorldId worldId, const b2WeldJointDef* def )
 	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
 	joint->weldJoint.linearImpulse = b2Vec2_zero;
 	joint->weldJoint.angularImpulse = 0.0f;
+
+	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
+
+
+	return jointId;
+}
+
+b2MotorJointDef b2DefaultMotorJointDef( void )
+{
+	b2MotorJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+b2JointId b2CreateMotorJoint( b2WorldId worldId, const b2MotorJointDef* def )
+{
+	B2_CHECK_DEF( def );
+	if (!(b2IsValidVec2( def->linearVelocity ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxVelocityForce ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->angularVelocity ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxVelocityTorque ))) { return b2_nullJointId; }
+
+	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
+
+	B2_ASSERT( world->locked == false );
+
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_motorJoint );
+	b2JointSim* joint = pair.jointSim;
+
+	joint->motorJoint = b2MotorJoint{};
+	joint->motorJoint.linearVelocity = def->linearVelocity;
+	joint->motorJoint.maxVelocityForce = def->maxVelocityForce;
+	joint->motorJoint.angularVelocity = def->angularVelocity;
+	joint->motorJoint.maxVelocityTorque = def->maxVelocityTorque;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 

@@ -1,0 +1,252 @@
+// SPDX-FileCopyrightText: 2023 Erin Catto
+// SPDX-License-Identifier: MIT
+#include "joint.h"
+#include "world.h"
+
+void b2PrepareMotorJoint( b2JointSim* base, b2StepContext* context )
+{
+	B2_ASSERT( base->type == b2_motorJoint );
+
+	// 根据刚体 id 找到其所在求解器集合
+	int idA = base->bodyIdA;
+	int idB = base->bodyIdB;
+
+	b2World* world = context->world;
+
+	b2Body* bodyA = b2Array_Get( world->bodies, idA );
+	b2Body* bodyB = b2Array_Get( world->bodies, idB );
+
+	B2_ASSERT( bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet );
+
+	b2SolverSet* setA = b2Array_Get( world->solverSets, bodyA->setIndex );
+	b2SolverSet* setB = b2Array_Get( world->solverSets, bodyB->setIndex );
+
+	int localIndexA = bodyA->localIndex;
+	int localIndexB = bodyB->localIndex;
+
+	b2BodySim* bodySimA = b2Array_Get( setA->bodySims, localIndexA );
+	b2BodySim* bodySimB = b2Array_Get( setB->bodySims, localIndexB );
+
+	float mA = bodySimA->invMass;
+	float iA = bodySimA->invInertia;
+	float mB = bodySimB->invMass;
+	float iB = bodySimB->invInertia;
+
+	base->invMassA = mA;
+	base->invMassB = mB;
+	base->invIA = iA;
+	base->invIB = iB;
+
+	b2MotorJoint* joint = &base->motorJoint;
+	joint->indexA = bodyA->setIndex == b2_awakeSet ? localIndexA : B2_NULL_INDEX;
+	joint->indexB = bodyB->setIndex == b2_awakeSet ? localIndexB : B2_NULL_INDEX;
+
+	// 用世界空间旋转计算相对质心的关节锚点坐标系
+	joint->frameA.q = b2MulRot( bodySimA->transform.q, base->localFrameA.q );
+	joint->frameA.p = b2RotateVector( bodySimA->transform.q, b2Sub( base->localFrameA.p, bodySimA->localCenter ) );
+	joint->frameB.q = b2MulRot( bodySimB->transform.q, base->localFrameB.q );
+	joint->frameB.p = b2RotateVector( bodySimB->transform.q, b2Sub( base->localFrameB.p, bodySimB->localCenter ) );
+
+	// 计算初始质心差。增量位置更新相对此值。
+
+	b2Vec2 rA = joint->frameA.p;
+	b2Vec2 rB = joint->frameB.p;
+
+
+	b2Mat22 kl;
+	kl.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+	kl.cx.y = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+	kl.cy.x = kl.cx.y;
+	kl.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+	joint->linearMass = b2GetInverse22( kl );
+
+	float ka = iA + iB;
+	joint->angularMass = ka > 0.0f ? 1.0f / ka : 0.0f;
+
+	if ( context->world->enableWarmStarting == false )
+	{
+		joint->linearVelocityImpulse = b2Vec2_zero;
+		joint->angularVelocityImpulse = 0.0f;
+	}
+}
+
+void b2WarmStartMotorJoint( b2JointSim* base, b2StepContext* context )
+{
+	B2_ASSERT( base->type == b2_motorJoint );
+
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	b2MotorJoint* joint = &base->motorJoint;
+
+	// 静态刚体的哑状态
+	b2BodyState dummyState = b2_identityBodyState;
+
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
+
+	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
+	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
+
+	b2Vec2 linearImpulse = joint->linearVelocityImpulse;
+	float angularImpulse = joint->angularVelocityImpulse;
+
+	if ( stateA->flags & b2_dynamicFlag )
+	{
+		stateA->linearVelocity = b2MulSub( stateA->linearVelocity, mA, linearImpulse );
+		stateA->angularVelocity -= iA * ( b2Cross( rA, linearImpulse ) + angularImpulse );
+	}
+
+	if ( stateB->flags & b2_dynamicFlag )
+	{
+		stateB->linearVelocity = b2MulAdd( stateB->linearVelocity, mB, linearImpulse );
+		stateB->angularVelocity += iB * ( b2Cross( rB, linearImpulse ) + angularImpulse );
+	}
+}
+
+void b2SolveMotorJoint( b2JointSim* base, b2StepContext* context )
+{
+	B2_ASSERT( base->type == b2_motorJoint );
+
+	float mA = base->invMassA;
+	float mB = base->invMassB;
+	float iA = base->invIA;
+	float iB = base->invIB;
+
+	// 静态刚体的哑状态
+	b2BodyState dummyState = b2_identityBodyState;
+
+	b2MotorJoint* joint = &base->motorJoint;
+	b2BodyState* stateA = joint->indexA == B2_NULL_INDEX ? &dummyState : context->states + joint->indexA;
+	b2BodyState* stateB = joint->indexB == B2_NULL_INDEX ? &dummyState : context->states + joint->indexB;
+
+	b2Vec2 vA = stateA->linearVelocity;
+	float wA = stateA->angularVelocity;
+	b2Vec2 vB = stateB->linearVelocity;
+	float wB = stateB->angularVelocity;
+
+
+
+
+	// 角速度
+	if ( joint->maxVelocityTorque > 0.0f )
+	{
+		float cdot = wB - wA - joint->angularVelocity;
+		float impulse = -joint->angularMass * cdot;
+
+		float maxImpulse = context->h * joint->maxVelocityTorque;
+		float oldImpulse = joint->angularVelocityImpulse;
+		joint->angularVelocityImpulse = b2ClampFloat( oldImpulse + impulse, -maxImpulse, maxImpulse );
+		impulse = joint->angularVelocityImpulse - oldImpulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
+
+	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
+	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
+
+
+
+
+	// 线速度
+	if ( joint->maxVelocityForce > 0.0f )
+	{
+		b2Vec2 cdot = b2Sub( b2Add( vB, b2CrossSV( wB, rB ) ), b2Add( vA, b2CrossSV( wA, rA ) ) );
+		cdot = b2Sub( cdot, joint->linearVelocity );
+		b2Vec2 b = b2MulMV( joint->linearMass, cdot );
+		b2Vec2 impulse = { -b.x, -b.y };
+
+		b2Vec2 oldImpulse = joint->linearVelocityImpulse;
+		float maxImpulse = context->h * joint->maxVelocityForce;
+		joint->linearVelocityImpulse = b2Add( joint->linearVelocityImpulse, impulse );
+
+		if ( b2LengthSquared( joint->linearVelocityImpulse ) > maxImpulse * maxImpulse )
+		{
+			joint->linearVelocityImpulse = b2Normalize( joint->linearVelocityImpulse );
+			joint->linearVelocityImpulse.x *= maxImpulse;
+			joint->linearVelocityImpulse.y *= maxImpulse;
+		}
+
+		impulse = b2Sub( joint->linearVelocityImpulse, oldImpulse );
+
+		vA = b2MulSub( vA, mA, impulse );
+		wA -= iA * b2Cross( rA, impulse );
+		vB = b2MulAdd( vB, mB, impulse );
+		wB += iB * b2Cross( rB, impulse );
+	}
+
+	if ( stateA->flags & b2_dynamicFlag )
+	{
+		stateA->linearVelocity = vA;
+		stateA->angularVelocity = wA;
+	}
+
+	if ( stateB->flags & b2_dynamicFlag )
+	{
+		stateB->linearVelocity = vB;
+		stateB->angularVelocity = wB;
+	}
+}
+
+void b2MotorJoint_SetLinearVelocity( b2JointId jointId, b2Vec2 velocity )
+{
+	if (!(b2IsValidVec2( velocity ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.linearVelocity = velocity;
+}
+
+b2Vec2 b2MotorJoint_GetLinearVelocity( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.linearVelocity;
+}
+
+void b2MotorJoint_SetAngularVelocity( b2JointId jointId, float velocity )
+{
+	if (!(b2IsValidFloat( velocity ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.angularVelocity = velocity;
+}
+
+float b2MotorJoint_GetAngularVelocity( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.angularVelocity;
+}
+
+void b2MotorJoint_SetMaxVelocityTorque( b2JointId jointId, float maxTorque )
+{
+	if (!(b2IsValidFloat( maxTorque ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.maxVelocityTorque = maxTorque;
+}
+
+float b2MotorJoint_GetMaxVelocityTorque( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.maxVelocityTorque;
+}
+
+void b2MotorJoint_SetMaxVelocityForce( b2JointId jointId, float maxForce )
+{
+	if (!(b2IsValidFloat( maxForce ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.maxVelocityForce = maxForce;
+}
+
+float b2MotorJoint_GetMaxVelocityForce( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.maxVelocityForce;
+}
