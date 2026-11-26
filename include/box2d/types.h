@@ -280,6 +280,10 @@ typedef struct b2SensorEvents
 } b2SensorEvents;
 B2_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
 B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
+B2_API void b2Shape_EnableSensorEvents(b2ShapeId shapeId,bool flag);
+B2_API bool b2Shape_AreSensorEventsEnabled(b2ShapeId shapeId);
+B2_API int b2Shape_GetSensorCapacity(b2ShapeId shapeId);
+B2_API int b2Shape_GetSensorData(b2ShapeId shapeId,b2ShapeId* visitorIds,int capacity);
 typedef struct b2ContactBeginTouchEvent
 {
 	/// 第一个形状的 id

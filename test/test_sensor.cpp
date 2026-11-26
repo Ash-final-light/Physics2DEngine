@@ -47,3 +47,30 @@ int SensorOverlapEventsTest(void)
     }
     return 0;
 }
+
+int SensorEventOptionsDataTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+id.index1-1;b2BodyDef bd=b2DefaultBodyDef();b2BodyId fixed=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();sd.isSensor=true;sd.enableSensorEvents=true;b2Circle c={{0,0},2};b2ShapeId sensor=b2CreateCircleShape(fixed,&sd,&c);
+    bd.type=b2_dynamicBody;b2BodyId body=b2CreateBody(id,&bd);sd.isSensor=false;c.radius=0.5f;b2ShapeId a=b2CreateCircleShape(body,&sd,&c);
+    c.center={0.5f,0};b2ShapeId b=b2CreateCircleShape(body,&sd,&c);b2World_Step(id,0.01f,1);
+    ENSURE(b2Shape_GetSensorCapacity(sensor)==2 && b2World_GetSensorEvents(id).beginCount==2);
+    b2ShapeId output[2];ENSURE(b2Shape_GetSensorData(sensor,output,1)==1 && output[0].index1==a.index1);
+    ENSURE(b2Shape_GetSensorData(sensor,output,2)==2 && output[1].index1==b.index1);
+    ENSURE(b2Shape_IsValid(output[0]) && b2Shape_IsValid(output[1]));
+    ENSURE(b2Shape_GetSensorCapacity(a)==0 && b2Shape_GetSensorData(a,output,2)==0);
+    world->locked=true;b2Shape_EnableSensorEvents(sensor,false);ENSURE(b2Shape_GetSensorCapacity(sensor)==0 && b2Shape_GetSensorData(sensor,output,2)==0);world->locked=false;
+    ENSURE(b2Shape_AreSensorEventsEnabled(sensor));
+    b2Shape_EnableSensorEvents(a,false);b2World_Step(id,0.01f,1);
+    ENSURE(b2World_GetSensorEvents(id).endCount==1 && b2Shape_GetSensorCapacity(sensor)==1);
+    b2Shape_EnableSensorEvents(sensor,false);b2World_Step(id,0.01f,1);
+    ENSURE(b2World_GetSensorEvents(id).endCount==1 && b2Shape_GetSensorCapacity(sensor)==0);
+    b2Shape_EnableSensorEvents(a,true);b2Shape_EnableSensorEvents(sensor,true);b2World_Step(id,0.01f,1);ENSURE(b2World_GetSensorEvents(id).beginCount==2);
+    b2Body_EnableContactEvents(body,true);b2Body_EnableHitEvents(body,true);
+    ENSURE(b2Shape_AreContactEventsEnabled(a) && b2Shape_AreHitEventsEnabled(b) && b2Shape_AreSensorEventsEnabled(a));
+    b2Body_Disable(body);b2World_Step(id,0.01f,1);ENSURE(b2World_GetSensorEvents(id).endCount==2 && b2Shape_GetSensorCapacity(sensor)==0);
+    b2Body_Enable(body);b2World_Step(id,0.01f,1);ENSURE(b2World_GetSensorEvents(id).beginCount==2);
+    ENSURE(b2World_GetContactEvents(id).beginCount==0 && b2World_GetContactEvents(id).hitCount==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

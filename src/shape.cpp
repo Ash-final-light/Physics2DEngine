@@ -1018,3 +1018,29 @@ bool b2Shape_IsSensor(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->sensorIndex!=B2_NULL_INDEX;
 }
+
+void b2Shape_EnableSensorEvents(b2ShapeId id,bool flag)
+{
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->enableSensorEvents=flag;
+}
+
+bool b2Shape_AreSensorEventsEnabled(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->enableSensorEvents;
+}
+
+int b2Shape_GetSensorCapacity(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);if(shape==NULL || shape->sensorIndex==B2_NULL_INDEX || b2_worlds[id.world0].locked) { return 0; }
+    return b2_worlds[id.world0].sensors.data[shape->sensorIndex].overlaps2.count;
+}
+
+int b2Shape_GetSensorData(b2ShapeId id,b2ShapeId* output,int capacity)
+{
+    b2Shape* shape=b2GetShapeFromId(id);
+    if(shape==NULL || shape->sensorIndex==B2_NULL_INDEX || b2_worlds[id.world0].locked || output==NULL || capacity<=0) { return 0; }
+    const b2Sensor* sensor=b2_worlds[id.world0].sensors.data+shape->sensorIndex;
+    int count=b2MinInt(sensor->overlaps2.count,capacity);
+    for(int i=0;i<count;++i) { output[i]={sensor->overlaps2.data[i].shapeId+1,id.world0,sensor->overlaps2.data[i].generation}; }
+    return count;
+}
