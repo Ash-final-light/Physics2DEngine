@@ -319,3 +319,51 @@ int WorldSnapshotRestoreInvalidTest(void)
  ENSURE(b2World_GetStateHash(id)==hash);
  free(image);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldSnapshotFormatValidationTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ int size=b2World_GetSnapshot(id,nullptr,0);auto image=(uint8_t*)malloc(size);ENSURE(image!=nullptr);
+ b2World_GetSnapshot(id,image,size);SnapshotImageHeader good;memcpy(&good,image,sizeof(good));
+ uint64_t hash=b2World_GetStateHash(id);
+ for(int field=0;field<4;++field)
+ {
+  SnapshotImageHeader bad=good;
+  if(field==0) { bad.magic^=1; }if(field==1) { bad.version+=1; }
+  if(field==2) { bad.layoutHash^=1; }if(field==3) { bad.flags^=2; }
+  memcpy(image,&bad,sizeof(bad));size_t bytes=b2GetByteCount();
+  ENSURE(!b2World_IsValid(b2CreateWorldFromSnapshot(image,size,1)));
+  ENSURE(!b2World_RestoreFromSnapshot(id,image,size));
+  ENSURE(b2World_GetStateHash(id)==hash && b2GetByteCount()==bytes);
+ }
+ memcpy(image,&good,sizeof(good));ENSURE(!b2World_IsValid(b2CreateWorldFromSnapshot(nullptr,size,1)));
+ ENSURE(!b2World_IsValid(b2CreateWorldFromSnapshot(image,-1,1)));
+ b2WorldId valid=b2CreateWorldFromSnapshot(image,size,2);ENSURE(b2World_IsValid(valid));
+ b2World_Step(valid,1.0f/60,4);b2DestroyWorld(valid);
+ free(image);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+int WorldSnapshotTruncatedInputTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ int size=b2World_GetSnapshot(id,nullptr,0);auto image=(uint8_t*)malloc(size);ENSURE(image!=nullptr);
+ b2World_GetSnapshot(id,image,size);size_t baseline=b2GetByteCount();
+ for(int length=0;length<size;++length)
+ {
+  ENSURE(!b2World_IsValid(b2CreateWorldFromSnapshot(image,length,1)));
+  ENSURE(b2GetByteCount()==baseline);
+ }
+ // 首个 id 池的 freeArray 计数紧随其 nextIndex；使用保存端的字段边界定位。
+ int configBytes=sizeof(b2Vec2)+9*sizeof(float)+sizeof(uint64_t)+3*sizeof(int32_t)+sizeof(b2Capacity)+sizeof(uint8_t);
+ int countOffset=(int)sizeof(SnapshotImageHeader)+configBytes+sizeof(int32_t);
+ int32_t original;memcpy(&original,image+countOffset,sizeof(original));ENSURE(original==0);
+ int32_t invalidCounts[]={INT32_MAX,-1};
+ for(int32_t count:invalidCounts)
+ {
+  memcpy(image+countOffset,&count,sizeof(count));
+  ENSURE(!b2World_IsValid(b2CreateWorldFromSnapshot(image,size,1)));
+  ENSURE(b2GetByteCount()==baseline);
+ }
+ memcpy(image+countOffset,&original,sizeof(original));
+ b2WorldId valid=b2CreateWorldFromSnapshot(image,size,1);ENSURE(b2World_IsValid(valid));b2DestroyWorld(valid);
+ free(image);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
