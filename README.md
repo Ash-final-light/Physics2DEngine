@@ -190,3 +190,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 距离关节定义通过 `b2DefaultDistanceJointDef` 初始化。通用局部参考系从刚体原点测量；形状质量分布和质心变化不改变这一坐标约定。
 
 关节连接参与持久岛、约束图着色和求解器集合管理。休眠及唤醒保留关节记录；禁用、启用和修改刚体类型会重新组织连接，静态刚体不桥接独立岛。
+
+`b2CreateDistanceJoint` 创建两侧局部锚点之间的刚性距离约束，支持查询当前长度、调整静止长度，并参与每个子步的热启动和约束求解。创建时可选择连接刚体是否碰撞。

@@ -42,3 +42,6 @@ void b2PushNormalContacts(b2StepContext* context);
 void b2WarmStartContacts(b2StepContext* context);
 void b2ApplyContactRestitution(b2StepContext* context);
 void b2StoreContactImpulses(b2StepContext* context);
+
+void b2WarmStartContactColor(b2StepContext* context,int colorIndex);
+void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias);

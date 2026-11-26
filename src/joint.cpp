@@ -263,6 +263,7 @@ b2JointId b2CreateJointRecord(b2World* world,b2BodyId a,b2BodyId b)
  if(world==nullptr || world->locked || a.world0!=world->worldId || b.world0!=world->worldId || a.index1==b.index1 || !b2Body_IsValid(a) || !b2Body_IsValid(b)) { return b2_nullJointId; }
  b2JointDef def=b2DefaultJointDef();def.bodyIdA=a;def.bodyIdB=b;
  b2JointPair pair=b2CreateJoint(world,&def,b2_distanceJoint);
+ pair.jointSim->distanceJoint.length=1.0f;
  return b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
 }
 void b2DestroyJointInternal( b2World* world, b2Joint* joint )
@@ -429,4 +430,65 @@ void b2RelinkBodyJoints(b2World* world,b2Body* body)
   b2TransferJoint(world,world->solverSets.data+target,world->solverSets.data+joint->setIndex,joint);
   if(target==b2_awakeSet) { b2LinkJoint(world,joint); }
  }
+}
+
+b2JointSim* b2GetJointSimCheckType(b2JointId id,b2JointType type)
+{
+ B2_ASSERT(b2Joint_IsValid(id));b2World* world=b2_worlds+id.world0;B2_ASSERT(!world->locked);
+ if(world->locked) { return nullptr; }b2Joint* joint=b2GetJointFullId(world,id);B2_ASSERT(joint->type==type);return b2GetJointSim(world,joint);
+}
+b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def)
+{
+ B2_CHECK_DEF(def);
+ if(!b2World_IsValid(worldId) || !b2IsValidFloat(def->length) || def->length<=0 || !b2IsValidTransform(def->base.localFrameA) || !b2IsValidTransform(def->base.localFrameB) || !b2IsValidFloat(def->base.constraintHertz) || def->base.constraintHertz<0 || !b2IsValidFloat(def->base.constraintDampingRatio) || def->base.constraintDampingRatio<0 || !b2IsValidFloat(def->base.drawScale)) { return b2_nullJointId; }
+ b2World* world=b2_worlds+worldId.index1-1;const b2JointDef* base=&def->base;
+ if(!world->inUse || world->locked || base->bodyIdA.world0!=world->worldId || base->bodyIdB.world0!=world->worldId || base->bodyIdA.index1==base->bodyIdB.index1 || !b2Body_IsValid(base->bodyIdA) || !b2Body_IsValid(base->bodyIdB)) { return b2_nullJointId; }
+ b2JointPair pair=b2CreateJoint(world,base,b2_distanceJoint);pair.jointSim->distanceJoint={};pair.jointSim->distanceJoint.length=b2MaxFloat(def->length,B2_LINEAR_SLOP);
+ return b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
+}
+b2JointType b2Joint_GetType(b2JointId id) { return b2GetJointFullId(b2_worlds+id.world0,id)->type; }
+b2Transform b2Joint_GetLocalFrameA(b2JointId id) { return b2GetJointSim(b2_worlds+id.world0,b2GetJointFullId(b2_worlds+id.world0,id))->localFrameA; }
+b2Transform b2Joint_GetLocalFrameB(b2JointId id) { return b2GetJointSim(b2_worlds+id.world0,b2GetJointFullId(b2_worlds+id.world0,id))->localFrameB; }
+
+void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
+{
+	// 按时间步钳制关节 hertz 以减少抖动。
+	float hertz = b2MinFloat( joint->constraintHertz, 0.25f * context->inv_h );
+	joint->constraintSoftness = b2MakeSoft( hertz, joint->constraintDampingRatio, context->h );
+
+	switch ( joint->type )
+	{
+		case b2_distanceJoint:
+			b2PrepareDistanceJoint( joint, context );
+			break;
+
+		default:
+			B2_ASSERT( false );
+	}
+}
+
+void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
+{
+	switch ( joint->type )
+	{
+		case b2_distanceJoint:
+			b2WarmStartDistanceJoint( joint, context );
+			break;
+
+		default:
+			B2_ASSERT( false );
+	}
+}
+
+void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
+{
+	switch ( joint->type )
+	{
+		case b2_distanceJoint:
+			b2SolveDistanceJoint( joint, context, useBias );
+			break;
+
+		default:
+			B2_ASSERT( false );
+	}
 }

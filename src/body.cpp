@@ -1087,3 +1087,41 @@ int b2Body_GetJoints( b2BodyId bodyId, b2JointId* jointArray, int capacity )
 
 	return jointCount;
 }
+
+bool b2ShouldBodiesCollide( b2World* world, b2Body* bodyA, b2Body* bodyB )
+{
+	if ( bodyA->type != b2_dynamicBody && bodyB->type != b2_dynamicBody )
+	{
+		return false;
+	}
+
+	int jointKey;
+	int otherBodyId;
+	if ( bodyA->jointCount < bodyB->jointCount )
+	{
+		jointKey = bodyA->headJointKey;
+		otherBodyId = bodyB->id;
+	}
+	else
+	{
+		jointKey = bodyB->headJointKey;
+		otherBodyId = bodyA->id;
+	}
+
+	while ( jointKey != B2_NULL_INDEX )
+	{
+		int jointId = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
+		int otherEdgeIndex = edgeIndex ^ 1;
+
+		b2Joint* joint = b2Array_Get( world->joints, jointId );
+		if ( joint->collideConnected == false && joint->edges[otherEdgeIndex].bodyId == otherBodyId )
+		{
+			return false;
+		}
+
+		jointKey = joint->edges[edgeIndex].nextKey;
+	}
+
+	return true;
+}

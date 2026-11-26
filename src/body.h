@@ -224,3 +224,5 @@ static inline b2Sweep b2MakeRelativeSweep( const b2BodySim* bodySim, b2Pos base 
 	s.localCenter = bodySim->localCenter;
 	return s;
 }
+
+bool b2ShouldBodiesCollide(b2World* world,b2Body* bodyA,b2Body* bodyB);

@@ -92,7 +92,7 @@ void b2ReleaseContactConstraints(b2StepContext* context)
     }
 }
 
-static void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
+void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
 {
     b2GraphColor* color=context->graph->colors+colorIndex;
     b2BodyState* states=context->states;
@@ -214,34 +214,35 @@ void b2PushNormalContacts(b2StepContext* context)
     for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i,true); }
 }
 
-void b2WarmStartContacts(b2StepContext* context)
+void b2WarmStartContactColor(b2StepContext* context,int c)
 {
     b2BodyState dummyState=b2_identityBodyState;
-    for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
+    b2GraphColor* color=context->graph->colors+c;
+    for(int i=0;i<color->contactSims.count;++i)
     {
-        int c=order==0?B2_OVERFLOW_INDEX:order-1;
-        b2GraphColor* color=context->graph->colors+c;
-        for(int i=0;i<color->contactSims.count;++i)
+        b2ContactConstraint* constraint=color->overflowConstraints+i;
+        int indexA=constraint->indexA-1,indexB=constraint->indexB-1;
+        b2BodyState* stateA=indexA==B2_NULL_INDEX?&dummyState:context->states+indexA;
+        b2BodyState* stateB=indexB==B2_NULL_INDEX?&dummyState:context->states+indexB;
+        b2Vec2 vA=stateA->linearVelocity,vB=stateB->linearVelocity;
+        float wA=stateA->angularVelocity,wB=stateB->angularVelocity;
+        for(int j=0;j<constraint->pointCount;++j)
         {
-            b2ContactConstraint* constraint=color->overflowConstraints+i;
-            int indexA=constraint->indexA-1,indexB=constraint->indexB-1;
-            b2BodyState* stateA=indexA==B2_NULL_INDEX?&dummyState:context->states+indexA;
-            b2BodyState* stateB=indexB==B2_NULL_INDEX?&dummyState:context->states+indexB;
-            b2Vec2 vA=stateA->linearVelocity,vB=stateB->linearVelocity;
-            float wA=stateA->angularVelocity,wB=stateB->angularVelocity;
-            for(int j=0;j<constraint->pointCount;++j)
-            {
-                b2ContactConstraintPoint* cp=constraint->points+j;
-                b2Vec2 P=b2Add(b2MulSV(cp->normalImpulse,constraint->normal),b2MulSV(cp->tangentImpulse,b2RightPerp(constraint->normal)));
-                cp->totalNormalImpulse+=cp->normalImpulse;
-                wA-=constraint->invIA*b2Cross(cp->anchorA,P);vA=b2MulAdd(vA,-constraint->invMassA,P);
-                wB+=constraint->invIB*b2Cross(cp->anchorB,P);vB=b2MulAdd(vB,constraint->invMassB,P);
-            }
-            wA-=constraint->invIA*constraint->rollingImpulse;wB+=constraint->invIB*constraint->rollingImpulse;
-            if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
-            if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
+            b2ContactConstraintPoint* cp=constraint->points+j;
+            b2Vec2 P=b2Add(b2MulSV(cp->normalImpulse,constraint->normal),b2MulSV(cp->tangentImpulse,b2RightPerp(constraint->normal)));
+            cp->totalNormalImpulse+=cp->normalImpulse;
+            wA-=constraint->invIA*b2Cross(cp->anchorA,P);vA=b2MulAdd(vA,-constraint->invMassA,P);
+            wB+=constraint->invIB*b2Cross(cp->anchorB,P);vB=b2MulAdd(vB,constraint->invMassB,P);
         }
+        wA-=constraint->invIA*constraint->rollingImpulse;wB+=constraint->invIB*constraint->rollingImpulse;
+        if(stateA->flags&b2_dynamicFlag) { stateA->linearVelocity=vA;stateA->angularVelocity=wA; }
+        if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
     }
+}
+
+void b2WarmStartContacts(b2StepContext* context)
+{
+ for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order) { b2WarmStartContactColor(context,order==0?B2_OVERFLOW_INDEX:order-1); }
 }
 
 static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )

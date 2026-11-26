@@ -141,6 +141,7 @@ static void b2FlushCandidatePairs( b2PairContext* context )
         {
             continue;
         }
+        if(!b2ShouldBodiesCollide(context->world,context->world->bodies.data+a->bodyId,context->world->bodies.data+b->bodyId)) { continue; }
         // This is the support pattern of the reference contact registry.
         // Edge-edge pairs have no manifold function.
         if ( b2CanCollide(a->type,b->type) == false )

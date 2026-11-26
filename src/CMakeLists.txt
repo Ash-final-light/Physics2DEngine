@@ -1,4 +1,5 @@
 add_library(box2d
+	distance_joint.cpp
 	joint.cpp
 	mover.cpp
 	sensor.cpp

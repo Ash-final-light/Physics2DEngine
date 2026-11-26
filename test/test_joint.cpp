@@ -49,3 +49,26 @@ int JointOrganizationTest(void)
  b2DestroyJoint(de);b2SplitContactIslands(world);ENSURE(b2GetBodyFullId(world,d)->islandId!=b2GetBodyFullId(world,e)->islandId);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int DistanceJointBasicTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};b2BodyId anchor=b2CreateBody(id,&bd);
+ bd.type=b2_dynamicBody;bd.position={100,196};bd.enableSleep=false;b2BodyId bob=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.25f};b2CreateCircleShape(bob,&sd,&c);
+ int tag=17;b2DistanceJointDef def=b2DefaultDistanceJointDef();def.base.bodyIdA=anchor;def.base.bodyIdB=bob;def.base.userData=&tag;def.length=2;b2JointId joint=b2CreateDistanceJoint(id,&def);
+ ENSURE(b2Joint_IsValid(joint) && b2Joint_GetType(joint)==b2_distanceJoint && b2Joint_GetUserData(joint)==&tag);ENSURE(b2DistanceJoint_GetRestLength(joint)==2 && b2DistanceJoint_GetCurrentLength(joint)==4);
+ ENSURE(b2Joint_GetLocalFrameA(joint).q.c==1 && b2Joint_GetLocalFrameB(joint).p.y==0);
+ for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-2,0.02f);ENSURE_SMALL(b2Body_GetPosition(bob).y-198,0.02f);
+ b2DistanceJoint_SetRestLength(joint,1.5f);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1.5f,0.02f);ENSURE(b2World_GetMaxCapacity(id).jointCount==1);
+ b2Body_SetType(anchor,b2_kinematicBody);b2Body_SetLinearVelocity(anchor,{1,0});for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1.5f,0.03f);
+ b2World* world=b2_worlds+id.index1-1;b2JointSim* sim=b2GetJointSim(world,b2GetJointFullId(world,joint));sim->distanceJoint.impulse=10;b2World_EnableWarmStarting(id,false);b2StepContext context={world,&world->constraintGraph,world->solverSets.data[b2_awakeSet].bodyStates.data,1.0f/60,60};b2PrepareJoint(sim,&context);ENSURE(sim->distanceJoint.impulse==0);
+ b2DestroyJoint(joint);float y=b2Body_GetPosition(bob).y;for(int i=0;i<10;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2Body_GetPosition(bob).y<y-0.05f);b2DestroyWorld(id);
+ wd.gravity=b2Vec2_zero;id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={10,0};b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={13,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);b2Body_SetLinearVelocity(a,{-1,0});b2Body_SetLinearVelocity(b,{1,0});
+ def=b2DefaultDistanceJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=2;joint=b2CreateDistanceJoint(id,&def);
+ for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-2,0.005f);ENSURE_SMALL(b2Body_GetPosition(a).x+b2Body_GetPosition(b).x-23,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(a).x+b2Body_GetLinearVelocity(b).x,0.0001f);
+ b2DestroyWorld(id);
+ id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={0,0};a=b2CreateBody(id,&bd);c.radius=1;b2CreateCircleShape(a,&sd,&c);bd.position={1,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);b2World_Step(id,0.01f,1);ENSURE(b2Body_GetContactCapacity(a)>0);
+ def=b2DefaultDistanceJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=1;joint=b2CreateDistanceJoint(id,&def);ENSURE(b2Body_GetContactCapacity(a)==0);b2World_Step(id,0.01f,1);ENSURE(b2Body_GetContactCapacity(a)==0);
+ def.length=0;ENSURE(b2CreateDistanceJoint(id,&def).index1==0);b2DestroyJoint(joint);def.length=1;def.base.collideConnected=true;def.base.localFrameA.p={0,0.5f};def.base.localFrameB.p={0,-0.5f};joint=b2CreateDistanceJoint(id,&def);ENSURE(b2Joint_GetLocalFrameA(joint).p.y==0.5f && b2Joint_GetLocalFrameB(joint).p.y==-0.5f);
+ for(int i=0;i<30;++i) { b2World_Step(id,0.01f,4); }ENSURE(b2IsValidFloat(b2DistanceJoint_GetCurrentLength(joint)));
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

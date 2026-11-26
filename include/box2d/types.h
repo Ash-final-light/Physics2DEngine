@@ -940,3 +940,11 @@ typedef struct b2DistanceJointDef
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
 typedef enum b2JointType { b2_distanceJoint } b2JointType;
+
+B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
+B2_API b2JointType b2Joint_GetType(b2JointId jointId);
+B2_API b2Transform b2Joint_GetLocalFrameA(b2JointId jointId);
+B2_API b2Transform b2Joint_GetLocalFrameB(b2JointId jointId);
+B2_API void b2DistanceJoint_SetRestLength(b2JointId jointId,float length);
+B2_API float b2DistanceJoint_GetRestLength(b2JointId jointId);
+B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);

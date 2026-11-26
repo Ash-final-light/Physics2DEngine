@@ -50,6 +50,14 @@ typedef struct b2Joint
 
 } b2Joint;
 
+struct b2DistanceJoint
+{
+ float length;
+ float impulse;
+ int indexA,indexB;
+ b2Vec2 anchorA,anchorB,deltaCenter;
+ float axialMass;
+};
 typedef struct b2JointSim
 {
 	int jointId;
@@ -69,6 +77,7 @@ typedef struct b2JointSim
 	float constraintDampingRatio;
 
 	b2Softness constraintSoftness;
+	union { b2DistanceJoint distanceJoint; };
 
 } b2JointSim;
 b2Joint* b2GetJointFullId(b2World* world,b2JointId id);
@@ -77,3 +86,11 @@ b2JointId b2CreateJointRecord(b2World* world,b2BodyId bodyIdA,b2BodyId bodyIdB);
 void b2DestroyJointInternal(b2World* world,b2Joint* joint);
 void b2UnlinkBodyJoints(b2World* world,b2Body* body);
 void b2RelinkBodyJoints(b2World* world,b2Body* body);
+
+b2JointSim* b2GetJointSimCheckType(b2JointId id,b2JointType type);
+void b2PrepareJoint(b2JointSim* joint,b2StepContext* context);
+void b2WarmStartJoint(b2JointSim* joint,b2StepContext* context);
+void b2SolveJoint(b2JointSim* joint,b2StepContext* context,bool useBias);
+void b2PrepareDistanceJoint(b2JointSim* joint,b2StepContext* context);
+void b2WarmStartDistanceJoint(b2JointSim* joint,b2StepContext* context);
+void b2SolveDistanceJoint(b2JointSim* joint,b2StepContext* context,bool useBias);

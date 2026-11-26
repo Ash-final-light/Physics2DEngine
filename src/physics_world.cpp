@@ -457,7 +457,6 @@ void b2World_DumpMemoryStats(b2WorldId id)
     int bitBytes=0,graphBytes=0;
     for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
     { bitBytes+=b2GetBitSetBytes(&world->constraintGraph.colors[i].bodySet);graphBytes+=b2Array_ByteCount(world->constraintGraph.colors[i].contactSims)+b2Array_ByteCount(world->constraintGraph.colors[i].jointSims); }
-    b2WriteMemoryStat(file,"joint sims",jointBytes,&total);
     fprintf(file,"\nconstraint graph\n");b2WriteMemoryStat(file,"body bit sets",bitBytes,&total);b2WriteMemoryStat(file,"contact sim",graphBytes,&total);
     fprintf(file,"\n");b2WriteMemoryStat(file,"stack allocator",world->stack.capacity,&total);
     fprintf(file,"\nevents\n");b2WriteMemoryStat(file,"body moves",b2Array_ByteCount(world->bodyMoveEvents),&total);

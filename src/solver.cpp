@@ -38,6 +38,7 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     b2Body* body=world->bodies.data+shape->bodyId;
     B2_ASSERT(body->type==b2_staticBody || (fastBodySim->flags&b2_isBullet));
     if(body->flags&b2_isBullet) { return true; }
+    if(!b2ShouldBodiesCollide(world,world->bodies.data+fastBodySim->bodyId,body)) { return true; }
     b2BodySim* bodySim=b2GetBodySim(world,body);
     if((shape->enableCustomFiltering || fastShape->enableCustomFiltering) && world->customFilterFcn!=NULL)
     {
@@ -192,6 +193,24 @@ static void b2ReportHitEvents(b2World* world)
     }
 }
 
+static void b2WarmStartConstraints(b2StepContext* context)
+{
+ for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
+ {
+  int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;b2GraphColor* color=context->graph->colors+colorIndex;
+  for(int i=0;i<color->jointSims.count;++i) { b2WarmStartJoint(color->jointSims.data+i,context); }
+  b2WarmStartContactColor(context,colorIndex);
+ }
+}
+static void b2SolveConstraints(b2StepContext* context,bool useBias)
+{
+ for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
+ {
+  int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;b2GraphColor* color=context->graph->colors+colorIndex;
+  for(int i=0;i<color->jointSims.count;++i) { b2SolveJoint(color->jointSims.data+i,context,useBias); }
+  b2SolveNormalColor(context,colorIndex,useBias);
+ }
+}
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
 {
     uint64_t ticks=b2GetTicks();
@@ -201,6 +220,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
     b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
     world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
+    for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c) { b2GraphColor* color=world->constraintGraph.colors+c;for(int i=0;i<color->jointSims.count;++i) { b2PrepareJoint(color->jointSims.data+i,&context); } }
     b2PrepareContactConstraints(&context);
     world->profile.prepareConstraints=b2GetMillisecondsAndReset(&ticks);
     uint64_t constraintTicks=b2GetTicks();
@@ -209,9 +229,9 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         for(int i=0;i<set->bodySims.count;++i)
         { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
         world->profile.integrateVelocities+=b2GetMillisecondsAndReset(&ticks);
-        b2WarmStartContacts(&context);
+        b2WarmStartConstraints(&context);
         world->profile.warmStart+=b2GetMillisecondsAndReset(&ticks);
-        b2PushNormalContacts(&context);
+        b2SolveConstraints(&context,true);
         world->profile.solveImpulses+=b2GetMillisecondsAndReset(&ticks);
         for(int i=0;i<set->bodySims.count;++i)
         {
@@ -236,7 +256,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
         }
         world->profile.integratePositions+=b2GetMillisecondsAndReset(&ticks);
-        b2SolveNormalContacts(&context);
+        b2SolveConstraints(&context,false);
         world->profile.relaxImpulses+=b2GetMillisecondsAndReset(&ticks);
     }
     world->profile.constraints=b2GetMilliseconds(constraintTicks);
