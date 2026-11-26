@@ -12,6 +12,7 @@
 #include "container.h"
 #include "id_pool.h"
 #include "shape.h"
+#include "joint.h"
 #include "sensor.h"
 
 #include "box2d/constants.h"
@@ -76,6 +77,8 @@ struct b2World
 	b2IdPool shapeIdPool;
 	b2DynamicArray<b2Shape> shapes;
 	b2DynamicArray<b2AABB> fatAABBs;
+	b2IdPool jointIdPool;
+	b2DynamicArray<b2Joint> joints;
 	b2IdPool chainIdPool;
 	b2DynamicArray<b2ChainShape> chainShapes;
 };

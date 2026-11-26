@@ -148,6 +148,7 @@ void b2DestroyBody( b2BodyId bodyId )
 	}
 
 
+    while(body->headJointKey!=B2_NULL_INDEX) { b2DestroyJointInternal(world,world->joints.data+(body->headJointKey>>1)); }
     b2DestroyBodyContacts( world, body );
     while ( body->headChainId != B2_NULL_INDEX )
     {
@@ -1051,4 +1052,35 @@ void b2Body_EnableHitEvents(b2BodyId id,bool flag)
     if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { world->shapes.data[shapeId].enableHitEvents=flag; }
+}
+
+int b2Body_GetJointCount( b2BodyId bodyId )
+{
+	b2World* world = b2_worlds + bodyId.world0;
+	b2Body* body = b2GetBodyFullId( world, bodyId );
+	return body->jointCount;
+}
+
+int b2Body_GetJoints( b2BodyId bodyId, b2JointId* jointArray, int capacity )
+{
+	b2World* world = b2_worlds + bodyId.world0;
+	b2Body* body = b2GetBodyFullId( world, bodyId );
+	int jointKey = body->headJointKey;
+
+	int jointCount = 0;
+	while ( jointKey != B2_NULL_INDEX && jointCount < capacity )
+	{
+		int jointId = jointKey >> 1;
+		int edgeIndex = jointKey & 1;
+
+		b2Joint* joint = b2Array_Get( world->joints, jointId );
+
+		b2JointId id = { jointId + 1, bodyId.world0, joint->generation };
+		jointArray[jointCount] = id;
+		jointCount += 1;
+
+		jointKey = joint->edges[edgeIndex].nextKey;
+	}
+
+	return jointCount;
 }

@@ -50,3 +50,11 @@ typedef struct b2ContactId
 } b2ContactId;
 
 static const b2ContactId b2_nullContactId = {};
+
+typedef struct b2JointId
+{
+ int32_t index1;
+ uint16_t world0;
+ uint16_t generation;
+} b2JointId;
+static const b2JointId b2_nullJointId = {};

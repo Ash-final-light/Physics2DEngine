@@ -131,6 +131,7 @@ int WorldMoverPlanesTest( void );
 int WorldBoundsTest( void );
 int WorldDebugDrawTest( void );
 int WorldStaticTreeRebuildTest( void );
+int JointLifecycleTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -999,6 +1000,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"WorldDebugDrawTest")==0) { ran=1; RUN_TEST(WorldDebugDrawTest); }
 
 	if(filter==NULL || strcmp(filter,"WorldStaticTreeRebuildTest")==0) { ran=1; RUN_TEST(WorldStaticTreeRebuildTest); }
+
+	if(filter==NULL || strcmp(filter,"JointLifecycleTest")==0) { ran=1; RUN_TEST(JointLifecycleTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

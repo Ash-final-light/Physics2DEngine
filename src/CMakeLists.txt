@@ -1,4 +1,5 @@
 add_library(box2d
+	joint.cpp
 	mover.cpp
 	sensor.cpp
 	contact_solver.cpp

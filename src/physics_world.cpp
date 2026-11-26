@@ -74,6 +74,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->shapeIdPool = b2CreateIdPool();
 	b2Array_Create( world->shapes );
 	b2Array_Create( world->fatAABBs );
+	world->jointIdPool=b2CreateIdPool();b2Array_Create(world->joints);
 	world->chainIdPool = b2CreateIdPool();
 	b2Array_Create( world->chainShapes );
 	b2CreateBroadPhase( &world->broadPhase, &def->capacity );
@@ -137,6 +138,7 @@ void b2DestroyWorld( b2WorldId worldId )
         b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
     }
     b2Array_Destroy( world->chainShapes );
+    b2Array_Destroy(world->joints);b2DestroyIdPool(&world->jointIdPool);
     b2DestroyIdPool( &world->chainIdPool );
 	b2Array_Destroy( world->shapes );
 	b2Array_Destroy( world->fatAABBs );
@@ -376,6 +378,7 @@ b2Counters b2World_GetCounters(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);b2Counters counters={};if(world==NULL) { return counters; }
     counters.bodyCount=b2GetIdCount(&world->bodyIdPool);counters.shapeCount=b2GetIdCount(&world->shapeIdPool);
+    counters.jointCount=b2GetIdCount(&world->jointIdPool);
     counters.contactCount=b2GetIdCount(&world->contactIdPool);counters.islandCount=b2GetIdCount(&world->islandIdPool);
     counters.staticTreeHeight=b2DynamicTree_GetHeight(world->broadPhase.trees+b2_staticBody);
     counters.treeHeight=b2MaxInt(b2DynamicTree_GetHeight(world->broadPhase.trees+b2_dynamicBody),b2DynamicTree_GetHeight(world->broadPhase.trees+b2_kinematicBody));
@@ -417,7 +420,9 @@ void b2World_DumpMemoryStats(b2WorldId id)
     b2WriteMemoryStat(file,"island ids",b2GetIdBytes(&world->islandIdPool),&total);
     b2WriteMemoryStat(file,"shape ids",b2GetIdBytes(&world->shapeIdPool),&total);
     b2WriteMemoryStat(file,"chain ids",b2GetIdBytes(&world->chainIdPool),&total);
+    b2WriteMemoryStat(file,"joint ids",b2GetIdBytes(&world->jointIdPool),&total);
     fprintf(file,"\nworld arrays\n");
+    b2WriteMemoryStat(file,"joints",b2Array_ByteCount(world->joints),&total);
     b2WriteMemoryStat(file,"bodies",b2Array_ByteCount(world->bodies),&total);
     b2WriteMemoryStat(file,"solver sets",b2Array_ByteCount(world->solverSets),&total);
     b2WriteMemoryStat(file,"contacts",b2Array_ByteCount(world->contacts),&total);

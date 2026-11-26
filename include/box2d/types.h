@@ -886,3 +886,13 @@ B2_API b2DebugDraw b2DefaultDebugDraw( void );
 B2_API void b2World_Draw(b2WorldId worldId,b2DebugDraw* draw);
 
 B2_API void b2World_RebuildStaticTree(b2WorldId worldId);
+
+B2_API bool b2Joint_IsValid(b2JointId jointId);
+B2_API void b2DestroyJoint(b2JointId jointId);
+B2_API b2WorldId b2Joint_GetWorld(b2JointId jointId);
+B2_API b2BodyId b2Joint_GetBodyA(b2JointId jointId);
+B2_API b2BodyId b2Joint_GetBodyB(b2JointId jointId);
+B2_API void b2Joint_SetUserData(b2JointId jointId,void* userData);
+B2_API void* b2Joint_GetUserData(b2JointId jointId);
+B2_API int b2Body_GetJointCount(b2BodyId bodyId);
+B2_API int b2Body_GetJoints(b2BodyId bodyId,b2JointId* jointArray,int capacity);
