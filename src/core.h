@@ -69,6 +69,12 @@ void b2DestroyMutex( b2Mutex* m );
 void b2LockMutex( b2Mutex* m );
 void b2UnlockMutex( b2Mutex* m );
 
+typedef struct b2Semaphore b2Semaphore;
+b2Semaphore* b2CreateSemaphore( int initCount );
+void b2DestroySemaphore( b2Semaphore* s );
+void b2WaitSemaphore( b2Semaphore* s );
+void b2SignalSemaphore( b2Semaphore* s );
+
 #ifdef __cplusplus
 #include <type_traits>
 #define B2_TYPE_OF( A ) std::remove_cvref_t<decltype( A )>

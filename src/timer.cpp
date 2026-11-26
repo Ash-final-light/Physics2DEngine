@@ -93,6 +93,37 @@ void b2UnlockMutex( b2Mutex* m )
 	LeaveCriticalSection( &m->cs );
 }
 
+#include <limits.h>
+
+typedef struct b2Semaphore
+{
+	HANDLE semaphore;
+} b2Semaphore;
+
+b2Semaphore* b2CreateSemaphore( int initCount )
+{
+	b2Semaphore* s = static_cast<b2Semaphore*>( b2Alloc( sizeof( b2Semaphore ) ) );
+	s->semaphore = CreateSemaphoreExW( NULL, initCount, INT_MAX, NULL, 0, SEMAPHORE_ALL_ACCESS );
+	return s;
+}
+
+void b2DestroySemaphore( b2Semaphore* s )
+{
+	CloseHandle( s->semaphore );
+	*s = b2Semaphore{};
+	b2Free( s, sizeof( b2Semaphore ) );
+}
+
+void b2WaitSemaphore( b2Semaphore* s )
+{
+	WaitForSingleObjectEx( s->semaphore, INFINITE, FALSE );
+}
+
+void b2SignalSemaphore( b2Semaphore* s )
+{
+	ReleaseSemaphore( s->semaphore, 1, NULL );
+}
+
 #elif defined( __linux__ ) || defined( __EMSCRIPTEN__ )
 
 #include <time.h>
@@ -147,6 +178,37 @@ void b2LockMutex( b2Mutex* m )
 void b2UnlockMutex( b2Mutex* m )
 {
 	pthread_mutex_unlock( &m->mtx );
+}
+
+#include <semaphore.h>
+
+typedef struct b2Semaphore
+{
+	sem_t semaphore;
+} b2Semaphore;
+
+b2Semaphore* b2CreateSemaphore( int initCount )
+{
+	b2Semaphore* s = static_cast<b2Semaphore*>( b2Alloc( sizeof( b2Semaphore ) ) );
+	sem_init( &s->semaphore, 0, (unsigned int)initCount );
+	return s;
+}
+
+void b2DestroySemaphore( b2Semaphore* s )
+{
+	sem_destroy( &s->semaphore );
+	*s = b2Semaphore{};
+	b2Free( s, sizeof( b2Semaphore ) );
+}
+
+void b2WaitSemaphore( b2Semaphore* s )
+{
+	sem_wait( &s->semaphore );
+}
+
+void b2SignalSemaphore( b2Semaphore* s )
+{
+	sem_post( &s->semaphore );
 }
 
 #elif defined( __APPLE__ )
@@ -217,6 +279,43 @@ void b2UnlockMutex( b2Mutex* m )
 	pthread_mutex_unlock( &m->mtx );
 }
 
+#include <dispatch/dispatch.h>
+
+typedef struct b2Semaphore
+{
+	dispatch_semaphore_t semaphore;
+	int initialCount;
+} b2Semaphore;
+
+b2Semaphore* b2CreateSemaphore( int initCount )
+{
+	b2Semaphore* s = static_cast<b2Semaphore*>( b2Alloc( sizeof( b2Semaphore ) ) );
+	s->semaphore = dispatch_semaphore_create( (long)initCount );
+	s->initialCount = initCount;
+	return s;
+}
+
+void b2DestroySemaphore( b2Semaphore* s )
+{
+	for ( int i = 0; i < s->initialCount; ++i )
+	{
+		dispatch_semaphore_signal( s->semaphore );
+	}
+	dispatch_release( s->semaphore );
+	*s = b2Semaphore{};
+	b2Free( s, sizeof( b2Semaphore ) );
+}
+
+void b2WaitSemaphore( b2Semaphore* s )
+{
+	dispatch_semaphore_wait( s->semaphore, DISPATCH_TIME_FOREVER );
+}
+
+void b2SignalSemaphore( b2Semaphore* s )
+{
+	dispatch_semaphore_signal( s->semaphore );
+}
+
 #else
 
 uint64_t b2GetTicks( void )
@@ -262,6 +361,35 @@ void b2LockMutex( b2Mutex* m )
 void b2UnlockMutex( b2Mutex* m )
 {
 	(void)m;
+}
+
+typedef struct b2Semaphore
+{
+	int dummy;
+} b2Semaphore;
+
+b2Semaphore* b2CreateSemaphore( int initCount )
+{
+	b2Semaphore* s = static_cast<b2Semaphore*>( b2Alloc( sizeof( b2Semaphore ) ) );
+	(void)initCount;
+	s->dummy = 42;
+	return s;
+}
+
+void b2DestroySemaphore( b2Semaphore* s )
+{
+	*s = b2Semaphore{};
+	b2Free( s, sizeof( b2Semaphore ) );
+}
+
+void b2WaitSemaphore( b2Semaphore* s )
+{
+	(void)s;
+}
+
+void b2SignalSemaphore( b2Semaphore* s )
+{
+	(void)s;
 }
 
 #endif
