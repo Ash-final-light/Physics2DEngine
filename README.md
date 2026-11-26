@@ -218,3 +218,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 车轮关节 `b2CreateWheelJoint` 将轮锚点保持在悬挂轴上，并通过轴向弹簧提供悬挂响应。车轮保留转动自由度；可调整弹簧频率、阻尼及开关。
 
 车轮关节可限制悬挂轴的最小、最大平移，并保留车轮转动自由度；限位可与悬挂弹簧同时使用。
+
+车轮关节旋转马达可按最大力矩驱动目标相对角速度，并与悬挂弹簧和行程限位共同使用。

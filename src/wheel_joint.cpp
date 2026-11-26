@@ -73,11 +73,14 @@ void b2PrepareWheelJoint( b2JointSim* base, b2StepContext* context )
 
 	joint->springSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
+	float km = iA + iB;
+	joint->motorMass = km > 0.0f ? 1.0f / km : 0.0f;
 
 	if ( context->world->enableWarmStarting == false )
 	{
 		joint->perpImpulse = 0.0f;
 		joint->springImpulse = 0.0f;
+		joint->motorImpulse = 0.0f;
 		joint->lowerImpulse = 0.0f;
 		joint->upperImpulse = 0.0f;
 	}
@@ -116,8 +119,8 @@ void b2WarmStartWheelJoint( b2JointSim* base, b2StepContext* context )
 	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
 
 	b2Vec2 P = b2Add( b2MulSV( axialImpulse, axisA ), b2MulSV( joint->perpImpulse, perpA ) );
-	float LA = axialImpulse * a1 + joint->perpImpulse * s1;
-	float LB = axialImpulse * a2 + joint->perpImpulse * s2;
+	float LA = axialImpulse * a1 + joint->perpImpulse * s1 + joint->motorImpulse;
+	float LB = axialImpulse * a2 + joint->perpImpulse * s2 + joint->motorImpulse;
 
 	if ( stateA->flags & b2_dynamicFlag )
 	{
@@ -154,6 +157,7 @@ void b2SolveWheelJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
+	bool fixedRotation = ( iA + iB == 0.0f );
 
 	// 当前锚点
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
@@ -167,8 +171,19 @@ void b2SolveWheelJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 	float a1 = b2Cross( b2Add( d, rA ), axisA );
 	float a2 = b2Cross( rB, axisA );
 
+	// 马达约束
+	if ( joint->enableMotor && fixedRotation == false )
+	{
+		float Cdot = wB - wA - joint->motorSpeed;
+		float impulse = -joint->motorMass * Cdot;
+		float oldImpulse = joint->motorImpulse;
+		float maxImpulse = context->h * joint->maxMotorTorque;
+		joint->motorImpulse = b2ClampFloat( joint->motorImpulse + impulse, -maxImpulse, maxImpulse );
+		impulse = joint->motorImpulse - oldImpulse;
 
-
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
 
 	// 弹簧约束
 	if ( joint->enableSpring )
@@ -405,4 +420,58 @@ float b2WheelJoint_GetUpperLimit( b2JointId jointId )
 {
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	return joint->wheelJoint.upperTranslation;
+}
+
+void b2WheelJoint_EnableMotor( b2JointId jointId, bool enableMotor )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	if ( joint->wheelJoint.enableMotor != enableMotor )
+	{
+		joint->wheelJoint.motorImpulse = 0.0f;
+		joint->wheelJoint.enableMotor = enableMotor;
+	}
+}
+
+bool b2WheelJoint_IsMotorEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.enableMotor;
+}
+
+void b2WheelJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
+{
+	if (!(b2IsValidFloat( motorSpeed ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	joint->wheelJoint.motorSpeed = motorSpeed;
+}
+
+float b2WheelJoint_GetTargetMotorSpeed( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.motorSpeed;
+}
+
+float b2WheelJoint_GetCurrentMotorTorque( b2JointId jointId )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return world->inv_h * joint->wheelJoint.motorImpulse;
+}
+
+void b2WheelJoint_SetMaxMotorTorque( b2JointId jointId, float torque )
+{
+	if (!(b2IsValidFloat( torque ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	joint->wheelJoint.maxMotorTorque = torque;
+}
+
+float b2WheelJoint_GetMaxMotorTorque( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.maxMotorTorque;
 }

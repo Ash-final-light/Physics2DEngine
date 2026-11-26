@@ -675,6 +675,8 @@ b2JointId b2CreateWheelJoint( b2WorldId worldId, const b2WheelJointDef* def )
 	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->lowerTranslation ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->upperTranslation ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxMotorTorque ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->motorSpeed ))) { return b2_nullJointId; }
 	B2_ASSERT( def->lowerTranslation <= def->upperTranslation );
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
@@ -693,14 +695,18 @@ b2JointId b2CreateWheelJoint( b2WorldId worldId, const b2WheelJointDef* def )
 	joint->wheelJoint = b2WheelJoint{};
 	joint->wheelJoint.perpMass = 0.0f;
 	joint->wheelJoint.axialMass = 0.0f;
+	joint->wheelJoint.motorImpulse = 0.0f;
 	joint->wheelJoint.lowerImpulse = 0.0f;
 	joint->wheelJoint.upperImpulse = 0.0f;
 	joint->wheelJoint.lowerTranslation = b2MinFloat( def->lowerTranslation, def->upperTranslation );
 	joint->wheelJoint.upperTranslation = b2MaxFloat( def->lowerTranslation, def->upperTranslation );
+	joint->wheelJoint.maxMotorTorque = def->maxMotorTorque;
+	joint->wheelJoint.motorSpeed = def->motorSpeed;
 	joint->wheelJoint.hertz = def->hertz;
 	joint->wheelJoint.dampingRatio = def->dampingRatio;
 	joint->wheelJoint.enableSpring = def->enableSpring;
 	joint->wheelJoint.enableLimit = def->enableLimit;
+	joint->wheelJoint.enableMotor = def->enableMotor;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
