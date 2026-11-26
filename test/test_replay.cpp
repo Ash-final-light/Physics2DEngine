@@ -162,3 +162,45 @@ int ReplayLifetimeTest( void )
     }
     b2SetLengthUnitsPerMeter( original ); return 0;
 }
+
+int ReplayDivergenceTest( void )
+{
+    int before = b2GetByteCount(); auto good = MakeReplayFixture( 5 );
+    ENSURE( !b2Replay_HasDiverged( nullptr ) && b2Replay_GetDivergeFrame( nullptr ) == -1 );
+    for ( int which = 0; which < 2; ++which ) {
+        auto bytes = good; b2RecHeader header; memcpy( &header, bytes.data(), sizeof( header ) );
+        int offset = 32 + (int)header.snapshotSize, seen = 0, target = which == 0 ? 1 : 3;
+        bool changed = false;
+        while ( offset + 4 <= (int)bytes.size() ) {
+            int length = bytes[offset+1] | (int)bytes[offset+2] << 8 | (int)bytes[offset+3] << 16;
+            if ( bytes[offset] == 0xF1 && ++seen == target ) { bytes[offset + 8] ^= 1; changed = true; break; }
+            offset += 4 + length;
+        }
+        ENSURE( changed );
+        b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+        int frames = 0; while ( b2Replay_StepFrame( player ) ) { frames++; }
+        ENSURE( frames == 5 && player->rdr.ok && b2Replay_HasDiverged( player ) );
+        ENSURE( b2Replay_GetDivergeFrame( player ) == ( which == 0 ? 0 : 2 ) );
+        b2Replay_Restart( player );
+        ENSURE( !b2Replay_HasDiverged( player ) && b2Replay_GetDivergeFrame( player ) == -1 );
+        while ( b2Replay_StepFrame( player ) ) {}
+        ENSURE( b2Replay_GetDivergeFrame( player ) == ( which == 0 ? 0 : 2 ) );
+        b2DestroyReplay( player );
+    }
+    ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int ReplayExternalChangeTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeReplayFixture( 5 );
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    ENSURE( b2Replay_StepFrame( player ) && !b2Replay_HasDiverged( player ) );
+    b2WorldId id = b2Replay_GetWorldId( player ); b2World* world = b2_worlds + id.index1 - 1;
+    b2BodyId body = { 1, (uint16_t)( id.index1 - 1 ), world->bodies.data[0].generation };
+    b2Body_SetLinearVelocity( body, ( b2Vec2{ 10, 20 } ) );
+    ENSURE( b2Replay_StepFrame( player ) && b2Replay_HasDiverged( player ) );
+    ENSURE( b2Replay_GetDivergeFrame( player ) == 2 );
+    while ( b2Replay_StepFrame( player ) ) {}
+    ENSURE( b2Replay_GetFrame( player ) == 5 && b2Replay_GetDivergeFrame( player ) == 2 );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}

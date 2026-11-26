@@ -84,6 +84,8 @@ int ReplayMutationTest( void );
 int ReplayCreateInvalidTest( void );
 int ReplayRestartTest( void );
 int ReplayLifetimeTest( void );
+int ReplayDivergenceTest( void );
+int ReplayExternalChangeTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1098,6 +1100,10 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"ReplayRestartTest")==0) { ran=1; RUN_TEST(ReplayRestartTest); }
 
 	if(filter==NULL || strcmp(filter,"ReplayLifetimeTest")==0) { ran=1; RUN_TEST(ReplayLifetimeTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayDivergenceTest")==0) { ran=1; RUN_TEST(ReplayDivergenceTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayExternalChangeTest")==0) { ran=1; RUN_TEST(ReplayExternalChangeTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

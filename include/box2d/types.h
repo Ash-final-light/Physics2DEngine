@@ -1519,3 +1519,6 @@ B2_API b2ReplayInfo b2Replay_GetInfo( const b2Replay* player );
 B2_API bool b2Replay_IsAtEnd( const b2Replay* player );
 
 B2_API void b2Replay_Restart( b2Replay* player );
+
+B2_API bool b2Replay_HasDiverged( const b2Replay* player );
+B2_API int b2Replay_GetDivergeFrame( const b2Replay* player );

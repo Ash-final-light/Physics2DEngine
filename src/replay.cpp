@@ -2128,3 +2128,13 @@ void b2Replay_Restart( b2Replay* player )
 	player->atEnd = false;
 
 }
+
+bool b2Replay_HasDiverged( const b2Replay* player )
+{
+	return player != NULL ? player->rdr.diverged : false;
+}
+
+int b2Replay_GetDivergeFrame( const b2Replay* player )
+{
+	return player != NULL ? player->divergeFrame : -1;
+}
