@@ -218,9 +218,8 @@ static void b2SolveConstraints(b2StepContext* context,bool useBias)
    // 偏置迭代后按当前反力判定阈值。零阈值表示报告所有唤醒关节。
    if(colorIndex!=B2_OVERFLOW_INDEX && useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && b2GetBit(&context->world->jointStateBitSet,joint->jointId)==false)
    {
-    b2Joint* jointEntity=context->world->joints.data+joint->jointId;
-    float force=b2Length(b2GetJointConstraintForce(context->world,jointEntity));
-    float torque=b2AbsFloat(b2GetJointConstraintTorque(context->world,jointEntity));
+    float force,torque;
+    b2GetJointReaction(joint,context->inv_h,&force,&torque);
     if(force>=joint->forceThreshold || torque>=joint->torqueThreshold)
     {
      // 标记此关节，避免同一时间步内重复报告。

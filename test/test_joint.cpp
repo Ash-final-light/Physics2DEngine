@@ -430,6 +430,46 @@ int JointEventTest(void)
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
 
+int JointEventReactionTest(void)
+{
+ size_t before=b2GetByteCount();
+ b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+ b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);
+ bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={0,1};bd.linearVelocity={0,-10};b2BodyId b=b2CreateBody(id,&bd);
+ b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle circle={{0,0},0.5f};b2CreateCircleShape(b,&sd,&circle);
+ b2PogoJointDef def=b2DefaultPogoJointDef();
+ def.base.bodyIdA=a;def.base.bodyIdB=b;def.normal={0,2};def.hertz=5;def.maxTensionForce=10;def.maxCompressionForce=10;def.base.forceThreshold=15;
+ b2JointId j=b2CreatePogoJoint(id,&def);ENSURE(b2Joint_IsValid(j));
+ b2World_Step(id,1.0f/60,1);
+ ENSURE(b2World_GetJointEvents(id).count==0);
+ b2Vec2 publicForce=b2Joint_GetConstraintForce(j);ENSURE(publicForce.y>19 && publicForce.y<21);
+ // 标量反力约10，低阈值应报告且多子步不重复，高阈值不报告
+ b2Joint_SetForceThreshold(j,5);b2World_Step(id,1.0f/60,4);
+ b2JointEvents events=b2World_GetJointEvents(id);ENSURE(events.count==1 && events.jointEvents[0].jointId.index1==j.index1);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetJointEvents(id).count==1);
+ b2Joint_SetForceThreshold(j,15);b2World_Step(id,1.0f/60,1);ENSURE(b2World_GetJointEvents(id).count==0);
+ b2DestroyJoint(j);
+ // 单位法向量下向量长度与标量一致，低阈值报告，高阈值不报告
+ b2Body_SetTransform(b,{0,1},b2MakeRot(0));b2Body_SetLinearVelocity(b,{0,-10});
+ def.normal={0,1};def.base.forceThreshold=9;
+ b2JointId unit=b2CreatePogoJoint(id,&def);ENSURE(b2Joint_IsValid(unit));
+ b2World_Step(id,1.0f/60,1);events=b2World_GetJointEvents(id);
+ ENSURE(events.count==1 && events.jointEvents[0].jointId.index1==unit.index1);
+ b2Joint_SetForceThreshold(unit,15);b2Body_SetTransform(b,{0,1},b2MakeRot(0));b2Body_SetLinearVelocity(b,{0,-10});
+ b2World_Step(id,1.0f/60,1);ENSURE(b2World_GetJointEvents(id).count==0);
+ b2DestroyJoint(unit);
+ // 真实非零力矩阈值：旋转关节马达产生角冲量
+ b2Body_SetTransform(b,{0,0},b2MakeRot(0));b2Body_SetLinearVelocity(b,{0,0});b2Body_SetAngularVelocity(b,0);
+ b2RevoluteJointDef rd=b2DefaultRevoluteJointDef();rd.base.bodyIdA=a;rd.base.bodyIdB=b;
+ rd.enableMotor=true;rd.motorSpeed=10;rd.maxMotorTorque=100;rd.base.torqueThreshold=0.5f;
+ b2JointId rev=b2CreateRevoluteJoint(id,&rd);ENSURE(b2Joint_IsValid(rev));
+ b2World_Step(id,1.0f/60,1);events=b2World_GetJointEvents(id);
+ ENSURE(events.count==1 && events.jointEvents[0].jointId.index1==rev.index1);
+ b2Joint_SetTorqueThreshold(rev,1000);b2World_Step(id,1.0f/60,1);ENSURE(b2World_GetJointEvents(id).count==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
 int JointEventOverflowTest(void)
 {
  size_t before=b2GetByteCount();

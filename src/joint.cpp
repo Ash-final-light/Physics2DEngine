@@ -620,6 +620,84 @@ static b2WorldTransform b2JointBodyTransform( b2World* world, int bodyId )
 	return b2GetBodySim( world, world->bodies.data + bodyId )->transform;
 }
 
+void b2GetJointReaction( b2JointSim* sim, float invTimeStep, float* force, float* torque )
+{
+	float linearImpulse = 0.0f;
+	float angularImpulse = 0.0f;
+
+	switch ( sim->type )
+	{
+		case b2_distanceJoint:
+		{
+			b2DistanceJoint* joint = &sim->distanceJoint;
+			linearImpulse = b2AbsFloat( joint->impulse + joint->lowerImpulse - joint->upperImpulse + joint->motorImpulse );
+		}
+		break;
+
+		case b2_motorJoint:
+		{
+			b2MotorJoint* joint = &sim->motorJoint;
+			linearImpulse = b2Length( b2Add( joint->linearVelocityImpulse, joint->linearSpringImpulse ) );
+			angularImpulse = b2AbsFloat( joint->angularVelocityImpulse + joint->angularSpringImpulse );
+		}
+		break;
+
+		case b2_moverJoint:
+		{
+			linearImpulse = b2Length( sim->moverJoint.linearVelocityImpulse );
+		}
+		break;
+
+		case b2_pogoJoint:
+		{
+			linearImpulse = b2AbsFloat( sim->pogoJoint.impulse );
+		}
+		break;
+
+		case b2_prismaticJoint:
+		{
+			b2PrismaticJoint* joint = &sim->prismaticJoint;
+			float perpImpulse = joint->impulse.x;
+			float axialImpulse = joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse;
+			linearImpulse = sqrtf( perpImpulse * perpImpulse + axialImpulse * axialImpulse );
+			angularImpulse = b2AbsFloat( joint->impulse.y );
+		}
+		break;
+
+		case b2_revoluteJoint:
+		{
+			b2RevoluteJoint* joint = &sim->revoluteJoint;
+			linearImpulse = b2Length( joint->linearImpulse );
+			angularImpulse = b2AbsFloat( joint->motorImpulse + joint->lowerImpulse - joint->upperImpulse );
+		}
+		break;
+
+		case b2_weldJoint:
+		{
+			b2WeldJoint* joint = &sim->weldJoint;
+			linearImpulse = b2Length( joint->linearImpulse );
+			angularImpulse = b2AbsFloat( joint->angularImpulse );
+		}
+		break;
+
+		case b2_wheelJoint:
+		{
+			b2WheelJoint* joint = &sim->wheelJoint;
+			float perpImpulse = joint->perpImpulse;
+			float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
+			linearImpulse = sqrtf( perpImpulse * perpImpulse + axialImpulse * axialImpulse );
+			angularImpulse = b2AbsFloat( joint->motorImpulse );
+		}
+		break;
+
+		default:
+		break;
+	}
+
+	*force = linearImpulse * invTimeStep;
+	*torque = angularImpulse * invTimeStep;
+}
+
 b2Vec2 b2GetJointConstraintForce( b2World* world, b2Joint* joint )
 {
 	b2JointSim* base = b2GetJointSim( world, joint );
