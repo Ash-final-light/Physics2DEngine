@@ -8,6 +8,7 @@
 #include "world.h"
 #include "shape.h"
 #include "solver_set.h"
+#include "parallel_for.h"
 
 #include "box2d/collision.h"
 
@@ -242,7 +243,7 @@ void b2BeginSensors( b2World* world )
 	}
 
 	// 对传感器重叠做 parallel-for
-	b2SensorTask(0,sensorCount,0,world);
+	b2StageParallelFor(world,b2_taskSensors,b2SensorTask,sensorCount,16,world);
 }
 
 void b2EndSensors( b2World* world )

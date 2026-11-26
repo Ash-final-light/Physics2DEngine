@@ -109,6 +109,8 @@ struct b2StepContext
     uint64_t pairTicks;
     uint64_t collideTicks;
     uint64_t solveTicks;
+    uint64_t sensorTicks;
+    uint64_t stepTicks;
     uint64_t constraintTicks;
     int solverStage,solverColor,solverStep,solverTaskType,activeColorIndex;
     uint64_t solverTaskTicks;

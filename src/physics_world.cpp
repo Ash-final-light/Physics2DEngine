@@ -132,7 +132,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->contactIdPool = b2CreateIdPool();
 	b2Array_Create( world->contacts );
 	b2Array_CreateN(world->sensors,4);b2Array_CreateN(world->sensorTaskContexts,1);
-    b2SensorTaskContext sensorContext={};sensorContext.eventBits=b2CreateBitSet(16);b2Array_Push(world->sensorTaskContexts,sensorContext);
+    for(int i=0;i<world->workerCount;++i) { b2SensorTaskContext sensorContext={};sensorContext.eventBits=b2CreateBitSet(16);b2Array_Push(world->sensorTaskContexts,sensorContext); }
     b2Array_CreateN(world->sensorBeginEvents,4);b2Array_CreateN(world->sensorEndEvents[0],4);b2Array_CreateN(world->sensorEndEvents[1],4);
 	b2Array_CreateN(world->bodyMoveEvents,4);
 	b2Array_CreateN(world->contactBeginEvents,4);
@@ -276,7 +276,11 @@ void b2World_SetWorkerCount( b2WorldId worldId, int count )
 	{
 		world->scheduler = b2CreateScheduler( clampedCount );
 	}
-	b2ResizeTaskContexts(world,clampedCount);
+ int oldSensorCount=world->sensorTaskContexts.count;
+ for(int i=clampedCount;i<oldSensorCount;++i) { b2DestroyBitSet(&world->sensorTaskContexts.data[i].eventBits); }
+ b2Array_Resize(world->sensorTaskContexts,clampedCount);
+ for(int i=oldSensorCount;i<clampedCount;++i) { world->sensorTaskContexts.data[i].eventBits=b2CreateBitSet(16); }
+ b2ResizeTaskContexts(world,clampedCount);
 	world->workerCount = clampedCount;
 }
 
@@ -345,7 +349,8 @@ static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount
 	context->timeStep = timeStep;
 	context->subStepCount = subStepCount;
 	context->phase = 1;
-	context->pairTicks=b2GetTicks();
+	context->stepTicks=b2GetTicks();
+	context->pairTicks=context->stepTicks;
  for(int i=0;i<world->contacts.count;++i)
  {
   b2Contact* contact=world->contacts.data+i;
@@ -373,8 +378,13 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
     { uint64_t ticks=b2GetTicks();b2SplitContactIslands(world);world->profile.splitIslands=b2GetMilliseconds(ticks); }
     context->phase=5;context->solveTicks=b2GetTicks();b2BeginSolve(world,context);break;
    case 5:
-    if(b2ContinueSolve(context)==false) { b2EndSolve(context);context->phase=0; }
+    if(b2ContinueSolve(context)==false)
+    {
+     b2EndSolve(context);world->profile.solve=b2GetMilliseconds(context->solveTicks);
+     context->phase=6;context->sensorTicks=b2GetTicks();b2BeginSensors(world);
+    }
     break;
+   case 6:b2EndSensors(world);world->profile.sensors=b2GetMilliseconds(context->sensorTicks);context->phase=0;break;
    default:return b2TaskBatch{};
   }
   if(context->batchTaskCount>0)
@@ -386,16 +396,13 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
  }
 
 	uint64_t stageTicks = b2GetTicks();
-	world->profile.solve = b2GetMilliseconds(context->solveTicks);
+
 	world->maxCapacity.arenaByteCount = b2MaxInt( world->maxCapacity.arenaByteCount, b2GetMaxStackAllocation( &world->stack ) );
-	uint64_t sensorTicks = b2GetTicks();
-	b2BeginSensors( world );
-	b2EndSensors( world );
-	world->profile.sensors = b2GetMilliseconds( sensorTicks );
+
 	world->endEventArrayIndex = 1 - world->endEventArrayIndex;
 	b2Array_Clear( world->contactEndEvents[world->endEventArrayIndex] );
 	b2Array_Clear( world->sensorEndEvents[world->endEventArrayIndex] );
-	world->profile.step = b2GetMilliseconds( stageTicks );
+	world->profile.step = b2GetMilliseconds( context->stepTicks );
 	world->locked = false;
 	return b2TaskBatch{};
 }

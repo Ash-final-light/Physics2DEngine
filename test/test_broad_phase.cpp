@@ -261,6 +261,102 @@ int ParallelSolverTest(void)
     ENSURE(b2GetByteCount()==before);return 0;
 }
 
+static b2WorldId MakeSensorWorld(PairThreadHost* host)
+{
+    b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;wd.enableSleep=false;
+    if(host) { wd.workerCount=4;wd.enqueueTask=EnqueuePairThread;wd.finishTask=FinishPairThread;wd.userTaskContext=host; }
+    b2WorldId id=b2CreateWorld(&wd);
+    for(int i=0;i<64;++i)
+    {
+        b2BodyDef bd=b2DefaultBodyDef();bd.position={float(i)*4,0};
+        b2ShapeDef sd=b2DefaultShapeDef();sd.isSensor=true;sd.enableSensorEvents=true;
+        b2Circle disk={{0,0},1};b2CreateCircleShape(b2CreateBody(id,&bd),&sd,&disk);
+        bd.type=b2_dynamicBody;bd.position.x+=0.5f;sd.isSensor=false;disk.radius=0.25f;
+        b2CreateCircleShape(b2CreateBody(id,&bd),&sd,&disk);
+    }
+    return id;
+}
+
+static int CompareSensorWorlds(b2WorldId lhs,b2WorldId rhs)
+{
+    auto a=b2World_GetSensorEvents(lhs),b=b2World_GetSensorEvents(rhs);
+    ENSURE(a.beginCount==b.beginCount && a.endCount==b.endCount);
+    for(int i=0;i<a.beginCount;++i)
+    {
+        ENSURE(a.beginEvents[i].sensorShapeId.index1==b.beginEvents[i].sensorShapeId.index1);
+        ENSURE(a.beginEvents[i].visitorShapeId.index1==b.beginEvents[i].visitorShapeId.index1);
+    }
+    for(int i=0;i<a.endCount;++i)
+    {
+        ENSURE(a.endEvents[i].sensorShapeId.index1==b.endEvents[i].sensorShapeId.index1);
+        ENSURE(a.endEvents[i].visitorShapeId.index1==b.endEvents[i].visitorShapeId.index1);
+    }
+    b2World* wa=b2_worlds+lhs.index1-1;b2World* wb=b2_worlds+rhs.index1-1;
+    ENSURE(wa->sensors.count==wb->sensors.count);
+    for(int i=0;i<wa->sensors.count;++i)
+    {
+        auto& sa=wa->sensors.data[i];auto& sb=wb->sensors.data[i];
+        ENSURE(sa.shapeId==sb.shapeId && sa.overlaps2.count==sb.overlaps2.count);
+        for(int k=0;k<sa.overlaps2.count;++k)
+        {
+            ENSURE(sa.overlaps2.data[k].shapeId==sb.overlaps2.data[k].shapeId);
+            ENSURE(sa.overlaps2.data[k].generation==sb.overlaps2.data[k].generation);
+        }
+    }
+    return 0;
+}
+
+int ParallelSensorTest(void)
+{
+    size_t before=b2GetByteCount();PairThreadHost host;
+    b2WorldId serial=MakeSensorWorld(nullptr),threaded=MakeSensorWorld(&host),reverse=MakeSensorWorld(nullptr);
+    b2World_SetWorkerCount(reverse,4);bool sawParallelSensors=false,sawEnd=false;
+    for(int step=0;step<8;++step)
+    {
+        for(auto id:{serial,threaded,reverse})
+        {
+            b2World* w=b2_worlds+id.index1-1;
+            if(step==1 || step==2)
+            {
+                for(int i=0;i<64;i+=2)
+                {
+                    int index=2*i+1;b2BodyId body={index+1,w->worldId,w->bodies.data[index].generation};
+                    b2Body_SetTransform(body,{float(i)*4+(step==1?2.0f:0.5f),0},b2Rot_identity);
+                }
+            }
+            if(step==3 || step==4)
+            {
+                for(int i=0;i<64;i+=4)
+                {
+                    int index=2*i;b2BodyId body={index+1,w->worldId,w->bodies.data[index].generation};
+                    if(step==3) { b2Body_Disable(body); }else { b2Body_Enable(body); }
+                }
+            }
+            if(step==5)
+            {
+                b2Shape* s=w->shapes.data+10;b2ShapeId shape={11,w->worldId,s->generation};b2DestroyShape(shape,true);
+            }
+        }
+        if(step==6) { b2World_SetWorkerCount(threaded,2);b2World_SetWorkerCount(reverse,2); }
+        b2World_Step(serial,1.0f/60,4);b2World_Step(threaded,1.0f/60,4);
+        b2TaskBatch batch=b2World_BeginStep(reverse,1.0f/60,4);
+        while(batch.count>0)
+        {
+            if(batch.tasks[0].type==b2_taskSensors && batch.count>1) { sawParallelSensors=true; }
+            std::vector<std::thread> threads;
+            for(int i=batch.count-1;i>=0;--i) { auto task=batch.tasks[i];threads.emplace_back([task] { task.fcn(task.context); }); }
+            for(auto& thread:threads) { thread.join(); }
+            batch=b2World_ContinueStep(reverse);
+        }
+        ENSURE(CompareSensorWorlds(serial,threaded)==0);ENSURE(CompareSensorWorlds(serial,reverse)==0);
+        auto events=b2World_GetSensorEvents(serial);if(step==0) { ENSURE(events.beginCount==64); }
+        sawEnd|=events.endCount>0;
+    }
+    ENSURE(sawParallelSensors && sawEnd && host.enqueued>0);
+    for(auto id:{serial,threaded,reverse}) { b2DestroyWorld(id); }
+    ENSURE(b2GetByteCount()==before);return 0;
+}
+
 int BroadPhaseTreeTypesTest( void )
 {
     size_t before = b2GetByteCount();
