@@ -802,3 +802,115 @@ b2RayResult b2World_CastRayClosest( b2WorldId worldId, b2Pos origin, b2Vec2 tran
 
 	return result;
 }
+
+typedef struct WorldShapeCastContext
+{
+	b2World* world;
+	b2CastResultCallbackFcn* fcn;
+	b2QueryFilter filter;
+	float fraction;
+	b2Pos origin;
+	// 相对原点的输入
+	b2ShapeCastInput input;
+	void* userContext;
+} WorldShapeCastContext;
+
+static float ShapeCastCallback( const b2BoxCastInput* input, int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+
+	WorldShapeCastContext* worldContext = static_cast<WorldShapeCastContext *>( context );
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return input->maxFraction;
+	}
+
+	// 从相对原点的输入重建，只从树取推进分数。
+	// 树输入是世界 float，远离原点时会丢失投射。
+	b2ShapeCastInput localInput = worldContext->input;
+	localInput.maxFraction = input->maxFraction;
+
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2WorldTransform transform = b2GetBodySim(world,body)->transform;
+	b2Transform localTransform = b2ToRelativeTransform( transform, worldContext->origin );
+
+	b2CastOutput output = b2ShapeCastShape( &localInput, shape, localTransform );
+
+	if ( output.hit )
+	{
+		b2ShapeId id = { shapeId + 1, world->worldId, shape->generation };
+
+		b2Pos point = b2OffsetPos( worldContext->origin, output.point );
+		float fraction = worldContext->fcn( id, point, output.normal, output.fraction, worldContext->userContext );
+
+		// 用户可返回 -1 以跳过此形状
+		if ( 0.0f <= fraction && fraction <= 1.0f )
+		{
+			worldContext->fraction = fraction;
+		}
+
+		return fraction;
+	}
+
+	return input->maxFraction;
+}
+
+b2TreeStats b2World_CastShape( b2WorldId worldId, b2Pos origin, const b2ShapeProxy* proxy, b2Vec2 translation,
+							   b2QueryFilter filter, b2CastResultCallbackFcn* fcn, void* context )
+{
+	b2TreeStats treeStats = {};
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked || fcn == nullptr )
+	{
+		return treeStats;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidVec2( translation ) );
+
+
+
+
+	WorldShapeCastContext worldContext = {};
+	worldContext.world = world;
+	worldContext.fcn = fcn;
+	worldContext.filter = filter;
+	worldContext.fraction = 1.0f;
+	worldContext.origin = origin;
+	worldContext.input.proxy = *proxy;
+	worldContext.input.translation = translation;
+	worldContext.input.maxFraction = 1.0f;
+	worldContext.userContext = context;
+
+	// 从代理和原点创建保守的世界空间盒。
+	b2AABB localBox = b2MakeAABB( proxy->points, proxy->count, proxy->radius );
+	b2AABB box = b2OffsetAABB( localBox, origin );
+	b2BoxCastInput treeInput = { box, translation, 1.0f };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2TreeStats treeResult = b2DynamicTree_CastBox( world->broadPhase.trees + i, &treeInput, filter.maskBits,
+														ShapeCastCallback, &worldContext );
+		treeStats.nodeVisits += treeResult.nodeVisits;
+		treeStats.leafVisits += treeResult.leafVisits;
+
+		if ( worldContext.fraction == 0.0f )
+		{
+			break;
+		}
+
+		treeInput.maxFraction = worldContext.fraction;
+	}
+
+
+
+	return treeStats;
+}

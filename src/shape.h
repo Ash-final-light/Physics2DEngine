@@ -101,3 +101,5 @@ static inline bool b2ShouldQueryCollide( b2Filter shapeFilter, b2QueryFilter que
 }
 
 b2CastOutput b2RayCastShape(const b2RayCastInput* input,const b2Shape* shape,b2Transform transform);
+
+b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input,const b2Shape* shape,b2Transform transform);

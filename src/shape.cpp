@@ -1161,3 +1161,70 @@ b2CastOutput b2RayCastShape( const b2RayCastInput* input, const b2Shape* shape,
 	output.normal = b2RotateVector( transform.q, output.normal );
 	return output;
 }
+
+b2CastOutput b2ShapeCastShape( const b2ShapeCastInput* input, const b2Shape* shape,
+							   b2Transform transform )
+{
+	b2CastOutput output = {};
+
+	if ( input->proxy.count == 0 )
+	{
+		return output;
+	}
+
+	b2ShapeCastInput localInput = *input;
+
+	for ( int i = 0; i < localInput.proxy.count; ++i )
+	{
+		localInput.proxy.points[i] = b2InvTransformPoint( transform, input->proxy.points[i] );
+	}
+
+	localInput.translation = b2InvRotateVector( transform.q, input->translation );
+
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			output = b2CastShapeCapsule( &shape->capsule, &localInput );
+			break;
+		case b2_circleShape:
+			output = b2CastShapeCircle( &shape->circle, &localInput );
+			break;
+		case b2_polygonShape:
+			output = b2CastShapePolygon( &shape->polygon, &localInput );
+			break;
+		case b2_segmentShape:
+			output = b2CastShapeSegment( &shape->segment, &localInput );
+			break;
+		case b2_chainSegmentShape:
+		{
+			// 检查背面碰撞
+			b2Vec2 approximateCentroid = localInput.proxy.points[0];
+			for ( int i = 1; i < localInput.proxy.count; ++i )
+			{
+				approximateCentroid = b2Add( approximateCentroid, localInput.proxy.points[i] );
+			}
+
+			approximateCentroid = b2MulSV( 1.0f / localInput.proxy.count, approximateCentroid );
+
+			b2Vec2 edge =
+				b2Sub( shape->chainSegment.segment.point2, shape->chainSegment.segment.point1 );
+			b2Vec2 r = b2Sub( approximateCentroid, shape->chainSegment.segment.point1 );
+
+			if ( b2Cross( r, edge ) < 0.0f )
+			{
+				// 形状投射从后方开始
+				return output;
+			}
+
+			output = b2CastShapeSegment( &shape->chainSegment.segment, &localInput );
+		}
+		break;
+		default:
+			return output;
+	}
+
+	// 与 b2RayCastShape 相同的坐标系约定，点留在输入变换坐标系中
+	output.point = b2TransformPoint( transform, output.point );
+	output.normal = b2RotateVector( transform.q, output.normal );
+	return output;
+}

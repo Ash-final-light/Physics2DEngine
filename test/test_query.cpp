@@ -101,3 +101,18 @@ int WorldRayClosestTest(void)
  b2World* world=b2_worlds+id.index1-1;world->locked=true;r=b2World_CastRayClosest(id,{100,200},{10,0},filter);world->locked=false;ENSURE(!r.hit && r.leafVisits==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldShapeCastTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={103,200};b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},0.5f};b2ShapeId near=b2CreateCircleShape(body,&sd,&circle);
+ bd.type=b2_dynamicBody;bd.position={107,200};bd.rotation=b2MakeRot(0.5f*B2_PI);body=b2CreateBody(id,&bd);sd.filter.categoryBits=2;b2Polygon box=b2MakeBox(1,0.5f);b2ShapeId far=b2CreatePolygonShape(body,&sd,&box);
+ b2Vec2 point={0,0};b2ShapeProxy proxy=b2MakeProxy(&point,1,0.5f);b2QueryFilter filter=b2DefaultQueryFilter();RayHits hits={};hits.valid=true;
+ b2TreeStats stats=b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==2 && hits.valid && stats.leafVisits>=2);
+ hits={};hits.mode=1;hits.valid=true;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==1 && hits.shape.index1==near.index1);ENSURE_SMALL(hits.fraction-0.2f,0.002f);ENSURE(hits.normal.x < -0.99f);ENSURE_SMALL(hits.point.x-102.5f,0.02f);
+ hits={};hits.mode=3;hits.skipIndex=near.index1;hits.valid=true;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.shape.index1==far.index1 && hits.count==2);ENSURE_SMALL(hits.fraction-0.6f,0.002f);
+ hits={};hits.mode=2;hits.valid=true;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==1);
+ filter.maskBits=2;hits={};hits.valid=true;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==1 && hits.shape.index1==far.index1);
+ proxy.count=0;hits.count=0;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
