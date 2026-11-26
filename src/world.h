@@ -24,6 +24,7 @@ struct b2World
 	bool locked;
 	b2Vec2 gravity;
 	b2Capacity maxCapacity;
+	b2Profile profile;
 	int recycledContactCount;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;

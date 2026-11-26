@@ -17,3 +17,5 @@ zig-out/
 zig-pkg
 __pycache__
 build-*/
+
+/box2d_memory.txt

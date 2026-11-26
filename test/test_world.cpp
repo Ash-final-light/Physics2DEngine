@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #include "test_macros.h"
+#include "world.h"
+#include <stdio.h>
+#include <string.h>
 
 #include "box2d/base.h"
 #include "box2d/math_functions.h"
@@ -293,5 +296,29 @@ int WorldCountersTest(void)
     b2DestroyBody(b);b2World_Step(id,0.001f,1);counts=b2World_GetCounters(id);ENSURE(counts.bodyCount==4 && counts.shapeCount==4);
     capacity=b2World_GetMaxCapacity(id);ENSURE(capacity.dynamicBodyCount==4 && capacity.dynamicShapeCount==2 && capacity.contactCount==1);
     b2DestroyBody(ground);counts=b2World_GetCounters(id);ENSURE(counts.bodyCount==3 && counts.shapeCount==3 && counts.contactCount==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int WorldProfileMemoryTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;b2Profile initial=b2World_GetProfile(id);ENSURE(initial.step==0);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.type=b2_staticBody;bd.position={0,-2};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,1.0f/60.0f,4);b2Profile profile=b2World_GetProfile(id);
+    ENSURE(b2IsValidFloat(profile.step) && profile.step>=0);
+    ENSURE(profile.pairs>=0 && profile.collide>=0 && profile.solve>=0 && profile.prepareConstraints>=0);
+    ENSURE(profile.integrateVelocities>=0 && profile.warmStart>=0 && profile.solveImpulses>=0 && profile.integratePositions>=0 && profile.relaxImpulses>=0);
+    ENSURE(profile.step+0.001f>=profile.pairs+profile.collide+profile.solve);
+    ENSURE(profile.sensors==0 && profile.jointEvents==0 && profile.hitEvents==0 && profile.bullets==0 && profile.restitution==0);
+    world->profile.sensorHits=123;b2World_Step(id,1.0f/60.0f,1);ENSURE(b2World_GetProfile(id).sensorHits==0);
+    size_t bytes=b2GetByteCount();b2World_DumpMemoryStats(id);ENSURE(b2GetByteCount()==bytes);
+    FILE* file=fopen("box2d_memory.txt","r");ENSURE(file!=NULL);
+    char content[8192];size_t length=fread(content,1,sizeof(content)-1,file);content[length]=0;fclose(file);
+    ENSURE(strstr(content,"id pools")!=NULL && strstr(content,"broad-phase")!=NULL && strstr(content,"constraint graph")!=NULL);
+    char expected[80];snprintf(expected,sizeof(expected),"bodies: %d",b2Array_ByteCount(world->bodies));ENSURE(strstr(content,expected)!=NULL);
+    char* total=strstr(content,"total: ");ENSURE(total!=NULL);int reported=0;int parsed=sscanf(total,"total: %d",&reported);ENSURE(parsed==1);
+    ENSURE(reported>0 && size_t(reported)<=bytes-before);
+    ENSURE(remove("box2d_memory.txt")==0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

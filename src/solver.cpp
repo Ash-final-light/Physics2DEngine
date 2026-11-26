@@ -134,17 +134,24 @@ static void b2IntegrateBodyVelocity( b2World* world, b2BodySim* sim, b2BodyState
 
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
 {
+    uint64_t ticks=b2GetTicks();
     float h=timeStep/(float)subStepCount;
     b2SolverSet* set=world->solverSets.data+b2_awakeSet;
     B2_ASSERT(set->bodySims.count==set->bodyStates.count);
     b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
+    world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
     b2PrepareContactConstraints(&context);
+    world->profile.prepareConstraints=b2GetMillisecondsAndReset(&ticks);
+    uint64_t constraintTicks=b2GetTicks();
     for(int step=0;step<subStepCount;++step)
     {
         for(int i=0;i<set->bodySims.count;++i)
         { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
+        world->profile.integrateVelocities+=b2GetMillisecondsAndReset(&ticks);
         b2WarmStartContacts(&context);
+        world->profile.warmStart+=b2GetMillisecondsAndReset(&ticks);
         b2PushNormalContacts(&context);
+        world->profile.solveImpulses+=b2GetMillisecondsAndReset(&ticks);
         for(int i=0;i<set->bodySims.count;++i)
         {
             b2BodyState* state=set->bodyStates.data+i;
@@ -167,11 +174,16 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
         }
+        world->profile.integratePositions+=b2GetMillisecondsAndReset(&ticks);
         b2SolveNormalContacts(&context);
+        world->profile.relaxImpulses+=b2GetMillisecondsAndReset(&ticks);
     }
-    b2ApplyContactRestitution(&context);
+    world->profile.constraints=b2GetMilliseconds(constraintTicks);
+    if(context.anyRestitution && world->restitutionIterations>0)
+    { b2ApplyContactRestitution(&context);world->profile.restitution=b2GetMillisecondsAndReset(&ticks); }
     b2StoreContactImpulses(&context);
     b2ReleaseContactConstraints(&context);
+    world->profile.storeImpulses=b2GetMillisecondsAndReset(&ticks);
     int bulletCount=0;int* bulletIndices=NULL;
     if(world->enableContinuous && set->bodySims.count>0)
     { bulletIndices=static_cast<int*>(b2StackAlloc(&world->stack,set->bodySims.count*sizeof(int),"bullets")); }
@@ -208,6 +220,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
         }
     }
+    world->profile.transforms=b2GetMillisecondsAndReset(&ticks);
     for(int i=0;i<bulletCount;++i)
     {
         int index=bulletIndices[i];b2SolveContinuous(world,index,timeStep);
@@ -216,6 +229,8 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
     }
     if(bulletIndices!=NULL) { b2StackFree(&world->stack,bulletIndices); }
+    if(bulletCount>0) { world->profile.bullets=b2GetMilliseconds(ticks); }
+    ticks=b2GetTicks();
     if(world->enableSleep)
     {
         // Reverse order is required because sleeping swap-removes island descriptors.
@@ -229,5 +244,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             if(ready) { b2TrySleepIsland(world,islandId); }
         }
     }
+
+    if(world->enableSleep) { world->profile.sleepIslands=b2GetMilliseconds(ticks); }
 
 }

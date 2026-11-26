@@ -11,6 +11,7 @@
 
 #include <float.h>
 #include <string.h>
+#include <stdio.h>
 
 static_assert( B2_MAX_WORLDS > 0, "must be 1 or more" );
 static_assert( B2_MAX_WORLDS < UINT16_MAX, "B2_MAX_WORLDS limit exceeded" );
@@ -179,6 +180,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     {
         return;
     }
+    uint64_t stepTicks=b2GetTicks();world->profile=b2Profile{};
     world->locked = true;
 	{
 		b2Capacity* c = &world->maxCapacity;
@@ -196,11 +198,13 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
 		c->contactCount = b2MaxInt( c->contactCount, totalContactCount );
 	}
 
-    b2UpdateBroadPhaseContacts( world );
-    b2UpdateContacts( world );
-    b2SplitContactIslands( world );
-    b2SolveFreeBodies( world, timeStep, subStepCount );
+    uint64_t stageTicks=b2GetTicks();
+    b2UpdateBroadPhaseContacts( world );world->profile.pairs=b2GetMillisecondsAndReset(&stageTicks);
+    b2UpdateContacts( world );world->profile.collide=b2GetMillisecondsAndReset(&stageTicks);
+    b2SplitContactIslands( world );world->profile.splitIslands=b2GetMillisecondsAndReset(&stageTicks);
+    b2SolveFreeBodies( world, timeStep, subStepCount );world->profile.solve=b2GetMillisecondsAndReset(&stageTicks);
     world->maxCapacity.arenaByteCount=b2MaxInt(world->maxCapacity.arenaByteCount,b2GetMaxStackAllocation(&world->stack));
+    world->profile.step=b2GetMilliseconds(stepTicks);
     world->locked = false;
 }
 
@@ -356,4 +360,64 @@ b2Counters b2World_GetCounters(b2WorldId id)
 b2Capacity b2World_GetMaxCapacity(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL?world->maxCapacity:b2Capacity{};
+}
+
+b2Profile b2World_GetProfile(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->profile:b2Profile{};
+}
+
+static void b2WriteMemoryStat(FILE* file,const char* name,int bytes,int* total)
+{
+    fprintf(file,"%s: %d\n",name,bytes);*total+=bytes;
+}
+
+void b2World_DumpMemoryStats(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL) { return; }
+    FILE* file=fopen("box2d_memory.txt","w");if(file==NULL) { return; }
+    int total=0;
+    fprintf(file,"id pools\n");
+    b2WriteMemoryStat(file,"body ids",b2GetIdBytes(&world->bodyIdPool),&total);
+    b2WriteMemoryStat(file,"solver set ids",b2GetIdBytes(&world->solverSetIdPool),&total);
+    b2WriteMemoryStat(file,"contact ids",b2GetIdBytes(&world->contactIdPool),&total);
+    b2WriteMemoryStat(file,"island ids",b2GetIdBytes(&world->islandIdPool),&total);
+    b2WriteMemoryStat(file,"shape ids",b2GetIdBytes(&world->shapeIdPool),&total);
+    b2WriteMemoryStat(file,"chain ids",b2GetIdBytes(&world->chainIdPool),&total);
+    fprintf(file,"\nworld arrays\n");
+    b2WriteMemoryStat(file,"bodies",b2Array_ByteCount(world->bodies),&total);
+    b2WriteMemoryStat(file,"solver sets",b2Array_ByteCount(world->solverSets),&total);
+    b2WriteMemoryStat(file,"contacts",b2Array_ByteCount(world->contacts),&total);
+    b2WriteMemoryStat(file,"islands",b2Array_ByteCount(world->islands),&total);
+    b2WriteMemoryStat(file,"shapes",b2Array_ByteCount(world->shapes),&total);
+    b2WriteMemoryStat(file,"fat AABBs",b2Array_ByteCount(world->fatAABBs),&total);
+    b2WriteMemoryStat(file,"chains",b2Array_ByteCount(world->chainShapes),&total);
+    int islandBytes=0,chainBytes=0;
+    for(int i=0;i<world->islands.count;++i)
+    { islandBytes+=b2Array_ByteCount(world->islands.data[i].bodies)+b2Array_ByteCount(world->islands.data[i].contacts); }
+    for(int i=0;i<world->chainShapes.count;++i)
+    { if(world->chainShapes.data[i].id!=B2_NULL_INDEX) { chainBytes+=world->chainShapes.data[i].segmentCount*sizeof(int); } }
+    b2WriteMemoryStat(file,"island links",islandBytes,&total);
+    fprintf(file,"\nowned arrays\n");b2WriteMemoryStat(file,"chain data",chainBytes,&total);
+    fprintf(file,"\nbroad-phase\n");
+    b2WriteMemoryStat(file,"static tree",(int)b2DynamicTree_GetByteCount(world->broadPhase.trees+b2_staticBody),&total);
+    b2WriteMemoryStat(file,"kinematic tree",(int)b2DynamicTree_GetByteCount(world->broadPhase.trees+b2_kinematicBody),&total);
+    b2WriteMemoryStat(file,"dynamic tree",(int)b2DynamicTree_GetByteCount(world->broadPhase.trees+b2_dynamicBody),&total);
+    b2WriteMemoryStat(file,"pairSet",b2GetHashSetBytes(&world->broadPhase.pairSet),&total);
+    int bodyBytes=0,stateBytes=0,contactBytes=0,islandSimBytes=0;
+    for(int i=0;i<world->solverSets.count;++i)
+    {
+        b2SolverSet* set=world->solverSets.data+i;if(set->setIndex==B2_NULL_INDEX) { continue; }
+        bodyBytes+=b2Array_ByteCount(set->bodySims);stateBytes+=b2Array_ByteCount(set->bodyStates);
+        contactBytes+=b2Array_ByteCount(set->contactSims);islandSimBytes+=b2Array_ByteCount(set->islandSims);
+    }
+    fprintf(file,"\nsolver sets\n");
+    b2WriteMemoryStat(file,"body sim",bodyBytes,&total);b2WriteMemoryStat(file,"body state",stateBytes,&total);
+    b2WriteMemoryStat(file,"contact sim",contactBytes,&total);b2WriteMemoryStat(file,"island sim",islandSimBytes,&total);
+    int bitBytes=0,graphBytes=0;
+    for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
+    { bitBytes+=b2GetBitSetBytes(&world->constraintGraph.colors[i].bodySet);graphBytes+=b2Array_ByteCount(world->constraintGraph.colors[i].contactSims); }
+    fprintf(file,"\nconstraint graph\n");b2WriteMemoryStat(file,"body bit sets",bitBytes,&total);b2WriteMemoryStat(file,"contact sim",graphBytes,&total);
+    fprintf(file,"\n");b2WriteMemoryStat(file,"stack allocator",world->stack.capacity,&total);
+    fprintf(file,"\ntotal: %d\n",total);fclose(file);
 }

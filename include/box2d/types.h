@@ -231,6 +231,34 @@ B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
 B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
+typedef struct b2Profile
+{
+	float step;				   ///<
+	float pairs;			   ///<
+	float collide;			   ///<
+	float solve;			   ///<
+	float solverSetup;		   ///<
+	float constraints;		   ///<
+	float prepareConstraints;  ///<
+	float integrateVelocities; ///<
+	float warmStart;		   ///<
+	float solveImpulses;	   ///<
+	float integratePositions;  ///<
+	float relaxImpulses;	   ///<
+	float restitution;		   ///<
+	float storeImpulses;	   ///<
+	float splitIslands;		   ///<
+	float transforms;		   ///<
+	float sensorHits;		   ///<
+	float jointEvents;		   ///<
+	float hitEvents;		   ///<
+	float refit;			   ///<
+	float bullets;			   ///<
+	float sleepIslands;		   ///<
+	float sensors;			   ///<
+} b2Profile;
+B2_API b2Profile b2World_GetProfile(b2WorldId worldId);
+B2_API void b2World_DumpMemoryStats(b2WorldId worldId);
 typedef struct b2Counters
 {
 	size_t byteCount;	  ///<
