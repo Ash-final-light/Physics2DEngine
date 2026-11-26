@@ -9,6 +9,32 @@
 #include "world.h"
 #include "box2d/types.h"
 #include "box2d/math_functions.h"
+#include "simd.h"
+
+int SIMDMathTest(void)
+{
+    int width=b2GetSIMDWidth();ENSURE(width==4 || width==8);
+    ENSURE((width==8)==b2IsAVX2Available());ENSURE(b2GetSIMDWidth()==width);
+    for(int i=0;i<128;++i)
+    {
+        b2AABB a={{float(i%11)-5,float(i%7)-3},{float(i%11)-3,float(i%7)+1}};
+        b2AABB b={{float(i%13)-6,float(i%5)-2},{float(i%13)-4,float(i%5)+2}};
+        bool overlaps=a.lowerBound.x<=b.upperBound.x && a.lowerBound.y<=b.upperBound.y && b.lowerBound.x<=a.upperBound.x && b.lowerBound.y<=a.upperBound.y;
+        ENSURE(b2OverlapV(&a,&b)==overlaps);
+        b2AABB merged=b2UnionV(a,b);
+        ENSURE(merged.lowerBound.x==b2MinFloat(a.lowerBound.x,b.lowerBound.x));
+        ENSURE(merged.lowerBound.y==b2MinFloat(a.lowerBound.y,b.lowerBound.y));
+        ENSURE(merged.upperBound.x==b2MaxFloat(a.upperBound.x,b.upperBound.x));
+        ENSURE(merged.upperBound.y==b2MaxFloat(a.upperBound.y,b.upperBound.y));
+        alignas(64) b2TreeNode nodes[2]={};nodes[0].aabb=a;nodes[1].aabb=b;
+        b2AABB query={{-1,-1},{1,1}};int expected=0;
+        for(int j=0;j<2;++j) { expected|=b2AABB_Overlaps(query,nodes[j].aabb)?1<<j:0; }
+        ENSURE(b2OverlapNodePairMask(b2LoadAABBV(&query),nodes)==expected);
+        int pairMask=0;for(int j=0;j<2;++j)for(int k=0;k<2;++k) { pairMask|=b2AABB_Overlaps(nodes[j].aabb,nodes[k].aabb)?1<<(2*j+k):0; }
+        ENSURE(b2OverlapPairMask(nodes,nodes)==pairMask);
+    }
+    return 0;
+}
 
 struct PairThreadHost
 {

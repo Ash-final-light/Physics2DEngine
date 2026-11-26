@@ -17,6 +17,55 @@
 #define B2_PLATFORM_WINDOWS
 #endif
 
+// 定义 CPU
+#if defined( __x86_64__ ) || defined( _M_X64 ) || defined( __i386__ ) || defined( _M_IX86 )
+	#define B2_CPU_X86_X64
+#elif defined( __aarch64__ ) || defined( _M_ARM64 ) || defined( __arm__ ) || defined( _M_ARM )
+	#define B2_CPU_ARM
+#elif defined( __EMSCRIPTEN__ )
+	#define B2_CPU_WASM
+#else
+	#define B2_CPU_UNKNOWN
+#endif
+
+// 定义 SIMD
+#if defined( BOX2D_DISABLE_SIMD )
+	#define B2_SIMD_NONE
+#else
+	#if defined( B2_CPU_X86_X64 )
+		#define B2_SIMD_SSE2
+		#define B2_SIMD_HAS_WIDTH_8
+		#if defined( __AVX2__ ) || ( defined( B2_SIMD_WIDTH ) && B2_SIMD_WIDTH == 8 )
+			#define B2_SIMD_AVX2
+		#endif
+	#elif defined( B2_CPU_ARM )
+		#if defined( __aarch64__ ) || defined( _M_ARM64 )
+			#define B2_SIMD_NEON
+		#else
+			// arm32 使用标量运算，因为 32 位 Neon 有确定性问题
+			// 且性能无法验证。
+			#define B2_SIMD_NONE
+		#endif
+	#elif defined( B2_CPU_WASM )
+		#define B2_CPU_WASM
+		#define B2_SIMD_SSE2
+	#else
+		#define B2_SIMD_NONE
+	#endif
+#endif
+
+#if defined( B2_SIMD_AVX2 ) && defined( __clang__ )
+	#define B2_AVX2_BEGIN _Pragma( "clang attribute push( __attribute__( ( target( \"avx2\" ) ) ), apply_to = function )" )
+	#define B2_AVX2_END _Pragma( "clang attribute pop" )
+#elif defined( B2_SIMD_AVX2 ) && defined( __GNUC__ )
+	#define B2_AVX2_BEGIN _Pragma( "GCC push_options" ) _Pragma( "GCC target( \"avx2\" )" )
+	#define B2_AVX2_END _Pragma( "GCC pop_options" )
+#else
+	#define B2_AVX2_BEGIN
+	#define B2_AVX2_END
+#endif
+
+
 #define B2_ALIGNMENT 64
 #define B2_SECRET_COOKIE 1152023
 #define B2_CHECK_DEF( DEF ) B2_ASSERT( ( DEF )->internalValue == B2_SECRET_COOKIE )

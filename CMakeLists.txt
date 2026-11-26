@@ -25,6 +25,11 @@ if(PROJECT_IS_TOP_LEVEL)
 	include(CTest)
 endif()
 
+option(BOX2D_DISABLE_SIMD "Disable SIMD instructions" OFF)
+if(BOX2D_DISABLE_SIMD)
+ add_compile_definitions(BOX2D_DISABLE_SIMD)
+endif()
+
 add_subdirectory(src)
 
 add_executable(toolchain_check
