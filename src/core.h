@@ -63,6 +63,12 @@ void* b2GrowAlloc( void* oldMem, size_t oldSize, size_t newSize );
 void* b2AllocZero( size_t size );
 void* b2GrowAllocZero( void* oldMem, size_t oldSize, size_t newSize );
 
+typedef struct b2Mutex b2Mutex;
+b2Mutex* b2CreateMutex( void );
+void b2DestroyMutex( b2Mutex* m );
+void b2LockMutex( b2Mutex* m );
+void b2UnlockMutex( b2Mutex* m );
+
 #ifdef __cplusplus
 #include <type_traits>
 #define B2_TYPE_OF( A ) std::remove_cvref_t<decltype( A )>

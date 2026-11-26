@@ -37,6 +37,7 @@ int HashSetRemoveTest( void );
 int HashSetGrowTest( void );
 int StackAllocatorTest( void );
 int TimerTest( void );
+int MutexTest( void );
 int AABBTest( void );
 int AABBRayCastTest( void );
 int CircleSegmentTest( void );
@@ -411,6 +412,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( TimerTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "MutexTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( MutexTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "AABBTest" ) == 0 )

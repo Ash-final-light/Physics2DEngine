@@ -53,6 +53,7 @@ if(BUILD_TESTING)
 		test/test_table.cpp
 		test/test_stack.cpp
 		test/test_timer.cpp
+		test/test_thread.cpp
 		test/test_aabb.cpp
 		test/test_geometry.cpp
 		test/test_distance.cpp

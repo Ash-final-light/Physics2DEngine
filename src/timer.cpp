@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#include "core.h"
 #include "box2d/base.h"
 
 #if defined( _WIN32 )
@@ -63,6 +64,35 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	return ms;
 }
 
+typedef struct b2Mutex
+{
+	CRITICAL_SECTION cs;
+} b2Mutex;
+
+b2Mutex* b2CreateMutex( void )
+{
+	b2Mutex* m = static_cast<b2Mutex*>( b2Alloc( sizeof( b2Mutex ) ) );
+	InitializeCriticalSection( &m->cs );
+	return m;
+}
+
+void b2DestroyMutex( b2Mutex* m )
+{
+	DeleteCriticalSection( &m->cs );
+	*m = b2Mutex{};
+	b2Free( m, sizeof( b2Mutex ) );
+}
+
+void b2LockMutex( b2Mutex* m )
+{
+	EnterCriticalSection( &m->cs );
+}
+
+void b2UnlockMutex( b2Mutex* m )
+{
+	LeaveCriticalSection( &m->cs );
+}
+
 #elif defined( __linux__ ) || defined( __EMSCRIPTEN__ )
 
 #include <time.h>
@@ -86,6 +116,37 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	float ms = (float)( ( ticksNow - *ticks ) / 1000000.0 );
 	*ticks = ticksNow;
 	return ms;
+}
+
+#include <pthread.h>
+
+typedef struct b2Mutex
+{
+	pthread_mutex_t mtx;
+} b2Mutex;
+
+b2Mutex* b2CreateMutex( void )
+{
+	b2Mutex* m = static_cast<b2Mutex*>( b2Alloc( sizeof( b2Mutex ) ) );
+	pthread_mutex_init( &m->mtx, NULL );
+	return m;
+}
+
+void b2DestroyMutex( b2Mutex* m )
+{
+	pthread_mutex_destroy( &m->mtx );
+	*m = b2Mutex{};
+	b2Free( m, sizeof( b2Mutex ) );
+}
+
+void b2LockMutex( b2Mutex* m )
+{
+	pthread_mutex_lock( &m->mtx );
+}
+
+void b2UnlockMutex( b2Mutex* m )
+{
+	pthread_mutex_unlock( &m->mtx );
 }
 
 #elif defined( __APPLE__ )
@@ -125,6 +186,37 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	return ms;
 }
 
+#include <pthread.h>
+
+typedef struct b2Mutex
+{
+	pthread_mutex_t mtx;
+} b2Mutex;
+
+b2Mutex* b2CreateMutex( void )
+{
+	b2Mutex* m = static_cast<b2Mutex*>( b2Alloc( sizeof( b2Mutex ) ) );
+	pthread_mutex_init( &m->mtx, NULL );
+	return m;
+}
+
+void b2DestroyMutex( b2Mutex* m )
+{
+	pthread_mutex_destroy( &m->mtx );
+	*m = b2Mutex{};
+	b2Free( m, sizeof( b2Mutex ) );
+}
+
+void b2LockMutex( b2Mutex* m )
+{
+	pthread_mutex_lock( &m->mtx );
+}
+
+void b2UnlockMutex( b2Mutex* m )
+{
+	pthread_mutex_unlock( &m->mtx );
+}
+
 #else
 
 uint64_t b2GetTicks( void )
@@ -142,6 +234,34 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 {
 	(void)ticks;
 	return 0.0f;
+}
+
+typedef struct b2Mutex
+{
+	int dummy;
+} b2Mutex;
+
+b2Mutex* b2CreateMutex( void )
+{
+	b2Mutex* m = static_cast<b2Mutex*>( b2Alloc( sizeof( b2Mutex ) ) );
+	m->dummy = 42;
+	return m;
+}
+
+void b2DestroyMutex( b2Mutex* m )
+{
+	*m = b2Mutex{};
+	b2Free( m, sizeof( b2Mutex ) );
+}
+
+void b2LockMutex( b2Mutex* m )
+{
+	(void)m;
+}
+
+void b2UnlockMutex( b2Mutex* m )
+{
+	(void)m;
 }
 
 #endif
