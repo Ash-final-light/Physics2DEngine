@@ -1,4 +1,5 @@
 add_library(box2d
+	revolute_joint.cpp
 	distance_joint.cpp
 	joint.cpp
 	mover.cpp

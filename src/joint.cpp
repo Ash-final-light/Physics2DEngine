@@ -473,6 +473,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PrepareDistanceJoint( joint, context );
 			break;
 
+		case b2_revoluteJoint:
+			b2PrepareRevoluteJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -484,6 +488,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 	{
 		case b2_distanceJoint:
 			b2WarmStartDistanceJoint( joint, context );
+			break;
+
+		case b2_revoluteJoint:
+			b2WarmStartRevoluteJoint( joint, context );
 			break;
 
 		default:
@@ -499,7 +507,55 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 			b2SolveDistanceJoint( joint, context, useBias );
 			break;
 
+		case b2_revoluteJoint:
+			b2SolveRevoluteJoint( joint, context, useBias );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
+}
+
+static b2World* b2GetWorldForJointDef(b2WorldId id,const b2JointDef* def)
+{
+ if(!b2World_IsValid(id) || !b2IsValidTransform(def->localFrameA) || !b2IsValidTransform(def->localFrameB) || !b2IsValidFloat(def->constraintHertz) || def->constraintHertz<0 || !b2IsValidFloat(def->constraintDampingRatio) || def->constraintDampingRatio<0 || !b2IsValidFloat(def->drawScale)) { return nullptr; }
+ b2World* world=b2_worlds+id.index1-1;
+ if(!world->inUse || world->locked || def->bodyIdA.world0!=world->worldId || def->bodyIdB.world0!=world->worldId || def->bodyIdA.index1==def->bodyIdB.index1 || !b2Body_IsValid(def->bodyIdA) || !b2Body_IsValid(def->bodyIdB)) { return nullptr; }
+ return world;
+}
+
+b2RevoluteJointDef b2DefaultRevoluteJointDef( void )
+{
+	b2RevoluteJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* def )
+{
+	B2_CHECK_DEF( def );
+
+	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
+
+	B2_ASSERT( world->locked == false );
+
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_revoluteJoint );
+
+	b2JointSim* joint = pair.jointSim;
+
+	b2RevoluteJoint empty = {};
+	joint->revoluteJoint = empty;
+
+
+
+
+	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
+
+
+	return jointId;
 }
