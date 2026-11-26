@@ -1,6 +1,10 @@
 // SPDX-FileCopyrightText: 2026 Erin Catto
 // SPDX-License-Identifier: MIT
 
+#if defined( _MSC_VER ) && !defined( _CRT_SECURE_NO_WARNINGS )
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include "recording.h"
 #include "snapshot.h"
 #include "state_hash.h"
@@ -8,6 +12,7 @@
 #include "box2d/math_functions.h"
 
 #include <string.h>
+#include <stdio.h>
 
 // 缓冲区辅助函数
 
@@ -798,4 +803,22 @@ bool b2RecPlaneTrampoline( b2ShapeId id, const b2PlaneResult* plane, void* ctx )
 	b2RecW_BOOL( &w->buf, ret );
 	w->hitCount++;
 	return ret;
+}
+
+bool b2Recording_SaveToFile( const b2Recording* recording, const char* path )
+{
+	if ( recording == NULL || path == NULL )
+	{
+		return false;
+	}
+
+	FILE* f = fopen( path, "wb" );
+	if ( f == NULL )
+	{
+		return false;
+	}
+
+	size_t written = fwrite( recording->buffer.data, 1, (size_t)recording->buffer.size, f );
+	int closeResult = fclose( f );
+	return (int)written == recording->buffer.size && closeResult == 0;
 }

@@ -76,6 +76,7 @@ int RecordingQueryConcurrentTest( void );
 int RecordingQueryGuardTest( void );
 int RecordingBoundsTest( void );
 int RecordingEmptyBoundsTest( void );
+int RecordingSaveFileTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1074,6 +1075,8 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingBoundsTest")==0) { ran=1; RUN_TEST(RecordingBoundsTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingEmptyBoundsTest")==0) { ran=1; RUN_TEST(RecordingEmptyBoundsTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingSaveFileTest")==0) { ran=1; RUN_TEST(RecordingSaveFileTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

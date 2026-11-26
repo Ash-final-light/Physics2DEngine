@@ -10,6 +10,9 @@
 #include <limits>
 #include <thread>
 #include <atomic>
+#include <filesystem>
+#include <fstream>
+#include <chrono>
 #include <vector>
 
 int RecordingBufferTest( void )
@@ -1225,5 +1228,34 @@ int RecordingEmptyBoundsTest( void )
 	b2World_Step( world, 0.1f, 1 );
 	ENSURE( rec->haveBounds && rec->accumulatedBounds.lowerBound.x > 98 );
 	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+struct RecordingTempFile
+{
+	std::filesystem::path path = std::filesystem::temp_directory_path() /
+		( "box2d-recording-" + std::to_string( std::chrono::steady_clock::now().time_since_epoch().count() ) + ".bin" );
+	~RecordingTempFile() { std::error_code error; std::filesystem::remove( path, error ); }
+};
+
+int RecordingSaveFileTest( void )
+{
+	int before = b2GetByteCount(); RecordingTempFile file;
+	b2WorldId world = MakeRecordingQueryWorld(); b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( world, rec ); b2World_Step( world, 0.1f, 2 ); b2World_StopRecording( world );
+	std::string path = file.path.string();
+	ENSURE( b2Recording_SaveToFile( rec, path.c_str() ) );
+	std::ifstream input( file.path, std::ios::binary );
+	std::vector<char> bytes( ( std::istreambuf_iterator<char>( input ) ), std::istreambuf_iterator<char>() );
+	input.close();
+	ENSURE( bytes.size() == b2Recording_GetSize( rec ) );
+	ENSURE( memcmp( bytes.data(), b2Recording_GetData( rec ), bytes.size() ) == 0 );
+	ENSURE( !b2Recording_SaveToFile( nullptr, path.c_str() ) );
+	ENSURE( !b2Recording_SaveToFile( rec, nullptr ) );
+	std::string invalid = ( file.path / "child.bin" ).string();
+	ENSURE( !b2Recording_SaveToFile( rec, invalid.c_str() ) );
+	b2Recording* empty = b2CreateRecording( 0 );
+	ENSURE( b2Recording_SaveToFile( empty, path.c_str() ) && std::filesystem::file_size( file.path ) == 0 );
+	b2DestroyRecording( empty ); b2DestroyRecording( rec ); b2DestroyWorld( world );
 	ENSURE( b2GetByteCount() == before ); return 0;
 }

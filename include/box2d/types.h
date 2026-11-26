@@ -1489,3 +1489,6 @@ B2_API void b2Shape_SetChainSegment( b2ShapeId shapeId, const b2ChainSegment* ch
 
 /// 唤醒关节连接的两个刚体；锁定的世界不受影响。
 B2_API void b2Joint_WakeBodies( b2JointId jointId );
+
+/// 将当前录制字节保存到二进制文件，无法完整写入时返回false。
+B2_API bool b2Recording_SaveToFile( const b2Recording* recording, const char* path );
