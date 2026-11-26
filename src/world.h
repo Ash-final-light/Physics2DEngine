@@ -26,6 +26,11 @@ struct b2World
 	b2Vec2 gravity;
 	b2Capacity maxCapacity;
 	b2Profile profile;
+	float inv_dt;
+	float inv_h;
+	b2BitSet debugBodySet;
+	b2BitSet debugContactSet;
+	b2BitSet debugIslandSet;
 	b2DynamicArray<b2BodyMoveEvent> bodyMoveEvents;
 	b2DynamicArray<b2ContactHitEvent> contactHitEvents;
 	b2DynamicArray<b2ContactBeginTouchEvent> contactBeginEvents;

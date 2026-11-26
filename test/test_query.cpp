@@ -238,3 +238,27 @@ int WorldBoundsTest(void)
  b2DestroyBody(bodies[0]);b2DestroyBody(bodies[1]);b2DestroyBody(bodies[2]);box=b2World_GetBounds(id);ENSURE(box.lowerBound.x==0 && box.upperBound.x==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+struct DrawStats { int circles,polygons,capsules,lines,points,strings,bounds,transforms;bool valid;b2Pos center;b2HexColor color; };
+static void DrawCircle(b2WorldTransform xf,b2Vec2 local,float radius,b2HexColor color,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->circles;s->center=b2TransformWorldPoint(xf,local);s->color=color;s->valid&=radius>0; }
+static void DrawPolygon(b2WorldTransform,const b2Vec2*,int count,float,b2HexColor,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->polygons;s->valid&=count>=3; }
+static void DrawCapsule(b2Pos,b2Pos,float,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->capsules; }
+static void DrawLine(b2Pos a,b2Pos b,b2HexColor,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->lines;s->valid&=b2IsValidVec2(a)&&b2IsValidVec2(b); }
+static void DrawPoint(b2Pos,float,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->points; }
+static void DrawString(b2Pos,const char*,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->strings; }
+static void DrawBounds(b2AABB,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->bounds; }
+static void DrawTransform(b2WorldTransform,void* ctx) { ++((DrawStats*)ctx)->transforms; }
+int WorldDebugDrawTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2ShapeDef sd=b2DefaultShapeDef();b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};b2BodyId body=b2CreateBody(id,&bd);b2Circle circle={{1,0},0.5f};sd.material.customColor=0x123456;b2CreateCircleShape(body,&sd,&circle);
+ bd.position={103,200};bd.type=b2_dynamicBody;bd.name="box";body=b2CreateBody(id,&bd);sd.material.customColor=0;b2Polygon box=b2MakeBox(0.5f,0.5f);b2CreatePolygonShape(body,&sd,&box);circle.center={0,0};b2CreateCircleShape(body,&sd,&circle);
+ bd.position={106,200};bd.type=b2_staticBody;bd.name=nullptr;body=b2CreateBody(id,&bd);b2Capsule cap={{0,-1},{0,1},0.5f};b2CreateCapsuleShape(body,&sd,&cap);
+ bd.position={109,200};body=b2CreateBody(id,&bd);b2Segment edge={{0,-1},{0,1}};b2CreateSegmentShape(body,&sd,&edge);
+ b2DebugDraw draw=b2DefaultDebugDraw();DrawStats stats={};stats.valid=true;draw.context=&stats;draw.DrawSolidCircleFcn=DrawCircle;draw.DrawSolidPolygonFcn=DrawPolygon;draw.DrawSolidCapsuleFcn=DrawCapsule;draw.DrawLineFcn=DrawLine;draw.DrawPointFcn=DrawPoint;draw.DrawStringFcn=DrawString;draw.DrawBoundsFcn=DrawBounds;draw.DrawTransformFcn=DrawTransform;
+ draw.drawingBounds={{100,199},{102,201}};b2World_Draw(id,&draw);ENSURE(stats.circles==1 && stats.color==static_cast<b2HexColor>(0x123456));ENSURE(stats.center.x==101 && stats.center.y==200);
+ stats={};stats.valid=true;draw.drawingBounds={{90,190},{120,210}};draw.drawBounds=true;draw.drawMass=true;draw.drawBodyNames=true;draw.drawIslands=true;b2World_Draw(id,&draw);ENSURE(stats.circles==2 && stats.polygons==1 && stats.capsules==1 && stats.lines>=2);ENSURE(stats.transforms==1 && stats.strings==2 && stats.bounds==6 && stats.valid);
+ size_t afterDraw=b2GetByteCount();b2World_Draw(id,&draw);ENSURE(b2GetByteCount()==afterDraw);
+ bd.type=b2_dynamicBody;bd.position={103,200.8f};body=b2CreateBody(id,&bd);b2CreatePolygonShape(body,&sd,&box);b2World_Step(id,0.01f,1);stats={};stats.valid=true;draw.drawContacts=true;draw.drawContactNormals=true;b2World_Draw(id,&draw);ENSURE(stats.points>0 && stats.valid);
+ stats={};b2World* world=b2_worlds+id.index1-1;world->locked=true;b2World_Draw(id,&draw);world->locked=false;ENSURE(stats.circles==0);
+ draw=b2DefaultDebugDraw();b2World_Draw(id,&draw);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

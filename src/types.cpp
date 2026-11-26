@@ -90,3 +90,79 @@ b2ExplosionDef b2DefaultExplosionDef( void )
 	def.maskBits = UINT64_MAX;
 	return def;
 }
+
+static void b2EmptyDrawPolygon( b2WorldTransform transform, const b2Vec2* vertices, int vertexCount, b2HexColor color, void* context )
+{
+	(void)transform; (void)vertices; (void)vertexCount; (void)color; (void)context;
+}
+
+static void b2EmptyDrawSolidPolygon( b2WorldTransform transform, const b2Vec2* vertices, int vertexCount, float radius,
+									 b2HexColor color, void* context )
+{
+	(void)transform; (void)vertices; (void)vertexCount; (void)radius; (void)color; (void)context;
+}
+
+static void b2EmptyDrawCircle( b2Pos center, float radius, b2HexColor color, void* context )
+{
+	(void)center; (void)radius; (void)color; (void)context;
+}
+
+static void b2EmptyDrawSolidCircle( b2WorldTransform transform, b2Vec2 center, float radius, b2HexColor color, void* context )
+{
+	(void)transform; (void)center; (void)radius; (void)color; (void)context;
+}
+
+static void b2EmptyDrawSolidCapsule( b2Pos p1, b2Pos p2, float radius, b2HexColor color, void* context )
+{
+	(void)p1; (void)p2; (void)radius; (void)color; (void)context;
+}
+
+static void b2EmptyDrawSegment( b2Pos p1, b2Pos p2, b2HexColor color, void* context )
+{
+	(void)p1; (void)p2; (void)color; (void)context;
+}
+
+static void b2EmptyDrawTransform( b2WorldTransform transform, void* context )
+{
+	(void)transform; (void)context;
+}
+
+static void b2EmptyDrawPoint( b2Pos p, float size, b2HexColor color, void* context )
+{
+	(void)p; (void)size; (void)color; (void)context;
+}
+
+static void b2EmptyDrawString( b2Pos p, const char* s, b2HexColor color, void* context )
+{
+	(void)p; (void)s; (void)color; (void)context;
+}
+
+static void b2EmptyDrawBounds( b2AABB aabb, b2HexColor color, void* context )
+{
+	(void)aabb; (void)color; (void)context;
+}
+
+b2DebugDraw b2DefaultDebugDraw( void )
+{
+	b2DebugDraw draw = {};
+
+	// 允许用户跳过部分实现而不触发空指针异常。
+	draw.DrawPolygonFcn = b2EmptyDrawPolygon;
+	draw.DrawSolidPolygonFcn = b2EmptyDrawSolidPolygon;
+	draw.DrawCircleFcn = b2EmptyDrawCircle;
+	draw.DrawSolidCircleFcn = b2EmptyDrawSolidCircle;
+	draw.DrawSolidCapsuleFcn = b2EmptyDrawSolidCapsule;
+	draw.DrawLineFcn = b2EmptyDrawSegment;
+	draw.DrawTransformFcn = b2EmptyDrawTransform;
+	draw.DrawPointFcn = b2EmptyDrawPoint;
+	draw.DrawStringFcn = b2EmptyDrawString;
+	draw.DrawBoundsFcn = b2EmptyDrawBounds;
+
+	draw.drawingBounds.lowerBound = b2Vec2{ -FLT_MAX, -FLT_MAX };
+	draw.drawingBounds.upperBound = b2Vec2{ FLT_MAX, FLT_MAX };
+	draw.forceScale = 1.0f;
+
+	draw.drawShapes = true;
+
+	return draw;
+}

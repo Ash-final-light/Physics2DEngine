@@ -180,3 +180,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2World_CollideMover` 为胶囊收集世界接触平面，通过形状过滤器和回调选择需要的接触。平面可交给 `b2SolvePlanes` 与 `b2ClipVector` 处理位移和速度。
 
 `b2World_GetBounds` 返回参与世界粗检测的形状边界并集；禁用形状不参与，空世界返回零边界。
+
+`b2World_Draw` 通过用户回调输出当前世界的形状、接触、包围盒、质量和岛；`b2DefaultDebugDraw` 允许仅实现需要的回调。物理库继续独立构建，不需要图形窗口或渲染库。

@@ -11,6 +11,7 @@
 #include "box2d/math_functions.h"
 
 #include <float.h>
+#include <bit>
 #include <string.h>
 #include <stdio.h>
 
@@ -111,6 +112,9 @@ void b2DestroyWorld( b2WorldId worldId )
     b2Array_Destroy(world->sensors);
     for(int i=0;i<world->sensorTaskContexts.count;++i) { b2DestroyBitSet(&world->sensorTaskContexts.data[i].eventBits); }
     b2Array_Destroy(world->sensorTaskContexts);b2Array_Destroy(world->sensorBeginEvents);b2Array_Destroy(world->sensorEndEvents[0]);b2Array_Destroy(world->sensorEndEvents[1]);
+	b2DestroyBitSet(&world->debugBodySet);
+	b2DestroyBitSet(&world->debugContactSet);
+	b2DestroyBitSet(&world->debugIslandSet);
 	b2Array_Destroy(world->bodyMoveEvents);
 	b2Array_Destroy(world->contactBeginEvents);
 	b2Array_Destroy(world->contactHitEvents);
@@ -199,6 +203,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     {
         return;
     }
+    world->inv_dt=1.0f/timeStep;world->inv_h=subStepCount/timeStep;
     b2Array_Clear(world->bodyMoveEvents);
     b2Array_Clear(world->contactBeginEvents);
     b2Array_Clear(world->sensorBeginEvents);
@@ -457,6 +462,7 @@ void b2World_DumpMemoryStats(b2WorldId id)
     for(int i=0;i<world->sensorTaskContexts.count;++i) { sensorBytes+=b2GetBitSetBytes(&world->sensorTaskContexts.data[i].eventBits); }
     fprintf(file,"\nsensors\n");b2WriteMemoryStat(file,"sensor storage",sensorBytes,&total);
     b2WriteMemoryStat(file,"sensor events",b2Array_ByteCount(world->sensorBeginEvents)+b2Array_ByteCount(world->sensorEndEvents[0])+b2Array_ByteCount(world->sensorEndEvents[1]),&total);
+    b2WriteMemoryStat(file,"debug bit sets",b2GetBitSetBytes(&world->debugBodySet)+b2GetBitSetBytes(&world->debugContactSet)+b2GetBitSetBytes(&world->debugIslandSet),&total);
     fprintf(file,"\ntotal: %d\n",total);fclose(file);
 }
 
@@ -1244,4 +1250,384 @@ b2AABB b2World_GetBounds( b2WorldId worldId )
 	b2AABB bounds;
 	b2ComputeWorldBounds( world, &bounds );
 	return bounds;
+}
+
+static void b2DrawShape( b2DebugDraw* draw, b2Shape* shape, b2WorldTransform transform, b2HexColor color,
+						 bool drawChainNormals )
+{
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+		{
+			b2Capsule* capsule = &shape->capsule;
+			b2Pos p1 = b2TransformWorldPoint( transform, capsule->center1 );
+			b2Pos p2 = b2TransformWorldPoint( transform, capsule->center2 );
+			draw->DrawSolidCapsuleFcn( p1, p2, capsule->radius, color, draw->context );
+		}
+		break;
+
+		case b2_circleShape:
+		{
+			b2Circle* circle = &shape->circle;
+			draw->DrawSolidCircleFcn( transform, circle->center, circle->radius, color, draw->context );
+		}
+		break;
+
+		case b2_polygonShape:
+		{
+			b2Polygon* poly = &shape->polygon;
+			draw->DrawSolidPolygonFcn( transform, poly->vertices, poly->count, poly->radius, color, draw->context );
+		}
+		break;
+
+		case b2_segmentShape:
+		{
+			b2Segment* segment = &shape->segment;
+			b2Pos p1 = b2TransformWorldPoint( transform, segment->point1 );
+			b2Pos p2 = b2TransformWorldPoint( transform, segment->point2 );
+			draw->DrawLineFcn( p1, p2, color, draw->context );
+		}
+		break;
+
+		case b2_chainSegmentShape:
+		{
+			b2Segment* segment = &shape->chainSegment.segment;
+			b2Pos p1 = b2TransformWorldPoint( transform, segment->point1 );
+			b2Pos p2 = b2TransformWorldPoint( transform, segment->point2 );
+			draw->DrawLineFcn( p1, p2, color, draw->context );
+			draw->DrawPointFcn( p2, 4.0f, color, draw->context );
+
+			if ( drawChainNormals )
+			{
+				b2Pos c = b2LerpPos( p1, p2, 0.5f );
+				b2Vec2 e = b2Normalize( b2SubPos( p2, p1 ) );
+				b2Vec2 n = b2RightPerp( e );
+				float L = 0.2f * b2GetLengthUnitsPerMeter();
+				draw->DrawLineFcn( c, b2OffsetPos( c, b2MulSV( L, n ) ), b2_colorPaleGreen, draw->context );
+			}
+		}
+		break;
+
+		default:
+			break;
+	}
+}
+
+struct DrawContext
+{
+	b2World* world;
+	b2DebugDraw* draw;
+};
+
+static bool DrawQueryCallback( int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+
+	struct DrawContext* drawContext = static_cast<DrawContext *>( context );
+	b2World* world = drawContext->world;
+	b2DebugDraw* draw = drawContext->draw;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+	B2_ASSERT( shape->id == shapeId );
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2BodySim* bodySim = b2GetBodySim( world, body );
+
+	b2SetBit( &world->debugBodySet, shape->bodyId );
+
+	if ( draw->drawShapes )
+	{
+		b2HexColor color;
+
+		if ( shape->material.customColor != 0 )
+		{
+			color = static_cast<b2HexColor>( shape->material.customColor );
+		}
+		else if ( body->type == b2_dynamicBody && body->mass == 0.0f )
+		{
+			// 无效刚体
+			color = b2_colorRed;
+		}
+		else if ( body->setIndex == b2_disabledSet )
+		{
+			color = b2_colorSlateGray;
+		}
+		else if ( shape->sensorIndex != B2_NULL_INDEX )
+		{
+			color = b2_colorWheat;
+		}
+		else if ( bodySim->flags & b2_hadTimeOfImpact )
+		{
+			color = b2_colorLime;
+		}
+		else if ( ( bodySim->flags & b2_isBullet ) && body->setIndex == b2_awakeSet )
+		{
+			color = b2_colorTurquoise;
+		}
+		else if ( body->flags & b2_isSpeedCapped )
+		{
+			color = b2_colorYellow;
+		}
+		else if ( bodySim->flags & b2_isFast )
+		{
+			color = b2_colorSalmon;
+		}
+		else if ( body->type == b2_staticBody )
+		{
+			color = b2_colorPaleGreen;
+		}
+		else if ( body->type == b2_kinematicBody )
+		{
+			color = b2_colorRoyalBlue;
+		}
+		else if ( body->setIndex == b2_awakeSet )
+		{
+			color = b2_colorPink;
+		}
+		else
+		{
+			color = b2_colorGray;
+		}
+
+		b2DrawShape( draw, shape, bodySim->transform, color, draw->drawChainNormals );
+	}
+
+	if ( draw->drawBounds )
+	{
+		draw->DrawBoundsFcn( world->fatAABBs.data[shapeId], b2_colorGold, draw->context );
+	}
+
+	return true;
+}
+
+// todo 移动形状顺序会变化，重叠形状移动时会闪烁
+// 方案：按形状 id 模 3 显示顺序，在 GLSolid* 中保留 3 个桶并分 3 遍刷新。
+void b2World_Draw( b2WorldId worldId, b2DebugDraw* draw )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked || draw == nullptr )
+	{
+		return;
+	}
+
+	B2_ASSERT( b2IsValidAABB( draw->drawingBounds ) );
+
+	const float k_axisScale = 0.3f;
+	b2HexColor speculativeColor = b2_colorGainsboro;
+	b2HexColor addColor = b2_colorGreen;
+	b2HexColor persistColor = b2_colorBlue;
+	b2HexColor normalColor = b2_colorDimGray;
+	b2HexColor impulseColor = b2_colorMagenta;
+	b2HexColor frictionColor = b2_colorYellow;
+
+	int bodyCapacity = b2GetIdCapacity( &world->bodyIdPool );
+	b2SetBitCountAndClear( &world->debugBodySet, bodyCapacity );
+
+
+
+	int contactCapacity = b2GetIdCapacity( &world->contactIdPool );
+	b2SetBitCountAndClear( &world->debugContactSet, contactCapacity );
+
+	int islandCapacity = b2GetIdCapacity( &world->islandIdPool );
+	b2SetBitCountAndClear( &world->debugIslandSet, islandCapacity );
+
+	struct DrawContext drawContext = { world, draw };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2DynamicTree_OverlapAABBAll( world->broadPhase.trees + i, draw->drawingBounds, DrawQueryCallback,
+									  &drawContext );
+	}
+
+	uint32_t wordCount = world->debugBodySet.blockCount;
+	uint64_t* bits = world->debugBodySet.bits;
+	for ( uint32_t k = 0; k < wordCount; ++k )
+	{
+		uint64_t word = bits[k];
+		while ( word != 0 )
+		{
+			uint32_t ctz = std::countr_zero( word );
+			uint32_t bodyId = 64 * k + ctz;
+
+			b2Body* body = b2Array_Get( world->bodies, (int)bodyId );
+
+			if ( draw->drawBodyNames && body->name[0] != 0 )
+			{
+				b2Vec2 offset = { 0.1f, 0.1f };
+				b2BodySim* bodySim = b2GetBodySim( world, body );
+
+				b2WorldTransform transform = { bodySim->center, bodySim->transform.q };
+				b2Pos p = b2TransformWorldPoint( transform, offset );
+				draw->DrawStringFcn( p, body->name, b2_colorWhiteSmoke, draw->context );
+			}
+
+			if ( draw->drawMass && body->type == b2_dynamicBody )
+			{
+				b2Vec2 offset = { 0.1f, 0.1f };
+				b2BodySim* bodySim = b2GetBodySim( world, body );
+
+				b2WorldTransform transform = { bodySim->center, bodySim->transform.q };
+				draw->DrawLineFcn( bodySim->center0, bodySim->center, b2_colorWhiteSmoke, draw->context );
+				draw->DrawTransformFcn( transform, draw->context );
+
+				b2Pos p = b2TransformWorldPoint( transform, offset );
+				char buffer[32];
+				snprintf( buffer, 32, "  %.2f", body->mass );
+				draw->DrawStringFcn( p, buffer, b2_colorWhite, draw->context );
+			}
+
+
+			const float linearSlop = B2_LINEAR_SLOP;
+			if ( draw->drawContacts && body->type == b2_dynamicBody )
+			{
+				int contactKey = body->headContactKey;
+				while ( contactKey != B2_NULL_INDEX )
+				{
+					int contactId = contactKey >> 1;
+					int edgeIndex = contactKey & 1;
+					b2Contact* contact = b2Array_Get( world->contacts, contactId );
+					contactKey = contact->edges[edgeIndex].nextKey;
+
+					// 避免重复绘制
+					if ( b2GetBit( &world->debugContactSet, contactId ) == false )
+					{
+						b2ContactSim* contactSim = b2GetContactSim( world, contact );
+						b2Body* bodyA = b2Array_Get( world->bodies, contact->edges[0].bodyId );
+						b2BodySim* bodySimA = b2GetBodySim( world, bodyA );
+						b2Body* bodyB = b2Array_Get( world->bodies, contact->edges[1].bodyId );
+						b2BodySim* bodySimB = b2GetBodySim( world, bodyB );
+						int pointCount = contactSim->manifold.pointCount;
+						b2Vec2 normal = contactSim->manifold.normal;
+						char buffer[32];
+
+						for ( int j = 0; j < pointCount; ++j )
+						{
+							b2ManifoldPoint* mp = contactSim->manifold.points + j;
+
+							b2Pos p;
+							if ( draw->drawAnchorA )
+							{
+								p = b2OffsetPos( bodySimA->center, mp->anchorA );
+							}
+							else
+							{
+								p = b2OffsetPos( bodySimB->center, mp->anchorB );
+							}
+
+							if ( draw->drawGraphColors && contact->colorIndex != B2_NULL_INDEX )
+							{
+								// 图颜色
+								float pointSize = contact->colorIndex == B2_OVERFLOW_INDEX ? 7.5f : 5.0f;
+								draw->DrawPointFcn( p, pointSize, b2GetGraphColor( contact->colorIndex ),
+													draw->context );
+								// m_context->draw.DrawString(point->position, "%d", point->color);
+							}
+							else if ( mp->separation > linearSlop )
+							{
+								// 预测性
+								draw->DrawPointFcn( p, 5.0f, speculativeColor, draw->context );
+							}
+							else if ( mp->persisted == false )
+							{
+								// 添加
+								draw->DrawPointFcn( p, 10.0f, addColor, draw->context );
+							}
+							else if ( mp->persisted == true )
+							{
+								// 持续
+								draw->DrawPointFcn( p, 5.0f, persistColor, draw->context );
+							}
+
+							if ( draw->drawContactNormals )
+							{
+								b2Pos p1 = p;
+								b2Pos p2 = b2OffsetPos( p1, b2MulSV( k_axisScale, normal ) );
+								draw->DrawLineFcn( p1, p2, normalColor, draw->context );
+
+								snprintf( buffer, sizeof(buffer), " %.2f", mp->separation );
+								draw->DrawStringFcn( p1, buffer, b2_colorWhite, draw->context );
+							}
+							else if ( draw->drawContactForces )
+							{
+								// todo 校验
+								// 因松弛迭代乘以二分之一
+								float force = 0.5f * mp->totalNormalImpulse * world->inv_dt;
+								b2Pos p1 = p;
+								b2Pos p2 = b2OffsetPos( p1, b2MulSV( draw->forceScale * force, normal ) );
+								draw->DrawLineFcn( p1, p2, impulseColor, draw->context );
+								snprintf( buffer, sizeof(buffer), "%.1f", force );
+								draw->DrawStringFcn( p1, buffer, b2_colorWhite, draw->context );
+							}
+
+							if ( draw->drawContactFeatures )
+							{
+								snprintf( buffer, sizeof(buffer), "%d", mp->id );
+								draw->DrawStringFcn( p, buffer, b2_colorOrange, draw->context );
+							}
+
+							if ( draw->drawFrictionForces )
+							{
+								float force = 0.5f * mp->tangentImpulse * world->inv_h;
+								b2Vec2 tangent = b2RightPerp( normal );
+								b2Pos p1 = p;
+								b2Pos p2 = b2OffsetPos( p1, b2MulSV( draw->forceScale * force, tangent ) );
+								draw->DrawLineFcn( p1, p2, frictionColor, draw->context );
+								snprintf( buffer, sizeof(buffer), "%.1f", force );
+								draw->DrawStringFcn( p1, buffer, b2_colorWhite, draw->context );
+							}
+						}
+
+						b2SetBit( &world->debugContactSet, contactId );
+					}
+
+					contactKey = contact->edges[edgeIndex].nextKey;
+				}
+			}
+
+			if ( draw->drawIslands )
+			{
+				int islandId = body->islandId;
+				if ( islandId != B2_NULL_INDEX && b2GetBit( &world->debugIslandSet, islandId ) == false )
+				{
+					b2Island* island = world->islands.data + islandId;
+					if ( island->setIndex == B2_NULL_INDEX )
+					{
+						continue;
+					}
+
+					int shapeCount = 0;
+					b2AABB aabb = {
+						.lowerBound = { FLT_MAX, FLT_MAX },
+						.upperBound = { -FLT_MAX, -FLT_MAX },
+					};
+
+					for ( int bodyIndex = 0; bodyIndex < island->bodies.count; ++bodyIndex )
+					{
+						int islandBodyId = island->bodies.data[bodyIndex];
+						b2Body* islandBody = b2Array_Get( world->bodies, islandBodyId );
+						int shapeId = islandBody->headShapeId;
+						while ( shapeId != B2_NULL_INDEX )
+						{
+							b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+							aabb = b2AABB_Union( aabb, world->fatAABBs.data[shapeId] );
+							shapeCount += 1;
+							shapeId = shape->nextShapeId;
+						}
+					}
+
+					if ( shapeCount > 0 )
+					{
+						draw->DrawBoundsFcn( aabb, b2_colorOrangeRed, draw->context );
+					}
+
+					b2SetBit( &world->debugIslandSet, islandId );
+				}
+			}
+
+			// 清除最低已置位
+			word = word & ( word - 1 );
+		}
+	}
 }

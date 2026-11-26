@@ -232,3 +232,17 @@ void b2RemoveContactFromGraph( b2World* world, int bodyIdA, int bodyIdB, int col
 		movedContact->localIndex = localIndex;
 	}
 }
+
+static const b2HexColor b2_graphColors[B2_GRAPH_COLOR_COUNT] = {
+	b2_colorRed,	   b2_colorOrange,		b2_colorYellow,			b2_colorLimeGreen,		 b2_colorSpringGreen,
+	b2_colorAqua,	   b2_colorDodgerBlue,	b2_colorBlueViolet,		b2_colorMagenta,		 b2_colorDeepPink,
+	b2_colorCrimson,   b2_colorCoral,		b2_colorGold,			b2_colorGreenYellow,	 b2_colorMediumSeaGreen,
+	b2_colorTurquoise, b2_colorDeepSkyBlue, b2_colorCornflowerBlue, b2_colorMediumSlateBlue, b2_colorMediumOrchid,
+	b2_colorHotPink,   b2_colorTomato,		b2_colorKhaki,			b2_colorSilver,
+};
+
+b2HexColor b2GetGraphColor( int index )
+{
+	B2_ASSERT( 0 <= index && index < B2_GRAPH_COLOR_COUNT );
+	return b2_graphColors[index];
+}

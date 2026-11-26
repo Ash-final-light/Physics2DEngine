@@ -129,6 +129,7 @@ int MoverClipVectorTest( void );
 int WorldMoverCastTest( void );
 int WorldMoverPlanesTest( void );
 int WorldBoundsTest( void );
+int WorldDebugDrawTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -993,6 +994,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"WorldMoverPlanesTest")==0) { ran=1; RUN_TEST(WorldMoverPlanesTest); }
 
 	if(filter==NULL || strcmp(filter,"WorldBoundsTest")==0) { ran=1; RUN_TEST(WorldBoundsTest); }
+
+	if(filter==NULL || strcmp(filter,"WorldDebugDrawTest")==0) { ran=1; RUN_TEST(WorldDebugDrawTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

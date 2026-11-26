@@ -599,3 +599,13 @@ B2_INLINE float b2PlaneSeparation( b2Plane plane, b2Vec2 point )
 {
 	return b2Dot( plane.normal, point ) - plane.offset;
 }
+
+B2_INLINE b2Vec2 b2SubPos( b2Pos a, b2Pos b )
+{
+	return B2_LITERAL( b2Vec2 ){ (float)( a.x - b.x ), (float)( a.y - b.y ) };
+}
+
+B2_INLINE b2Pos b2LerpPos( b2Pos a, b2Pos b, float t )
+{
+	return B2_LITERAL( b2Pos ){ ( 1.0f - t ) * a.x + t * b.x, ( 1.0f - t ) * a.y + t * b.y };
+}
