@@ -136,6 +136,7 @@ int JointDefinitionTest( void );
 int JointOrganizationTest( void );
 int DistanceJointBasicTest( void );
 int DistanceJointSpringTest( void );
+int DistanceJointLimitTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -1014,6 +1015,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"DistanceJointBasicTest")==0) { ran=1; RUN_TEST(DistanceJointBasicTest); }
 
 	if(filter==NULL || strcmp(filter,"DistanceJointSpringTest")==0) { ran=1; RUN_TEST(DistanceJointSpringTest); }
+
+	if(filter==NULL || strcmp(filter,"DistanceJointLimitTest")==0) { ran=1; RUN_TEST(DistanceJointLimitTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

@@ -938,6 +938,8 @@ typedef struct b2DistanceJointDef
  bool enableSpring;
  float lowerSpringForce,upperSpringForce;
  float hertz,dampingRatio;
+ bool enableLimit;
+ float minLength,maxLength;
  int internalValue;
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
@@ -961,3 +963,9 @@ B2_API void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float damp
 B2_API float b2DistanceJoint_GetSpringHertz( b2JointId jointId );
 B2_API float b2DistanceJoint_GetSpringDampingRatio( b2JointId jointId );
 B2_API float b2DistanceJoint_GetSpringForce( b2JointId jointId );
+
+B2_API void b2DistanceJoint_EnableLimit( b2JointId jointId, bool enableLimit );
+B2_API bool b2DistanceJoint_IsLimitEnabled( b2JointId jointId );
+B2_API void b2DistanceJoint_SetLimits( b2JointId jointId, float minLength, float maxLength );
+B2_API float b2DistanceJoint_GetLowerLimit( b2JointId jointId );
+B2_API float b2DistanceJoint_GetUpperLimit( b2JointId jointId );

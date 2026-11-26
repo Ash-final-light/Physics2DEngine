@@ -56,7 +56,9 @@ struct b2DistanceJoint
  float hertz,dampingRatio,lowerSpringForce,upperSpringForce;
  bool enableSpring;
  b2Softness distanceSoftness;
- float impulse;
+ float minLength,maxLength;
+ bool enableLimit;
+ float impulse,lowerImpulse,upperImpulse;
  int indexA,indexB;
  b2Vec2 anchorA,anchorB,deltaCenter;
  float axialMass;

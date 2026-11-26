@@ -85,3 +85,19 @@ int DistanceJointSpringTest(void)
  b2DistanceJoint_EnableSpring(joint,false);ENSURE(!b2DistanceJoint_IsSpringEnabled(joint));for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);ENSURE(b2DistanceJoint_GetSpringForce(joint)==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int DistanceJointLimitTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId anchor=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={3,0};b2BodyId bob=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.2f};b2CreateCircleShape(bob,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();ENSURE(!def.enableLimit && def.maxLength==B2_HUGE);def.base.bodyIdA=anchor;def.base.bodyIdB=bob;def.enableSpring=true;def.enableLimit=true;def.minLength=1;def.maxLength=2;b2JointId joint=b2CreateDistanceJoint(id,&def);
+ ENSURE(b2DistanceJoint_IsLimitEnabled(joint) && b2DistanceJoint_GetLowerLimit(joint)==1 && b2DistanceJoint_GetUpperLimit(joint)==2);
+ for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-2,0.01f);
+ b2Body_SetTransform(bob,{0.5f,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{0,0});for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);
+ b2Body_SetTransform(bob,{1.5f,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{0,0});b2World_EnableWarmStarting(id,false);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1.5f,0.0001f);
+ b2DistanceJoint_SetLimits(joint,1.25f,1.25f);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-def.length,0.01f);
+ // Equal limits use the rigid branch and therefore its rest length, matching the distance definition.
+ b2DistanceJoint_SetLimits(joint,2,1);ENSURE(b2DistanceJoint_GetLowerLimit(joint)==1 && b2DistanceJoint_GetUpperLimit(joint)==2);
+ b2DistanceJoint_EnableLimit(joint,false);ENSURE(!b2DistanceJoint_IsLimitEnabled(joint));b2Body_SetTransform(bob,{3,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{1,0});b2World_Step(id,0.1f,1);ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-3.1f,0.0001f);
+ b2DistanceJoint_EnableLimit(joint,true);b2DistanceJoint_SetLimits(joint,2,3);b2DistanceJoint_EnableSpring(joint,false);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

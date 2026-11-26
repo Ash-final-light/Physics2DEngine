@@ -15,6 +15,8 @@ void b2DistanceJoint_SetRestLength( b2JointId jointId, float length )
 
 	joint->length = b2ClampFloat( length, B2_LINEAR_SLOP, B2_HUGE );
 	joint->impulse = 0.0f;
+	joint->lowerImpulse=0;
+	joint->upperImpulse=0;
 }
 
 float b2DistanceJoint_GetRestLength( b2JointId jointId )
@@ -100,12 +102,14 @@ void b2PrepareDistanceJoint( b2JointSim* base, b2StepContext* context )
 	float crB = b2Cross( rB, axis );
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
-	joint->distanceSoftness=b2MakeSoft(joint->hertz,joint->dampingRatio,context->h);
 
+	joint->distanceSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
 	if ( context->world->enableWarmStarting == false )
 	{
 		joint->impulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
 	}
 }
 
@@ -132,7 +136,7 @@ void b2WarmStartDistanceJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 separation = b2Add( joint->deltaCenter, ds );
 	b2Vec2 axis = b2Normalize( separation );
 
-	float axialImpulse = joint->impulse;
+	float axialImpulse = joint->impulse + joint->lowerImpulse - joint->upperImpulse;
 	b2Vec2 P = b2MulSV( axialImpulse, axis );
 
 	if ( stateA->flags & b2_dynamicFlag )
@@ -183,7 +187,7 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 	// 关节为软约束，若
 	// - 弹簧已启用
 	// - 且（关节限位禁用或限位上下限不相等）
-	if ( joint->enableSpring )
+	if ( joint->enableSpring && ( joint->minLength < joint->maxLength || joint->enableLimit == false ) )
 	{
 		// 弹簧
 		if ( joint->hertz > 0.0f )
@@ -209,6 +213,76 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 			wB += iB * b2Cross( rB, P );
 		}
 
+		if ( joint->enableLimit )
+		{
+			// 下限
+			{
+				b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+				float cdot = b2Dot( axis, vr );
+
+				float c = length - joint->minLength;
+
+				float bias = 0.0f;
+				float massScale = 1.0f;
+				float impulseScale = 0.0f;
+				if ( c > 0.0f )
+				{
+					// 预测性
+					bias = c * context->inv_h;
+				}
+				else if ( useBias )
+				{
+					bias = base->constraintSoftness.biasRate * c;
+					massScale = base->constraintSoftness.massScale;
+					impulseScale = base->constraintSoftness.impulseScale;
+				}
+
+				float impulse = -massScale * joint->axialMass * ( cdot + bias ) - impulseScale * joint->lowerImpulse;
+				float newImpulse = b2MaxFloat( 0.0f, joint->lowerImpulse + impulse );
+				impulse = newImpulse - joint->lowerImpulse;
+				joint->lowerImpulse = newImpulse;
+
+				b2Vec2 P = b2MulSV( impulse, axis );
+				vA = b2MulSub( vA, mA, P );
+				wA -= iA * b2Cross( rA, P );
+				vB = b2MulAdd( vB, mB, P );
+				wB += iB * b2Cross( rB, P );
+			}
+
+			// 上限
+			{
+				b2Vec2 vr = b2Add( b2Sub( vA, vB ), b2Sub( b2CrossSV( wA, rA ), b2CrossSV( wB, rB ) ) );
+				float Cdot = b2Dot( axis, vr );
+
+				float C = joint->maxLength - length;
+
+				float bias = 0.0f;
+				float massScale = 1.0f;
+				float impulseScale = 0.0f;
+				if ( C > 0.0f )
+				{
+					// 预测性
+					bias = C * context->inv_h;
+				}
+				else if ( useBias )
+				{
+					bias = base->constraintSoftness.biasRate * C;
+					massScale = base->constraintSoftness.massScale;
+					impulseScale = base->constraintSoftness.impulseScale;
+				}
+
+				float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->upperImpulse;
+				float newImpulse = b2MaxFloat( 0.0f, joint->upperImpulse + impulse );
+				impulse = newImpulse - joint->upperImpulse;
+				joint->upperImpulse = newImpulse;
+
+				b2Vec2 P = b2MulSV( -impulse, axis );
+				vA = b2MulSub( vA, mA, P );
+				wA -= iA * b2Cross( rA, P );
+				vB = b2MulAdd( vB, mB, P );
+				wB += iB * b2Cross( rB, P );
+			}
+		}
 	}
 	else
 	{
@@ -250,6 +324,7 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 		stateB->angularVelocity = wB;
 	}
 }
+
 
 void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
@@ -326,4 +401,47 @@ float b2DistanceJoint_GetSpringForce( b2JointId jointId )
 	}
 
 	return 0.0f;
+}
+
+void b2DistanceJoint_EnableLimit( b2JointId jointId, bool enableLimit )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	joint->enableLimit = enableLimit;
+}
+
+bool b2DistanceJoint_IsLimitEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	return joint->distanceJoint.enableLimit;
+}
+
+void b2DistanceJoint_SetLimits( b2JointId jointId, float minLength, float maxLength )
+{
+	if (!(b2IsValidFloat( minLength ))) { return; }
+	if (!(b2IsValidFloat( maxLength ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+
+	minLength = b2ClampFloat( minLength, B2_LINEAR_SLOP, B2_HUGE );
+	maxLength = b2ClampFloat( maxLength, B2_LINEAR_SLOP, B2_HUGE );
+	joint->minLength = b2MinFloat( minLength, maxLength );
+	joint->maxLength = b2MaxFloat( minLength, maxLength );
+}
+
+float b2DistanceJoint_GetLowerLimit( b2JointId jointId )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->minLength;
+}
+
+float b2DistanceJoint_GetUpperLimit( b2JointId jointId )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->maxLength;
 }
