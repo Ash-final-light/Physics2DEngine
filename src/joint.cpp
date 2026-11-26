@@ -795,6 +795,12 @@ b2JointId b2CreateMotorJoint( b2WorldId worldId, const b2MotorJointDef* def )
 	if (!(b2IsValidFloat( def->maxVelocityForce ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->angularVelocity ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->maxVelocityTorque ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->linearHertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->linearDampingRatio ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxSpringForce ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->angularHertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->angularDampingRatio ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxSpringTorque ))) { return b2_nullJointId; }
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
 
@@ -813,6 +819,12 @@ b2JointId b2CreateMotorJoint( b2WorldId worldId, const b2MotorJointDef* def )
 	joint->motorJoint.maxVelocityForce = def->maxVelocityForce;
 	joint->motorJoint.angularVelocity = def->angularVelocity;
 	joint->motorJoint.maxVelocityTorque = def->maxVelocityTorque;
+	joint->motorJoint.linearHertz = def->linearHertz;
+	joint->motorJoint.linearDampingRatio = def->linearDampingRatio;
+	joint->motorJoint.maxSpringForce = def->maxSpringForce;
+	joint->motorJoint.angularHertz = def->angularHertz;
+	joint->motorJoint.angularDampingRatio = def->angularDampingRatio;
+	joint->motorJoint.maxSpringTorque = def->maxSpringTorque;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 

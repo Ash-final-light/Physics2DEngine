@@ -191,12 +191,26 @@ typedef struct b2MotorJoint
 	float maxVelocityForce;
 	float angularVelocity;
 	float maxVelocityTorque;
+	float linearHertz;
+	float linearDampingRatio;
+	float maxSpringForce;
+	float angularHertz;
+	float angularDampingRatio;
+	float maxSpringTorque;
+
 	b2Vec2 linearVelocityImpulse;
 	float angularVelocityImpulse;
+	b2Vec2 linearSpringImpulse;
+	float angularSpringImpulse;
+
+	b2Softness linearSpring;
+	b2Softness angularSpring;
+
 	int indexA;
 	int indexB;
 	b2Transform frameA;
 	b2Transform frameB;
+	b2Vec2 deltaCenter;
 	b2Mat22 linearMass;
 	float angularMass;
 } b2MotorJoint;

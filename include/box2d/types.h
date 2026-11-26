@@ -1238,11 +1238,40 @@ B2_API float b2WeldJoint_GetAngularDampingRatio( b2JointId jointId );
 
 typedef struct b2MotorJointDef
 {
+	/// 基础关节定义
 	b2JointDef base;
+
+	/// 期望的线速度
 	b2Vec2 linearVelocity;
+
+	/// 最大马达力，单位为牛顿
 	float maxVelocityForce;
+
+	/// 期望的角速度
 	float angularVelocity;
+
+	/// 最大马达力矩，单位为牛顿·米
 	float maxVelocityTorque;
+
+	/// 用于位置控制的线性弹簧赫兹
+	float linearHertz;
+
+	/// 线性弹簧阻尼比
+	float linearDampingRatio;
+
+	/// 最大弹簧力，单位为牛顿
+	float maxSpringForce;
+
+	/// 用于位置控制的角弹簧赫兹
+	float angularHertz;
+
+	/// 角弹簧阻尼比
+	float angularDampingRatio;
+
+	/// 最大弹簧力矩，单位为牛顿·米
+	float maxSpringTorque;
+
+	/// 内部用于检测有效定义。请勿设置。
 	int internalValue;
 } b2MotorJointDef;
 B2_API b2MotorJointDef b2DefaultMotorJointDef(void);
@@ -1256,3 +1285,16 @@ B2_API void b2MotorJoint_SetMaxVelocityTorque( b2JointId jointId, float maxTorqu
 B2_API float b2MotorJoint_GetMaxVelocityTorque( b2JointId jointId );
 B2_API void b2MotorJoint_SetMaxVelocityForce( b2JointId jointId, float maxForce );
 B2_API float b2MotorJoint_GetMaxVelocityForce( b2JointId jointId );
+
+B2_API void b2MotorJoint_SetLinearHertz( b2JointId jointId, float hertz );
+B2_API float b2MotorJoint_GetLinearHertz( b2JointId jointId );
+B2_API void b2MotorJoint_SetLinearDampingRatio( b2JointId jointId, float damping );
+B2_API float b2MotorJoint_GetLinearDampingRatio( b2JointId jointId );
+B2_API void b2MotorJoint_SetAngularHertz( b2JointId jointId, float hertz );
+B2_API float b2MotorJoint_GetAngularHertz( b2JointId jointId );
+B2_API void b2MotorJoint_SetAngularDampingRatio( b2JointId jointId, float damping );
+B2_API float b2MotorJoint_GetAngularDampingRatio( b2JointId jointId );
+B2_API void b2MotorJoint_SetMaxSpringForce( b2JointId jointId, float maxForce );
+B2_API float b2MotorJoint_GetMaxSpringForce( b2JointId jointId );
+B2_API void b2MotorJoint_SetMaxSpringTorque( b2JointId jointId, float maxTorque );
+B2_API float b2MotorJoint_GetMaxSpringTorque( b2JointId jointId );

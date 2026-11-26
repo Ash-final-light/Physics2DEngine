@@ -48,10 +48,13 @@ void b2PrepareMotorJoint( b2JointSim* base, b2StepContext* context )
 	joint->frameB.p = b2RotateVector( bodySimB->transform.q, b2Sub( base->localFrameB.p, bodySimB->localCenter ) );
 
 	// 计算初始质心差。增量位置更新相对此值。
+	joint->deltaCenter = b2SubPos( bodySimB->center, bodySimA->center );
 
 	b2Vec2 rA = joint->frameA.p;
 	b2Vec2 rB = joint->frameB.p;
 
+	joint->linearSpring = b2MakeSoft( joint->linearHertz, joint->linearDampingRatio, context->h );
+	joint->angularSpring = b2MakeSoft( joint->angularHertz, joint->angularDampingRatio, context->h );
 
 	b2Mat22 kl;
 	kl.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
@@ -67,6 +70,8 @@ void b2PrepareMotorJoint( b2JointSim* base, b2StepContext* context )
 	{
 		joint->linearVelocityImpulse = b2Vec2_zero;
 		joint->angularVelocityImpulse = 0.0f;
+		joint->linearSpringImpulse = b2Vec2_zero;
+		joint->angularSpringImpulse = 0.0f;
 	}
 }
 
@@ -90,8 +95,8 @@ void b2WarmStartMotorJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
 
-	b2Vec2 linearImpulse = joint->linearVelocityImpulse;
-	float angularImpulse = joint->angularVelocityImpulse;
+	b2Vec2 linearImpulse = b2Add( joint->linearVelocityImpulse, joint->linearSpringImpulse );
+	float angularImpulse = joint->angularVelocityImpulse + joint->angularSpringImpulse;
 
 	if ( stateA->flags & b2_dynamicFlag )
 	{
@@ -127,8 +132,29 @@ void b2SolveMotorJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
+	// 角弹簧
+	if ( joint->maxSpringTorque > 0.0f && joint->angularHertz > 0.0f )
+	{
+		b2Rot qA = b2MulRot( stateA->deltaRotation, joint->frameA.q );
+		b2Rot qB = b2MulRot( stateB->deltaRotation, joint->frameB.q );
+		b2Rot relQ = b2InvMulRot( qA, qB );
 
+		float c = b2Rot_GetAngle( relQ );
+		float bias = joint->angularSpring.biasRate * c;
+		float massScale = joint->angularSpring.massScale;
+		float impulseScale = joint->angularSpring.impulseScale;
 
+		float cdot = wB - wA;
+
+		float maxImpulse = context->h * joint->maxSpringTorque;
+		float oldImpulse = joint->angularSpringImpulse;
+		float impulse = -massScale * joint->angularMass * ( cdot + bias ) - impulseScale * oldImpulse;
+		joint->angularSpringImpulse = b2ClampFloat( oldImpulse + impulse, -maxImpulse, maxImpulse );
+		impulse = joint->angularSpringImpulse - oldImpulse;
+
+		wA -= iA * impulse;
+		wB += iB * impulse;
+	}
 
 	// 角速度
 	if ( joint->maxVelocityTorque > 0.0f )
@@ -148,8 +174,53 @@ void b2SolveMotorJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
 
+	// 线弹簧
+	if ( joint->maxSpringForce > 0.0f && joint->linearHertz > 0.0f )
+	{
+		b2Vec2 dcA = stateA->deltaPosition;
+		b2Vec2 dcB = stateB->deltaPosition;
+		b2Vec2 c = b2Add( b2Add( b2Sub( dcB, dcA ), b2Sub( rB, rA ) ), joint->deltaCenter );
 
+		b2Vec2 bias = b2MulSV( joint->linearSpring.biasRate, c );
+		float massScale = joint->linearSpring.massScale;
+		float impulseScale = joint->linearSpring.impulseScale;
 
+		b2Vec2 cdot = b2Sub( b2Add( vB, b2CrossSV( wB, rB ) ), b2Add( vA, b2CrossSV( wA, rA ) ) );
+		cdot = b2Add( cdot, bias );
+
+		// 此处更新有效质量可能过头
+		b2Mat22 kl;
+		kl.cx.x = mA + mB + rA.y * rA.y * iA + rB.y * rB.y * iB;
+		kl.cx.y = -rA.y * rA.x * iA - rB.y * rB.x * iB;
+		kl.cy.x = kl.cx.y;
+		kl.cy.y = mA + mB + rA.x * rA.x * iA + rB.x * rB.x * iB;
+		joint->linearMass = b2GetInverse22( kl );
+
+		b2Vec2 b = b2MulMV( joint->linearMass, cdot );
+
+		b2Vec2 oldImpulse = joint->linearSpringImpulse;
+		b2Vec2 impulse = {
+			-massScale * b.x - impulseScale * oldImpulse.x,
+			-massScale * b.y - impulseScale * oldImpulse.y,
+		};
+
+		float maxImpulse = context->h * joint->maxSpringForce;
+		joint->linearSpringImpulse = b2Add( joint->linearSpringImpulse, impulse );
+
+		if ( b2LengthSquared( joint->linearSpringImpulse ) > maxImpulse * maxImpulse )
+		{
+			joint->linearSpringImpulse = b2Normalize( joint->linearSpringImpulse );
+			joint->linearSpringImpulse.x *= maxImpulse;
+			joint->linearSpringImpulse.y *= maxImpulse;
+		}
+
+		impulse = b2Sub( joint->linearSpringImpulse, oldImpulse );
+
+		vA = b2MulSub( vA, mA, impulse );
+		wA -= iA * b2Cross( rA, impulse );
+		vB = b2MulAdd( vB, mB, impulse );
+		wB += iB * b2Cross( rB, impulse );
+	}
 
 	// 线速度
 	if ( joint->maxVelocityForce > 0.0f )
@@ -249,4 +320,94 @@ float b2MotorJoint_GetMaxVelocityForce( b2JointId jointId )
 {
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
 	return joint->motorJoint.maxVelocityForce;
+}
+
+void b2MotorJoint_SetLinearHertz( b2JointId jointId, float hertz )
+{
+	if (!(b2IsValidFloat( hertz ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.linearHertz = hertz;
+}
+
+float b2MotorJoint_GetLinearHertz( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.linearHertz;
+}
+
+void b2MotorJoint_SetLinearDampingRatio( b2JointId jointId, float damping )
+{
+	if (!(b2IsValidFloat( damping ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.linearDampingRatio = damping;
+}
+
+float b2MotorJoint_GetLinearDampingRatio( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.linearDampingRatio;
+}
+
+void b2MotorJoint_SetAngularHertz( b2JointId jointId, float hertz )
+{
+	if (!(b2IsValidFloat( hertz ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.angularHertz = hertz;
+}
+
+float b2MotorJoint_GetAngularHertz( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.angularHertz;
+}
+
+void b2MotorJoint_SetAngularDampingRatio( b2JointId jointId, float damping )
+{
+	if (!(b2IsValidFloat( damping ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.angularDampingRatio = damping;
+}
+
+float b2MotorJoint_GetAngularDampingRatio( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.angularDampingRatio;
+}
+
+void b2MotorJoint_SetMaxSpringForce( b2JointId jointId, float maxForce )
+{
+	if (!(b2IsValidFloat( maxForce ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.maxSpringForce = b2MaxFloat( 0.0f, maxForce );
+}
+
+float b2MotorJoint_GetMaxSpringForce( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.maxSpringForce;
+}
+
+void b2MotorJoint_SetMaxSpringTorque( b2JointId jointId, float maxTorque )
+{
+	if (!(b2IsValidFloat( maxTorque ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	joint->motorJoint.maxSpringTorque = b2MaxFloat( 0.0f, maxTorque );
+}
+
+float b2MotorJoint_GetMaxSpringTorque( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_motorJoint );
+	return joint->motorJoint.maxSpringTorque;
 }
