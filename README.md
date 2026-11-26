@@ -226,3 +226,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 马达关节 `b2CreateMotorJoint` 可分别驱动相对线速度和角速度，并限制速度驱动的最大合力与力矩。
 
 马达关节可用两侧局部参考系定义弹簧目标位置和角度，分别设置线性、角向频率与阻尼，以及弹簧最大合力和力矩；可同时使用速度驱动。
+
+Mover 关节按目标线速度推动刚体，x 与 y 方向分别限制最大力，不改变角速度。

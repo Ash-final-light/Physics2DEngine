@@ -152,6 +152,7 @@ int WheelJointMotorTest( void );
 int WeldJointTest( void );
 int MotorJointVelocityTest( void );
 int MotorJointSpringTest( void );
+int MoverJointTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -1062,6 +1063,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"MotorJointVelocityTest")==0) { ran=1; RUN_TEST(MotorJointVelocityTest); }
 
 	if(filter==NULL || strcmp(filter,"MotorJointSpringTest")==0) { ran=1; RUN_TEST(MotorJointSpringTest); }
+
+	if(filter==NULL || strcmp(filter,"MoverJointTest")==0) { ran=1; RUN_TEST(MoverJointTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

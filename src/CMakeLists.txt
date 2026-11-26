@@ -1,4 +1,5 @@
 add_library(box2d
+	mover_joint.cpp
 	motor_joint.cpp
 	weld_joint.cpp
 	wheel_joint.cpp

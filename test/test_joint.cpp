@@ -3,6 +3,7 @@
 #include "test_macros.h"
 #include "world.h"
 #include "joint.h"
+#include <math.h>
 int JointLifecycleTest(void)
 {
  size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
@@ -310,4 +311,15 @@ int MotorJointSpringTest(void)
  b2MotorJoint_SetMaxVelocityForce(j,0);b2MotorJoint_SetMaxVelocityTorque(j,0);b2MotorJoint_SetLinearHertz(j,0);b2MotorJoint_SetAngularHertz(j,0);b2World_EnableWarmStarting(id,false);b2Body_SetLinearVelocity(b,{1,0});b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-1,0.0001f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-1,0.0001f);
  b2MotorJoint_SetMaxSpringForce(j,-1);b2MotorJoint_SetMaxSpringTorque(j,-1);ENSURE(b2MotorJoint_GetMaxSpringForce(j)==0 && b2MotorJoint_GetMaxSpringTorque(j)==0);b2MotorJoint_SetLinearHertz(j,2);b2MotorJoint_SetAngularHertz(j,2);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-1,0.0001f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-1,0.0001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int MoverJointTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2MoverJointDef def=b2DefaultMoverJointDef();ENSURE(def.linearVelocity.x==0 && def.maxVelocityForce.x==0);def.base.bodyIdA=a;def.base.bodyIdB=b;def.linearVelocity={3,0};def.maxVelocityForce={10,10};b2JointId j=b2CreateMoverJoint(id,&def);ENSURE(b2Joint_IsValid(j) && b2Joint_GetType(j)==b2_moverJoint);ENSURE(b2MoverJoint_GetLinearVelocity(j).x==3 && b2MoverJoint_GetMaxVelocityForce(j).y==10);
+ b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-0.05f,0.0001f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-1,0.0001f);for(int i=0;i<80;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-3,0.0001f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-1,0.0001f);
+ b2MoverJoint_SetLinearVelocity(j,{0,-2});b2MoverJoint_SetMaxVelocityForce(j,{20,20});for(int i=0;i<50;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(b).x,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y+2,0.0001f);
+ b2MoverJoint_SetMaxVelocityForce(j,{0,0});b2Body_SetLinearVelocity(b,{1,1});b2World_Step(id,0.05f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-1,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y-1,0.0001f);
+ b2DestroyWorld(id);id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={-1,0};a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={1,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);def=b2DefaultMoverJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.linearVelocity={2,0};def.maxVelocityForce={100,100};j=b2CreateMoverJoint(id,&def);for(int i=0;i<30;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(a).x+1,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-1,0.0001f);
+ def.linearVelocity.x=NAN;ENSURE(b2CreateMoverJoint(id,&def).index1==0);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

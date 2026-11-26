@@ -493,6 +493,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PrepareMotorJoint( joint, context );
 			break;
 
+		case b2_moverJoint:
+			b2PrepareMoverJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -526,6 +530,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartMotorJoint( joint, context );
 			break;
 
+		case b2_moverJoint:
+			b2WarmStartMoverJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -557,6 +565,10 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_motorJoint:
 			b2SolveMotorJoint( joint, context );
+			break;
+
+		case b2_moverJoint:
+			b2SolveMoverJoint( joint, context );
 			break;
 
 		default:
@@ -830,4 +842,38 @@ b2JointId b2CreateMotorJoint( b2WorldId worldId, const b2MotorJointDef* def )
 
 
 	return jointId;
+}
+
+b2MoverJointDef b2DefaultMoverJointDef( void )
+{
+	b2MoverJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+
+b2JointId b2CreateMoverJoint( b2WorldId worldId, const b2MoverJointDef* def )
+{
+	B2_CHECK_DEF( def );
+	if ( b2IsValidVec2( def->linearVelocity ) == false || b2IsValidVec2( def->maxVelocityForce ) == false )
+	{
+		return b2_nullJointId;
+	}
+
+	b2World* world = b2GetWorldForJointDef( worldId, &def->base );
+	if ( world == nullptr )
+	{
+		return b2_nullJointId;
+	}
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_moverJoint );
+	b2JointSim* joint = pair.jointSim;
+	joint->moverJoint = b2MoverJoint{};
+	joint->moverJoint.linearVelocity = def->linearVelocity;
+	joint->moverJoint.maxVelocityForce = def->maxVelocityForce;
+	return b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
 }

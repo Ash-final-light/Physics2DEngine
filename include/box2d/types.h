@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2, b2_moverJoint=3 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1285,6 +1285,21 @@ B2_API void b2MotorJoint_SetMaxVelocityTorque( b2JointId jointId, float maxTorqu
 B2_API float b2MotorJoint_GetMaxVelocityTorque( b2JointId jointId );
 B2_API void b2MotorJoint_SetMaxVelocityForce( b2JointId jointId, float maxForce );
 B2_API float b2MotorJoint_GetMaxVelocityForce( b2JointId jointId );
+
+typedef struct b2MoverJointDef
+{
+	b2JointDef base;
+	b2Vec2 linearVelocity;
+	b2Vec2 maxVelocityForce;
+	int internalValue;
+} b2MoverJointDef;
+
+B2_API b2MoverJointDef b2DefaultMoverJointDef( void );
+B2_API b2JointId b2CreateMoverJoint( b2WorldId worldId, const b2MoverJointDef* def );
+B2_API void b2MoverJoint_SetLinearVelocity( b2JointId jointId, b2Vec2 velocity );
+B2_API b2Vec2 b2MoverJoint_GetLinearVelocity( b2JointId jointId );
+B2_API void b2MoverJoint_SetMaxVelocityForce( b2JointId jointId, b2Vec2 maxForce );
+B2_API b2Vec2 b2MoverJoint_GetMaxVelocityForce( b2JointId jointId );
 
 B2_API void b2MotorJoint_SetLinearHertz( b2JointId jointId, float hertz );
 B2_API float b2MotorJoint_GetLinearHertz( b2JointId jointId );

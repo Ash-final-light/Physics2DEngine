@@ -215,6 +215,16 @@ typedef struct b2MotorJoint
 	float angularMass;
 } b2MotorJoint;
 
+typedef struct b2MoverJoint
+{
+	b2Vec2 linearVelocity;
+	b2Vec2 maxVelocityForce;
+	b2Vec2 linearVelocityImpulse;
+	int indexA;
+	int indexB;
+	float linearMass;
+} b2MoverJoint;
+
 typedef struct b2JointSim
 {
 	int jointId;
@@ -234,7 +244,7 @@ typedef struct b2JointSim
 	float constraintDampingRatio;
 
 	b2Softness constraintSoftness;
-	union { b2DistanceJoint distanceJoint;b2RevoluteJoint revoluteJoint;b2PrismaticJoint prismaticJoint;b2WheelJoint wheelJoint;b2WeldJoint weldJoint;b2MotorJoint motorJoint; };
+	union { b2DistanceJoint distanceJoint;b2RevoluteJoint revoluteJoint;b2PrismaticJoint prismaticJoint;b2WheelJoint wheelJoint;b2WeldJoint weldJoint;b2MotorJoint motorJoint;b2MoverJoint moverJoint; };
 
 } b2JointSim;
 b2Joint* b2GetJointFullId(b2World* world,b2JointId id);
@@ -271,3 +281,7 @@ void b2SolveWeldJoint(b2JointSim* base,b2StepContext* context,bool useBias);
 void b2PrepareMotorJoint(b2JointSim* base,b2StepContext* context);
 void b2WarmStartMotorJoint(b2JointSim* base,b2StepContext* context);
 void b2SolveMotorJoint(b2JointSim* base,b2StepContext* context);
+
+void b2PrepareMoverJoint(b2JointSim* base,b2StepContext* context);
+void b2WarmStartMoverJoint(b2JointSim* base,b2StepContext* context);
+void b2SolveMoverJoint(b2JointSim* base,b2StepContext* context);
