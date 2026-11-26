@@ -186,3 +186,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2World_RebuildStaticTree` 可手动重建静态树，保留待处理的移动代理标志，以便后续步进继续发现接触。
 
 关节对象使用带代数的 ID，并通过双向边挂接到两侧刚体；提供对象查询和刚体关节枚举，销毁刚体时同步移除附着的关节记录。
+
+距离关节定义通过 `b2DefaultDistanceJointDef` 初始化。通用局部参考系从刚体原点测量；形状质量分布和质心变化不改变这一坐标约定。

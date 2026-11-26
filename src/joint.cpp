@@ -63,3 +63,23 @@ b2BodyId b2Joint_GetBodyA(b2JointId id) { return b2GetJointBody(id,0); }
 b2BodyId b2Joint_GetBodyB(b2JointId id) { return b2GetJointBody(id,1); }
 void b2Joint_SetUserData(b2JointId id,void* data) { if(b2Joint_IsValid(id)) { b2GetJointFullId(b2_worlds+id.world0,id)->userData=data; } }
 void* b2Joint_GetUserData(b2JointId id) { return b2Joint_IsValid(id)?b2GetJointFullId(b2_worlds+id.world0,id)->userData:nullptr; }
+
+static b2JointDef b2DefaultJointDef( void )
+{
+	b2JointDef def = {};
+	def.localFrameA.q = b2Rot_identity;
+	def.localFrameB.q = b2Rot_identity;
+	def.constraintHertz = 60.0f;
+	def.constraintDampingRatio = 2.0f;
+	def.drawScale = b2GetLengthUnitsPerMeter();
+	return def;
+}
+
+b2DistanceJointDef b2DefaultDistanceJointDef( void )
+{
+	b2DistanceJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.length = 1.0f;
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}

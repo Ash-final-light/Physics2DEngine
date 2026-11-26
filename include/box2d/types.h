@@ -896,3 +896,44 @@ B2_API void b2Joint_SetUserData(b2JointId jointId,void* userData);
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
 B2_API int b2Body_GetJointCount(b2BodyId bodyId);
 B2_API int b2Body_GetJoints(b2BodyId bodyId,b2JointId* jointArray,int capacity);
+
+typedef struct b2JointDef
+{
+	/// 用户数据指针
+	void* userData;
+
+	/// 第一个附着刚体
+	b2BodyId bodyIdA;
+
+	/// 第二个附着刚体
+	b2BodyId bodyIdB;
+
+	/// 第一个局部关节坐标系
+	b2Transform localFrameA;
+
+	/// 第二个局部关节坐标系
+	b2Transform localFrameB;
+
+
+
+	/// 约束赫兹（高级功能）
+	float constraintHertz;
+
+	/// 约束阻尼比（高级功能）
+	float constraintDampingRatio;
+
+	/// 调试绘制缩放
+	float drawScale;
+
+	/// 若附着刚体应碰撞，将此标志设为 true
+	bool collideConnected;
+
+} b2JointDef;
+
+typedef struct b2DistanceJointDef
+{
+ b2JointDef base;
+ float length;
+ int internalValue;
+} b2DistanceJointDef;
+B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);

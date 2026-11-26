@@ -17,3 +17,14 @@ int JointLifecycleTest(void)
  b2DestroyBody(a);ENSURE(!b2Joint_IsValid(ac) && !b2Joint_IsValid(reused) && b2Joint_IsValid(bc));ENSURE(b2Body_GetJointCount(b)==1 && b2Body_GetJointCount(c)==1);
  b2DestroyWorld(id);ENSURE(!b2Joint_IsValid(bc));ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int JointDefinitionTest(void)
+{
+ size_t before=b2GetByteCount();b2DistanceJointDef def=b2DefaultDistanceJointDef();ENSURE(def.length==1 && def.base.bodyIdA.index1==0 && def.base.bodyIdB.index1==0);
+ ENSURE(def.base.localFrameA.q.c==1 && def.base.localFrameB.q.c==1 && def.base.localFrameA.p.x==0);ENSURE(def.base.constraintHertz==60 && def.base.constraintDampingRatio==2 && def.base.drawScale==1 && !def.base.collideConnected);
+ b2SetLengthUnitsPerMeter(3);b2DistanceJointDef scaled=b2DefaultDistanceJointDef();ENSURE(scaled.base.drawScale==3 && scaled.length==1);b2SetLengthUnitsPerMeter(1);
+ b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={100,200};bd.rotation={0,1};b2BodyId body=b2CreateBody(id,&bd);
+ b2WorldTransform frame={{100,203},{0,1}};b2Transform local=b2InvMulWorldTransforms(b2Body_GetTransform(body),frame);ENSURE(local.p.x==3 && local.p.y==0 && local.q.c==1);
+ b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{2,0},0.5f};b2CreateCircleShape(body,&sd,&circle);b2Vec2 point=b2Body_GetLocalPoint(body,frame.p);ENSURE(point.x==3 && point.y==0);
+ b2Pos worldPoint=b2Body_GetWorldPoint(body,local.p);ENSURE(worldPoint.x==100 && worldPoint.y==203);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
