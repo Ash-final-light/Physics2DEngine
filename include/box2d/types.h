@@ -111,6 +111,10 @@ B2_API uint64_t b2World_GetStateHash( b2WorldId worldId );
 /// 必须在步进边界调用；返回所需字节数，若处于步进中则返回 0。
 B2_API int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity );
 
+/// 从快照映像创建新世界。回调与用户数据重置为默认值。
+/// 失败时返回无效世界 id。
+B2_API b2WorldId b2CreateWorldFromSnapshot( const uint8_t* image, int size, int workerCount );
+
 B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
 B2_API void* b2World_GetUserData( b2WorldId worldId );
 

@@ -21,6 +21,14 @@ typedef struct SnapshotImageHeader
 #define SNAPSHOT_MAGIC 0x32534E42u
 #define SNAPSHOT_VERSION 13u
 
+typedef struct SnapshotIds
+{
+	b2BodyId body;
+	b2ShapeId shape;
+	b2JointId joint;
+	b2ChainId chain;
+} SnapshotIds;
+
 int WorldSnapshotWriteTest( void )
 {
 	b2WorldDef def = b2DefaultWorldDef();
@@ -61,7 +69,7 @@ int WorldSnapshotWriteTest( void )
 	return 0;
 }
 
-static b2WorldId BuildSnapshotWriteScene( void* userData )
+static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = NULL )
 {
 	b2WorldDef def = b2DefaultWorldDef();
 	def.workerCount = 1;
@@ -107,17 +115,22 @@ static b2WorldId BuildSnapshotWriteScene( void* userData )
 	jointDef.base.bodyIdB = jointBodyB;
 	jointDef.base.userData = userData;
 	jointDef.length = 2.0f;
-	b2CreateDistanceJoint( worldId, &jointDef );
+	b2JointId jointId = b2CreateDistanceJoint( worldId, &jointDef );
 
 	b2BodyDef chainBodyDef = b2DefaultBodyDef();
 	chainBodyDef.position = b2Vec2{ -8.0f, 0.0f };
 	b2BodyId chainBodyId = b2CreateBody( worldId, &chainBodyDef );
 	b2Vec2 points[3] = { b2Vec2{ -1.0f, 0.0f }, b2Vec2{ 0.0f, 0.0f }, b2Vec2{ 1.0f, 0.0f } };
+	b2SurfaceMaterial chainMaterial = b2DefaultSurfaceMaterial();
 	b2ChainDef chainDef = b2DefaultChainDef();
 	chainDef.userData = userData;
 	chainDef.points = points;
 	chainDef.pointCount = 3;
-	b2CreateChain( chainBodyId, &chainDef );
+	chainDef.materials = &chainMaterial;
+	chainDef.materialCount = 1;
+	chainDef.ghost1 = b2Vec2{ -2.0f, 0.0f };
+	chainDef.ghost2 = b2Vec2{ 2.0f, 0.0f };
+	b2ChainId chainId = b2CreateChain( chainBodyId, &chainDef );
 
 	b2BodyDef sensorBodyDef = b2DefaultBodyDef();
 	sensorBodyDef.position = b2Vec2{ 0.0f, 5.0f };
@@ -137,6 +150,14 @@ static b2WorldId BuildSnapshotWriteScene( void* userData )
 		b2World_Step( worldId, 1.0f / 60.0f, 4 );
 	}
 
+	if ( outIds != NULL )
+	{
+		outIds->body = previous;
+		outIds->shape = groundShape;
+		outIds->joint = jointId;
+		outIds->chain = chainId;
+	}
+
 	return worldId;
 }
 
@@ -144,14 +165,14 @@ int WorldSnapshotStateWriteTest( void )
 {
 	int markerA = 11;
 	int markerB = 22;
-
-	b2WorldId first = BuildSnapshotWriteScene( &markerA );
-	b2WorldId second = BuildSnapshotWriteScene( &markerB );
+	SnapshotIds ids = {};
+	b2WorldId worldId = BuildSnapshotWriteScene( &markerA, &ids );
+	ENSURE( b2World_IsValid( worldId ) );
 
 	b2WorldDef plainDef = b2DefaultWorldDef();
 	b2WorldId emptyWorld = b2CreateWorld( &plainDef );
 	int emptySize = b2World_GetSnapshot( emptyWorld, NULL, 0 );
-	int sceneSize = b2World_GetSnapshot( second, NULL, 0 );
+	int sceneSize = b2World_GetSnapshot( worldId, NULL, 0 );
 	ENSURE( sceneSize > emptySize );
 	b2DestroyWorld( emptyWorld );
 
@@ -159,13 +180,99 @@ int WorldSnapshotStateWriteTest( void )
 	uint8_t* secondImage = (uint8_t*)malloc( (size_t)sceneSize );
 	ENSURE( firstImage != NULL && secondImage != NULL );
 
-	ENSURE( b2World_GetSnapshot( first, firstImage, sceneSize ) == sceneSize );
-	ENSURE( b2World_GetSnapshot( second, secondImage, sceneSize ) == sceneSize );
+	ENSURE( b2World_GetSnapshot( worldId, firstImage, sceneSize ) == sceneSize );
+
+	b2World_SetUserData( worldId, &markerB );
+	b2Body_SetUserData( ids.body, &markerB );
+	b2Shape_SetUserData( ids.shape, &markerB );
+	b2Joint_SetUserData( ids.joint, &markerB );
+
+	ENSURE( b2World_GetSnapshot( worldId, secondImage, sceneSize ) == sceneSize );
 	ENSURE( memcmp( firstImage, secondImage, (size_t)sceneSize ) == 0 );
 
 	free( secondImage );
 	free( firstImage );
-	b2DestroyWorld( second );
-	b2DestroyWorld( first );
+	b2DestroyWorld( worldId );
+	return 0;
+}
+
+int WorldSnapshotCreateTest( void )
+{
+	int marker = 7;
+	SnapshotIds ids = {};
+	b2WorldId source = BuildSnapshotWriteScene( &marker, &ids );
+	ENSURE( b2World_IsValid( source ) );
+
+	int size = b2World_GetSnapshot( source, NULL, 0 );
+	uint8_t* image = (uint8_t*)malloc( (size_t)size );
+	ENSURE( image != NULL );
+	ENSURE( b2World_GetSnapshot( source, image, size ) == size );
+	uint64_t sourceHash = b2World_GetStateHash( source );
+
+	b2WorldId loaded = b2CreateWorldFromSnapshot( image, size, 1 );
+	ENSURE( b2World_IsValid( loaded ) );
+	ENSURE( b2World_GetWorkerCount( loaded ) == 1 );
+
+	b2BodyId loadedBody = ids.body;
+	b2ShapeId loadedShape = ids.shape;
+	b2JointId loadedJoint = ids.joint;
+	b2ChainId loadedChain = ids.chain;
+	loadedBody.world0 = (uint16_t)( loaded.index1 - 1 );
+	loadedShape.world0 = (uint16_t)( loaded.index1 - 1 );
+	loadedJoint.world0 = (uint16_t)( loaded.index1 - 1 );
+	loadedChain.world0 = (uint16_t)( loaded.index1 - 1 );
+
+	ENSURE( b2Body_IsValid( loadedBody ) );
+	ENSURE( b2Shape_IsValid( loadedShape ) );
+	ENSURE( b2Joint_IsValid( loadedJoint ) );
+	ENSURE( b2Chain_IsValid( loadedChain ) );
+	ENSURE( b2Body_GetWorld( loadedBody ).index1 == loaded.index1 );
+	ENSURE( b2Shape_GetWorld( loadedShape ).index1 == loaded.index1 );
+	ENSURE( b2Joint_GetWorld( loadedJoint ).index1 == loaded.index1 );
+	ENSURE( b2Chain_GetWorld( loadedChain ).index1 == loaded.index1 );
+
+	ENSURE( b2World_GetUserData( loaded ) == NULL );
+	ENSURE( b2Body_GetUserData( loadedBody ) == NULL );
+	ENSURE( b2Shape_GetUserData( loadedShape ) == NULL );
+	ENSURE( b2Joint_GetUserData( loadedJoint ) == NULL );
+	ENSURE( b2World_GetStateHash( loaded ) == sourceHash );
+
+	b2WorldId truncated = b2CreateWorldFromSnapshot( image, size - 1, 1 );
+	ENSURE( b2World_IsValid( truncated ) == false );
+
+	image[0] ^= 0xFFu;
+	b2WorldId badMagic = b2CreateWorldFromSnapshot( image, size, 1 );
+	ENSURE( b2World_IsValid( badMagic ) == false );
+
+	free( image );
+	b2DestroyWorld( loaded );
+	b2DestroyWorld( source );
+	return 0;
+}
+
+int WorldSnapshotContinueTest( void )
+{
+	int marker = 9;
+	b2WorldId source = BuildSnapshotWriteScene( &marker, NULL );
+	ENSURE( b2World_IsValid( source ) );
+
+	int size = b2World_GetSnapshot( source, NULL, 0 );
+	uint8_t* image = (uint8_t*)malloc( (size_t)size );
+	ENSURE( image != NULL );
+	ENSURE( b2World_GetSnapshot( source, image, size ) == size );
+
+	b2WorldId loaded = b2CreateWorldFromSnapshot( image, size, 1 );
+	ENSURE( b2World_IsValid( loaded ) );
+
+	for ( int i = 0; i < 12; ++i )
+	{
+		b2World_Step( source, 1.0f / 60.0f, 4 );
+		b2World_Step( loaded, 1.0f / 60.0f, 4 );
+		ENSURE( b2World_GetStateHash( source ) == b2World_GetStateHash( loaded ) );
+	}
+
+	free( image );
+	b2DestroyWorld( loaded );
+	b2DestroyWorld( source );
 	return 0;
 }
