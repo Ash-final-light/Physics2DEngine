@@ -334,3 +334,13 @@ int PogoJointTest(void)
  b2PogoJoint_SetSpringHertz(j,0);b2Body_SetLinearVelocity(b,{0,-1});b2World_Step(id,0.05f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y+1,0.0001f);ENSURE(b2PogoJoint_GetImpulse(j)==0);
  def.restLength=-1;ENSURE(b2CreatePogoJoint(id,&def).index1==0);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int FilterJointTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.linearVelocity={2,0};b2BodyId a=b2CreateBody(id,&bd);bd.position={0.5f,0};bd.linearVelocity={-2,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(a,&sd,&c);b2CreateCircleShape(b,&sd,&c);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount>0);ENSURE(b2AbsFloat(b2Body_GetLinearVelocity(a).x)<1.5f);
+ b2DestroyWorld(id);id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.linearVelocity={2,0};a=b2CreateBody(id,&bd);bd.position={0.5f,0};bd.linearVelocity={-2,0};b=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);b2CreateCircleShape(b,&sd,&c);
+ b2FilterJointDef def=b2DefaultFilterJointDef();ENSURE(!def.base.collideConnected);def.base.bodyIdA=a;def.base.bodyIdB=b;b2JointId j=b2CreateFilterJoint(id,&def);ENSURE(b2Joint_IsValid(j) && b2Joint_GetType(j)==b2_filterJoint);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount==0);ENSURE_SMALL(b2Body_GetLinearVelocity(a).x-2,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x+2,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

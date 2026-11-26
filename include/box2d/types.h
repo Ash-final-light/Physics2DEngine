@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2, b2_moverJoint=3, b2_pogoJoint=4 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_filterJoint=1, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7, b2_motorJoint=2, b2_moverJoint=3, b2_pogoJoint=4 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1314,6 +1314,15 @@ typedef struct b2PogoJointDef
 	float velocity;
 	int internalValue;
 } b2PogoJointDef;
+
+typedef struct b2FilterJointDef
+{
+	b2JointDef base;
+	int internalValue;
+} b2FilterJointDef;
+
+B2_API b2FilterJointDef b2DefaultFilterJointDef( void );
+B2_API b2JointId b2CreateFilterJoint( b2WorldId worldId, const b2FilterJointDef* def );
 
 B2_API b2PogoJointDef b2DefaultPogoJointDef( void );
 B2_API b2JointId b2CreatePogoJoint( b2WorldId worldId, const b2PogoJointDef* def );

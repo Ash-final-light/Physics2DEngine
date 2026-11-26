@@ -501,6 +501,9 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PreparePogoJoint( joint, context );
 			break;
 
+		case b2_filterJoint:
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -542,6 +545,9 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartPogoJoint( joint, context );
 			break;
 
+		case b2_filterJoint:
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -581,6 +587,9 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_pogoJoint:
 			b2SolvePogoJoint( joint, context, useBias );
+			break;
+
+		case b2_filterJoint:
 			break;
 
 		default:
@@ -928,4 +937,25 @@ b2JointId b2CreatePogoJoint( b2WorldId worldId, const b2PogoJointDef* def )
 	joint->pogoJoint.impulse = def->impulse;
 	joint->pogoJoint.velocity = def->velocity;
 	return b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
+}
+
+b2FilterJointDef b2DefaultFilterJointDef( void )
+{
+	b2FilterJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+
+b2JointId b2CreateFilterJoint( b2WorldId worldId, const b2FilterJointDef* def )
+{
+	B2_CHECK_DEF( def );
+	b2World* world = b2GetWorldForJointDef( worldId, &def->base );
+	if ( world == nullptr || world->locked )
+	{
+		return b2_nullJointId;
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_filterJoint );
+	return b2JointId{ pair.jointSim->jointId + 1, world->worldId, pair.joint->generation };
 }

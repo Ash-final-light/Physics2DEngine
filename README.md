@@ -230,3 +230,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 Mover 关节按目标线速度推动刚体，x 与 y 方向分别限制最大力，不改变角速度。
 
 Pogo 关节沿刚体 B 的局部 y 轴做弹簧支撑，拉力上限和压力上限分别限制粘地与弹起，并保留冲量和速度以便连续创建。
+
+Filter 关节只禁止被连接刚体互相碰撞，步进时不产生约束力。
