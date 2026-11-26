@@ -381,3 +381,18 @@ int JointConstraintTuningTest(void)
  for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2Body_GetPosition(b).x>1.2f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int JointReactionTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=1;def.base.constraintHertz=30;def.base.constraintDampingRatio=1;b2JointId j=b2CreateDistanceJoint(id,&def);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2Joint_GetConstraintTorque(j)==0);
+ float length=b2DistanceJoint_GetCurrentLength(j);ENSURE_SMALL(b2Joint_GetLinearSeparation(j)-b2AbsFloat(length-1),0.0001f);ENSURE(b2Joint_GetAngularSeparation(j)==0);
+ def.enableSpring=true;def.hertz=0;def.enableMotor=true;def.motorSpeed=5;def.maxMotorForce=50;b2JointId motor=b2CreateDistanceJoint(id,&def);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2Joint_GetConstraintForce(motor).x>0);ENSURE(b2Joint_GetLinearSeparation(motor)==0);
+ b2FilterJointDef filter=b2DefaultFilterJointDef();filter.base.bodyIdA=a;filter.base.bodyIdB=b;b2JointId fj=b2CreateFilterJoint(id,&filter);
+ ENSURE(b2Joint_GetConstraintForce(fj).x==0 && b2Joint_GetConstraintForce(fj).y==0 && b2Joint_GetConstraintTorque(fj)==0);ENSURE(b2Joint_GetLinearSeparation(fj)==0 && b2Joint_GetAngularSeparation(fj)==0);
+ b2Body_SetTransform(b,{0,0},b2MakeRot(0.4f));b2RevoluteJointDef rd=b2DefaultRevoluteJointDef();rd.base.bodyIdA=a;rd.base.bodyIdB=b;rd.enableLimit=true;b2JointId rj=b2CreateRevoluteJoint(id,&rd);
+ ENSURE_SMALL(b2Joint_GetAngularSeparation(rj)-b2Rot_GetAngle(b2Body_GetRotation(b)),0.0001f);ENSURE(b2AbsFloat(b2Joint_GetAngularSeparation(rj)-0.4f)<0.002f);ENSURE(b2Joint_GetLinearSeparation(rj)<0.001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
