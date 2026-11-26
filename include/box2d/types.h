@@ -623,3 +623,5 @@ B2_API b2ExplosionDef b2DefaultExplosionDef( void );
 
 
 B2_API void b2World_Explode(b2WorldId worldId,const b2ExplosionDef* explosionDef);
+
+B2_API void b2Shape_ApplyWind(b2ShapeId shapeId,b2Vec2 wind,float drag,float lift,bool wake);

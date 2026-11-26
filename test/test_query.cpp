@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "test_macros.h"
 #include "world.h"
+#include "body.h"
 
 struct QueryHits { b2ShapeId shapes[16];int count;bool keepGoing;bool valid; };
 static bool CollectOverlap(b2ShapeId shape,void* context)
@@ -165,5 +166,22 @@ int WorldExplosionTest(void)
  ENSURE(b2Body_IsAwake(bodies[0]));ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[0]).x-8/B2_PI,0.00001f);ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[1]).x-2/B2_PI,0.00001f);
  for(int i=2;i<6;++i) { ENSURE(b2LengthSquared(b2Body_GetLinearVelocity(bodies[i]))==0); }
  ENSURE(b2Body_GetAngularVelocity(bodies[0])==0);e.impulsePerLength=-2;b2World_Explode(id,&e);ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[0]).x,0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int ShapeWindTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;
+ b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.isAwake=false;b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};b2ShapeId shape=b2CreateCircleShape(body,&sd,&c);
+ b2Shape_ApplyWind(shape,{10,0},1,0,false);ENSURE(!b2Body_IsAwake(body));ENSURE(b2GetBodySim(world,b2GetBodyFullId(world,body))->force.x==0);
+ b2Shape_ApplyWind(shape,{10,0},1,0,true);ENSURE(b2Body_IsAwake(body));b2BodySim* sim=b2GetBodySim(world,b2GetBodyFullId(world,body));ENSURE_SMALL(sim->force.x-61.25f,0.0001f);ENSURE(sim->force.y==0 && sim->torque==0);
+ b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(body).x-0.01f*61.25f*4/B2_PI,0.0001f);
+ bd.isAwake=true;bd.position={10,0};body=b2CreateBody(id,&bd);b2Capsule cap={{-1,0},{1,0},0.5f};shape=b2CreateCapsuleShape(body,&sd,&cap);
+ b2Shape_ApplyWind(shape,{10,0},0,0,false);sim=b2GetBodySim(world,b2GetBodyFullId(world,body));ENSURE_SMALL(sim->force.x-61.25f,0.0001f);sim->force=b2Vec2_zero;
+ b2Body_SetTransform(body,{10,0},{0,1});b2Shape_ApplyWind(shape,{10,0},0,0,false);ENSURE_SMALL(sim->force.x-183.75f,0.0001f);
+ sim->force=b2Vec2_zero;b2Shape_ApplyWind(shape,{10,10},0,1,false);ENSURE(b2AbsFloat(sim->force.x-sim->force.y)>1);
+ bd.position={20,0};body=b2CreateBody(id,&bd);b2Polygon box=b2MakeBox(2,0.5f);shape=b2CreatePolygonShape(body,&sd,&box);b2Shape_ApplyWind(shape,{10,0},0,0,false);sim=b2GetBodySim(world,b2GetBodyFullId(world,body));ENSURE_SMALL(sim->force.x-61.25f,0.0001f);sim->force=b2Vec2_zero;
+ b2Body_SetTransform(body,{20,0},{0,1});b2Shape_ApplyWind(shape,{10,0},0,0,false);ENSURE_SMALL(sim->force.x-245,0.0001f);
+ bd.type=b2_staticBody;bd.position={30,0};body=b2CreateBody(id,&bd);shape=b2CreateCircleShape(body,&sd,&c);b2Shape_ApplyWind(shape,{10,0},0,0,true);ENSURE(b2GetBodySim(world,b2GetBodyFullId(world,body))->force.x==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

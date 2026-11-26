@@ -168,3 +168,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2Shape_GetClosestPoint` 以目标世界位置为查询点，使用当前几何及圆角半径求最近点，并返回世界位置。
 
 `b2World_Explode` 按类别掩码选择动态形状，根据投影宽度计算冲量，并在指定衰减距离内降低作用；支持负值内爆。
+
+`b2Shape_ApplyWind` 按形状的当前朝向和相对风速积累风阻、升力及力矩。休眠形状可按 `wake` 参数保持休眠或唤醒受力。
