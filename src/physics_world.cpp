@@ -3,6 +3,7 @@
 
 #include "world.h"
 #include "recording.h"
+#include "state_hash.h"
 
 #include "core.h"
 #include "aabb.h"
@@ -320,6 +321,9 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world );
 
 static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount )
 {
+	b2WorldId worldId = { (uint16_t)( world->worldId + 1 ), world->generation };
+	B2_REC( world, Step, worldId, timeStep, subStepCount );
+
 	world->inv_dt = 1.0f / timeStep;
 	world->inv_h = subStepCount / timeStep;
 	b2Array_Clear( world->bodyMoveEvents );
@@ -409,6 +413,14 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
 	b2Array_Clear( world->contactEndEvents[world->endEventArrayIndex] );
 	b2Array_Clear( world->sensorEndEvents[world->endEventArrayIndex] );
 	world->profile.step = b2GetMilliseconds( context->stepTicks );
+	if ( world->recording != NULL )
+	{
+		// Commit the completed state before unlocking the world.
+		b2WorldId worldId = { (uint16_t)( world->worldId + 1 ), world->generation };
+		b2RecArgs_StateHash stateHash = { worldId, b2HashWorldState( world ) };
+		b2RecWrite_StateHash( world->recording, &stateHash );
+	}
+
 	world->locked = false;
 	return b2TaskBatch{};
 }

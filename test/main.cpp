@@ -67,6 +67,9 @@ int RecordingJointCreationTest( void );
 int RecordingJointCommonTest( void );
 int RecordingJointTypeOperationsTest( void );
 int RecordingJointCascadeTest( void );
+int RecordingStepTest( void );
+int RecordingStagedStepTest( void );
+int RecordingStepGuardTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1047,6 +1050,12 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingJointTypeOperationsTest")==0) { ran=1; RUN_TEST(RecordingJointTypeOperationsTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingJointCascadeTest")==0) { ran=1; RUN_TEST(RecordingJointCascadeTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingStepTest")==0) { ran=1; RUN_TEST(RecordingStepTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingStagedStepTest")==0) { ran=1; RUN_TEST(RecordingStagedStepTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingStepGuardTest")==0) { ran=1; RUN_TEST(RecordingStepGuardTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

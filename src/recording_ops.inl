@@ -152,3 +152,5 @@ B2_REC_OP( 0xD4, WheelJointSetLimits, RET_NONE, ARG( JOINTID, joint ) ARG( F32, 
 B2_REC_OP( 0xD5, WheelJointEnableMotor, RET_NONE, ARG( JOINTID, joint ) ARG( BOOL, enableMotor ) )
 B2_REC_OP( 0xD6, WheelJointSetTargetMotorSpeed, RET_NONE, ARG( JOINTID, joint ) ARG( F32, motorSpeed ) )
 B2_REC_OP( 0xD7, WheelJointSetMaxMotorTorque, RET_NONE, ARG( JOINTID, joint ) ARG( F32, torque ) )
+
+B2_REC_OP( 0x80, Step, RET_NONE, ARG( WORLDID, world ) ARG( F32, dt ) ARG( I32, subStepCount ) )

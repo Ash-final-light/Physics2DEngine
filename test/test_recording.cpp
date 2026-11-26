@@ -7,6 +7,7 @@
 #include "world.h"
 
 #include <string.h>
+#include <limits>
 #include <vector>
 
 int RecordingBufferTest( void )
@@ -863,6 +864,158 @@ int RecordingJointCascadeTest( void )
 	b2World_StartRecording( world, rec );
 	CHECK_RECORD( 0x11, b2DestroyBody( b ) );
 	for ( b2JointId joint : joints ) ENSURE( !b2Joint_IsValid( joint ) );
+	b2World_StopRecording( world );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+static int CheckRecordedStep( b2Recording* rec, int start, b2WorldId world, float dt, int subSteps )
+{
+	ENSURE( b2Recording_GetSize( rec ) == start + 32 );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	ENSURE( frame[0] == 0x80 && RecordingPayloadSize( frame ) == 12 );
+	ENSURE( ReadRecordingU32( frame + 4 ) == b2StoreWorldId( world ) );
+	uint32_t timeBits;
+	memcpy( &timeBits, &dt, sizeof( dt ) );
+	ENSURE( ReadRecordingU32( frame + 8 ) == timeBits && ReadRecordingU32( frame + 12 ) == (uint32_t)subSteps );
+	frame += 16;
+	ENSURE( frame[0] == 0xF1 && RecordingPayloadSize( frame ) == 12 );
+	ENSURE( ReadRecordingU32( frame + 4 ) == b2StoreWorldId( world ) );
+	uint64_t hash = b2HashWorldState( b2_worlds + world.index1 - 1 );
+	ENSURE( ReadRecordingU32( frame + 8 ) == (uint32_t)hash );
+	ENSURE( ReadRecordingU32( frame + 12 ) == (uint32_t)( hash >> 32 ) );
+	return 0;
+}
+
+int RecordingStepTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.type = b2_dynamicBody;
+	bd.position = { 0, 5 };
+	b2BodyId body = b2CreateBody( world, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 0.5f };
+	b2CreateCircleShape( body, &sd, &circle );
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( world, rec );
+	uint64_t initialHash = b2HashWorldState( b2_worlds + world.index1 - 1 );
+	for ( int i = 0; i < 60; ++i )
+	{
+		float dt = i % 2 == 0 ? 1.0f / 60.0f : 1.0f / 120.0f;
+		int subSteps = i % 3 + 1;
+		int start = b2Recording_GetSize( rec );
+		b2World_Step( world, dt, subSteps );
+		ENSURE( CheckRecordedStep( rec, start, world, dt, subSteps ) == 0 );
+	}
+	ENSURE( b2HashWorldState( b2_worlds + world.index1 - 1 ) != initialHash );
+	b2World_StopRecording( world );
+	int size = b2Recording_GetSize( rec );
+	b2World_Step( world, 1.0f / 60.0f, 4 );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+static b2WorldId CreateRecordingStepScene( void )
+{
+	b2WorldDef wd = b2DefaultWorldDef();
+	wd.workerCount = 4;
+	b2WorldId world = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.position = { 0, -1 };
+	b2BodyId ground = b2CreateBody( world, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Polygon box = b2MakeBox( 10, 1 );
+	b2CreatePolygonShape( ground, &sd, &box );
+	bd.type = b2_dynamicBody;
+	bd.enableSleep = false;
+	b2Circle circle = { { 0, 0 }, 0.5f };
+	for ( int i = 0; i < 32; ++i )
+	{
+		bd.position = { (float)( i % 8 ) - 3.5f, 0.5f + (float)( i / 8 ) };
+		b2BodyId body = b2CreateBody( world, &bd );
+		b2CreateCircleShape( body, &sd, &circle );
+	}
+	return world;
+}
+
+int RecordingStagedStepTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldId full = CreateRecordingStepScene();
+	b2WorldId staged = CreateRecordingStepScene();
+	b2Recording* fullRec = b2CreateRecording( 0 );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( full, fullRec );
+	b2World_StartRecording( staged, rec );
+	int batches = 0;
+	for ( int i = 0; i < 30; ++i )
+	{
+		int fullStart = b2Recording_GetSize( fullRec );
+		b2World_Step( full, 1.0f / 60.0f, 4 );
+		ENSURE( CheckRecordedStep( fullRec, fullStart, full, 1.0f / 60.0f, 4 ) == 0 );
+		int start = b2Recording_GetSize( rec );
+		b2TaskBatch batch = b2World_BeginStep( staged, 1.0f / 60.0f, 4 );
+		if ( batch.count > 0 )
+		{
+			// The state marker is absent until every returned task batch has completed.
+			ENSURE( b2Recording_GetSize( rec ) == start + 16 );
+			ENSURE( b2World_BeginStep( staged, 1.0f / 60.0f, 4 ).count == 0 );
+			b2World_Step( staged, 1.0f / 60.0f, 4 );
+			ENSURE( b2Recording_GetSize( rec ) == start + 16 );
+		}
+		while ( batch.count > 0 )
+		{
+			batches += 1;
+			for ( int j = 0; j < batch.count; ++j ) batch.tasks[j].fcn( batch.tasks[j].context );
+			batch = b2World_ContinueStep( staged );
+		}
+		ENSURE( CheckRecordedStep( rec, start, staged, 1.0f / 60.0f, 4 ) == 0 );
+		ENSURE( b2HashWorldState( b2_worlds + full.index1 - 1 ) == b2HashWorldState( b2_worlds + staged.index1 - 1 ) );
+		int completeSize = b2Recording_GetSize( rec );
+		ENSURE( b2World_ContinueStep( staged ).count == 0 );
+		ENSURE( b2Recording_GetSize( rec ) == completeSize );
+	}
+	ENSURE( batches > 30 );
+	b2World_StopRecording( full );
+	b2World_StopRecording( staged );
+	b2DestroyWorld( full );
+	b2DestroyWorld( staged );
+	b2DestroyRecording( fullRec );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingStepGuardTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &wd );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec );
+	int size = b2Recording_GetSize( rec );
+	float nan = std::numeric_limits<float>::quiet_NaN();
+	float invalid[] = { 0, -1, nan };
+	for ( float dt : invalid )
+	{
+		b2World_Step( world, dt, 4 );
+		ENSURE( b2World_BeginStep( world, dt, 4 ).count == 0 );
+	}
+	b2World_Step( world, 1.0f / 60.0f, 0 );
+	ENSURE( b2World_BeginStep( world, 1.0f / 60.0f, 0 ).count == 0 );
+	ENSURE( b2World_ContinueStep( world ).count == 0 );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	// Even an empty world emits a completed pair of records for a valid step.
+	b2World_Step( world, 1.0f / 60.0f, 1 );
+	ENSURE( CheckRecordedStep( rec, size, world, 1.0f / 60.0f, 1 ) == 0 );
 	b2World_StopRecording( world );
 	b2DestroyWorld( world );
 	b2DestroyRecording( rec );
