@@ -59,6 +59,8 @@ typedef struct b2JointId
 } b2JointId;
 static const b2JointId b2_nullJointId = {};
 
+#define B2_ID_EQUALS( a, b ) ( (a).index1 == (b).index1 && (a).world0 == (b).world0 && (a).generation == (b).generation )
+
 #ifdef __cplusplus
 #define B2_ID_INLINE inline
 #else

@@ -226,3 +226,5 @@ static inline b2Sweep b2MakeRelativeSweep( const b2BodySim* bodySim, b2Pos base 
 }
 
 bool b2ShouldBodiesCollide(b2World* world,b2Body* bodyA,b2Body* bodyB);
+
+b2BodyId b2MakeBodyId( b2World* world, int bodyId );

@@ -1193,3 +1193,9 @@ bool b2ShouldBodiesCollide( b2World* world, b2Body* bodyA, b2Body* bodyB )
 
 	return true;
 }
+
+b2BodyId b2MakeBodyId( b2World* world, int bodyId )
+{
+	b2Body* body = b2Array_Get( world->bodies, bodyId );
+	return b2BodyId{ bodyId + 1, world->worldId, body->generation };
+}

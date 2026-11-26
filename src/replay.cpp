@@ -816,18 +816,80 @@ static void b2RecDispatch_WorldEnableRestitutionPropagation( const b2RecArgs_Wor
 	b2World_EnableRestitutionPropagation( rdr->replayWorldId, a->flag );
 }
 
+
+static void b2RecGrow( void** data, int* capacity, int need, int keep, int elemSize )
+{
+	if ( need <= *capacity )
+	{
+		return;
+	}
+	int newCap = *capacity == 0 ? 8 : 2 * *capacity;
+	if ( newCap < need )
+	{
+		newCap = need;
+	}
+	void* grown = b2Alloc( (size_t)newCap * (size_t)elemSize );
+	if ( *data != NULL )
+	{
+		if ( keep > 0 )
+		{
+			memcpy( grown, *data, (size_t)keep * (size_t)elemSize );
+		}
+		b2Free( *data, (size_t)*capacity * (size_t)elemSize );
+	}
+	*data = grown;
+	*capacity = newCap;
+}
+
+static void b2RecTrackBodyCreate( b2Replay* player, b2BodyId id )
+{
+	b2RecGrow( (void**)&player->bodyIds, &player->bodyIdCap, player->bodyIdCount + 1, player->bodyIdCount,
+			   (int)sizeof( b2BodyId ) );
+	player->bodyIds[player->bodyIdCount] = id;
+	player->bodyIdCount += 1;
+}
+
+static void b2RecTrackBodyDestroy( b2Replay* player, b2BodyId id )
+{
+	for ( int i = 0; i < player->bodyIdCount; ++i )
+	{
+		if ( B2_ID_EQUALS( player->bodyIds[i], id ) )
+		{
+			player->bodyIds[i] = b2_nullBodyId;
+			return;
+		}
+	}
+}
+
+static void b2RecSeedBodyIds( b2Replay* player )
+{
+	b2World* world = ( b2_worlds + player->rdr.replayWorldId.index1 - 1 );
+	player->bodyIdCount = 0;
+	int count = world->bodies.count;
+	for ( int i = 0; i < count; ++i )
+	{
+		if ( world->bodies.data[i].id != i )
+		{
+			continue; // 空闲槽
+		}
+		b2RecTrackBodyCreate( player, b2MakeBodyId( world, i ) );
+	}
+}
+
 static void b2RecDispatch_CreateBody( const b2RecArgs_CreateBody* a, b2RecReader* rdr )
 {
 	// 已录制 id 追加在参数之后（在 b2RecEndRecord 之前写入）
 	b2BodyId recId = b2RecR_BODYID( rdr );
 	b2BodyId gotId = b2CreateBody( rdr->replayWorldId, &a->def );
 	b2RecCheckBodyId( rdr, gotId, recId );
+    if ( rdr->owner != NULL ) { b2RecTrackBodyCreate( rdr->owner, gotId ); }
 
 }
 
 static void b2RecDispatch_DestroyBody( const b2RecArgs_DestroyBody* a, b2RecReader* rdr )
 {
 	b2BodyId id = b2RecMakeBodyId( rdr, a->body );
+    if ( rdr->owner != NULL ) { b2RecTrackBodyDestroy( rdr->owner, id ); }
 
 	b2DestroyBody( id );
 }
@@ -1999,6 +2061,11 @@ b2Replay* b2CreateReplay( const void* data, int size, int workerCount )
 	player->rdr.hits = NULL;
 	player->rdr.hitCap = 0;
 	player->rdr.owner = player;
+    player->bodyIds = NULL; player->bodyIdCount = 0; player->bodyIdCap = 0;
+    player->frame0BodyIds = NULL; player->frame0BodyIdCount = 0;
+    player->keyframes = NULL; player->keyframeCount = 0; player->keyframeCapacity = 0;
+    player->keyframeBudget = 512 * 1024 * 1024; player->keyframeBytes = 0;
+    player->keyframeMinInterval = 16; player->keyframeInterval = 16; player->lastKeyframeFrame = 0;
 	// 用录制的长度单位覆盖全局长度单位，使回放复现相同常量。
 	// 这是全局引擎状态，会影响调用者的其他世界，因此先前值已在上面捕获，并在 b2DestroyReplay 中恢复。
 	if ( hdr.lengthScale > 0.0f )
@@ -2021,7 +2088,90 @@ b2Replay* b2CreateReplay( const void* data, int size, int workerCount )
 	player->recordedWorkerCount = workerCount;
     player->frame0Image = copy + 32;
 	player->frame0Size = (int)hdr.snapshotSize;
-	return player;
+	b2RecSeedBodyIds( player );
+    player->frame0BodyIdCount = player->bodyIdCount;
+    if ( player->bodyIdCount > 0 ) {
+        player->frame0BodyIds = (b2BodyId*)b2Alloc( player->bodyIdCount * (int)sizeof( b2BodyId ) );
+        memcpy( player->frame0BodyIds, player->bodyIds, player->bodyIdCount * (int)sizeof( b2BodyId ) );
+    }
+
+    return player;
+}
+
+static void b2FreeKeyframe( b2RecKeyframe* kf )
+{
+	b2Free( kf->image, kf->imageCapacity );
+	if ( kf->bodyIds != NULL )
+	{
+		b2Free( kf->bodyIds, kf->bodyIdCount * (int)sizeof( b2BodyId ) );
+	}
+}
+
+static void b2RecCaptureKeyframe( b2Replay* player )
+{
+	// 序列化到关键帧将取得所有权的缓冲区，因此没有第二次全尺寸分配和拷贝。
+	// 缓冲区超额分配，因此预算和释放跟踪其容量而非 size。
+	b2World* world = ( b2_worlds + player->rdr.replayWorldId.index1 - 1 );
+	b2RecBuffer buf = {};
+	b2SerializeWorld( world, &buf );
+
+	size_t bodyBytes = (size_t)player->bodyIdCount * sizeof( b2BodyId );
+	size_t newBytes = (size_t)buf.capacity + bodyBytes;
+
+	// 在预算下腾出空间：加倍间距会丢弃非网格关键帧，大约减半字节，直到新关键帧能放下或只剩它。
+	// 当单个快照已超出预算时，预算是软限制。
+	while ( player->keyframeCount > 0 && player->keyframeBytes + newBytes > player->keyframeBudget )
+	{
+		player->keyframeInterval *= 2;
+		int kept = 0;
+		size_t keptBytes = 0;
+		for ( int i = 0; i < player->keyframeCount; ++i )
+		{
+			b2RecKeyframe* kf = &player->keyframes[i];
+			if ( kf->frame % player->keyframeInterval == 0 )
+			{
+				player->keyframes[kept] = *kf;
+				keptBytes += (size_t)kf->imageCapacity + (size_t)kf->bodyIdCount * sizeof( b2BodyId );
+				kept += 1;
+			}
+			else
+			{
+				b2FreeKeyframe( kf );
+			}
+		}
+		bool progress = kept < player->keyframeCount;
+		player->keyframeCount = kept;
+		player->keyframeBytes = keptBytes;
+		if ( progress == false )
+		{
+			break;
+		}
+	}
+
+	b2RecGrow( (void**)&player->keyframes, &player->keyframeCapacity, player->keyframeCount + 1, player->keyframeCount,
+			   (int)sizeof( b2RecKeyframe ) );
+
+	b2RecKeyframe* kf = &player->keyframes[player->keyframeCount];
+	// 把序列化缓冲区交给关键帧，而不是拷贝到精确大小的块
+	kf->image = buf.data;
+	kf->imageSize = buf.size;
+	kf->imageCapacity = buf.capacity;
+
+	kf->frame = player->frame;
+	kf->cursor = player->rdr.cursor;
+	kf->divergeFrame = player->divergeFrame;
+	kf->diverged = player->rdr.diverged;
+	kf->bodyIdCount = player->bodyIdCount;
+	kf->bodyIds = NULL;
+	if ( bodyBytes > 0 )
+	{
+		kf->bodyIds = static_cast<b2BodyId *>( b2Alloc( bodyBytes ) );
+		memcpy( kf->bodyIds, player->bodyIds, (size_t)bodyBytes );
+	}
+
+	player->keyframeBytes += newBytes;
+	player->keyframeCount += 1;
+	player->lastKeyframeFrame = player->frame;
 }
 
 bool b2Replay_StepFrame( b2Replay* player )
@@ -2046,7 +2196,8 @@ bool b2Replay_StepFrame( b2Replay* player )
 		}
 		if ( stepped && player->rdr.data[player->rdr.cursor] == 0x80 )
 		{
-			return true;
+			if ( player->frame > player->lastKeyframeFrame && player->frame % player->keyframeInterval == 0 ) { b2RecCaptureKeyframe( player ); }
+    return true;
 		}
 
 		int opcode = b2RecDispatchOne( player );
@@ -2076,6 +2227,10 @@ void b2DestroyReplay( b2Replay* player )
     b2Free( player->rdr.chainPoints, player->rdr.chainPointCap * (int)sizeof( b2Vec2 ) );
     b2Free( player->rdr.chainMaterials, player->rdr.chainMaterialCap * (int)sizeof( b2SurfaceMaterial ) );
     b2Free( player->rdr.hits, player->rdr.hitCap * (int)sizeof( b2RecRecordedHit ) );
+    b2Free( player->bodyIds, player->bodyIdCap * (int)sizeof( b2BodyId ) );
+    b2Free( player->frame0BodyIds, player->frame0BodyIdCount * (int)sizeof( b2BodyId ) );
+    for ( int i = 0; i < player->keyframeCount; ++i ) { b2FreeKeyframe( player->keyframes + i ); }
+    b2Free( player->keyframes, player->keyframeCapacity * (int)sizeof( b2RecKeyframe ) );
     b2SetLengthUnitsPerMeter( player->previousLengthScale );
     b2Free( player, (int)sizeof( b2Replay ) );
 }
@@ -2126,6 +2281,8 @@ void b2Replay_Restart( b2Replay* player )
 	player->frame = 0;
 	player->divergeFrame = -1;
 	player->atEnd = false;
+    player->bodyIdCount = player->frame0BodyIdCount;
+    if ( player->frame0BodyIdCount > 0 ) { memcpy( player->bodyIds, player->frame0BodyIds, player->frame0BodyIdCount * (int)sizeof( b2BodyId ) ); }
 
 }
 
@@ -2137,4 +2294,50 @@ bool b2Replay_HasDiverged( const b2Replay* player )
 int b2Replay_GetDivergeFrame( const b2Replay* player )
 {
 	return player != NULL ? player->divergeFrame : -1;
+}
+
+void b2Replay_SetKeyframePolicy( b2Replay* player, size_t budgetBytes, int minIntervalFrames )
+{
+	if ( player == NULL )
+	{
+		return;
+	}
+	if ( budgetBytes > 0 )
+	{
+		player->keyframeBudget = budgetBytes;
+	}
+	if ( minIntervalFrames > 0 )
+	{
+		player->keyframeMinInterval = minIntervalFrames;
+	}
+
+	// 丢弃环，以便下次回放按新策略重新填充
+	for ( int i = 0; i < player->keyframeCount; ++i )
+	{
+		b2FreeKeyframe( &player->keyframes[i] );
+	}
+	player->keyframeCount = 0;
+	player->keyframeBytes = 0;
+	player->keyframeInterval = player->keyframeMinInterval;
+	player->lastKeyframeFrame = 0;
+}
+
+size_t b2Replay_GetKeyframeBudget( const b2Replay* player )
+{
+	return player != NULL ? player->keyframeBudget : 0;
+}
+
+int b2Replay_GetKeyframeMinInterval( const b2Replay* player )
+{
+	return player != NULL ? player->keyframeMinInterval : 0;
+}
+
+int b2Replay_GetKeyframeInterval( const b2Replay* player )
+{
+	return player != NULL ? player->keyframeInterval : 0;
+}
+
+size_t b2Replay_GetKeyframeBytes( const b2Replay* player )
+{
+	return player != NULL ? player->keyframeBytes : 0;
 }

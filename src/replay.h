@@ -41,6 +41,20 @@ typedef struct b2RecReader
 	b2Replay* owner; // 持有此读取器的播放器
 } b2RecReader;
 
+typedef struct b2RecKeyframe
+{
+	uint8_t* image; // 本帧结束时序列化的世界
+	int imageSize;
+	int imageCapacity; // image 的分配大小，会超额分配，因此释放大小与之匹配
+	int frame;		   // 此恢复点对应的帧，为步后边界
+	int cursor;		   // 下一帧恢复处的操作流偏移
+	b2BodyId* bodyIds; // 截至本帧的大纲列表
+	int bodyIdCount;
+	int divergeFrame; // 截至本帧锁存的分叉，使寻址能报告线性路径的状态
+	bool diverged;
+} b2RecKeyframe;
+
+
 struct b2Replay
 {
     uint8_t* data;
@@ -55,6 +69,29 @@ struct b2Replay
     b2RecReader rdr;
     const uint8_t* frame0Image;
     int frame0Size;
+	// 按创建顺序的活动刚体，由创建/销毁操作跟踪以驱动查看器大纲。
+	// 已销毁槽持有 b2_nullBodyId，使序号保持稳定。回放时确定性重建。
+	b2BodyId* bodyIds;
+	int bodyIdCount;
+	int bodyIdCap;
+
+	// 第 0 帧映像，用于原地重启，使回放世界 id 在重启或向后拖动时保持稳定。
+	// 指向所持副本内的种子快照数据块。
+	b2BodyId* frame0BodyIds;
+	int frame0BodyIdCount;
+
+	// 用于快速向后寻址的关键帧环。随回放正向播放按递增帧序捕获。
+	// 一旦触及内存预算，间距加倍并驱逐非网格关键帧，使内存保持有界，
+	// 寻址代价仅在录制超出预算后才增长。
+	b2RecKeyframe* keyframes;
+	int keyframeCount;
+	int keyframeCapacity;
+	size_t keyframeBudget;	 // 保留快照的内存上限（字节）
+	size_t keyframeBytes;	 // 已保留快照 + 刚体列表字节的累计
+	int keyframeMinInterval; // 最细帧间距
+	int keyframeInterval;	 // 当前间距，最小间距的 2 的幂倍，驱逐时加倍
+	int lastKeyframeFrame;	 // 已捕获的最高帧，防止回退步进时重复捕获
+
 };
 
 uint8_t b2RecR_U8( b2RecReader* rdr );

@@ -204,3 +204,41 @@ int ReplayExternalChangeTest( void )
     ENSURE( b2Replay_GetFrame( player ) == 5 && b2Replay_GetDivergeFrame( player ) == 2 );
     b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int ReplayKeyframeTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeReplayFixture( 80 );
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    ENSURE( b2Replay_GetKeyframeMinInterval( player ) == 16 && b2Replay_GetKeyframeBytes( player ) == 0 );
+    while ( b2Replay_StepFrame( player ) ) {}
+    ENSURE( player->keyframeCount == 4 && player->lastKeyframeFrame == 64 );
+    size_t sum = 0;
+    for ( int i = 0; i < player->keyframeCount; ++i ) {
+        b2RecKeyframe* frame = player->keyframes + i;
+        ENSURE( frame->frame == ( i + 1 ) * 16 && frame->imageSize > 0 && frame->imageCapacity >= frame->imageSize );
+        ENSURE( frame->cursor < player->size && player->data[frame->cursor] == 0x80 );
+        sum += frame->imageCapacity + frame->bodyIdCount * sizeof( b2BodyId );
+    }
+    ENSURE( sum == b2Replay_GetKeyframeBytes( player ) );
+    b2Replay_Restart( player ); while ( b2Replay_StepFrame( player ) ) {}
+    ENSURE( player->keyframeCount == 4 && b2Replay_GetKeyframeBytes( player ) == sum );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int ReplayKeyframeBudgetTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeReplayFixture( 100 );
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    b2Replay_SetKeyframePolicy( player, 1, 4 );
+    while ( b2Replay_StepFrame( player ) ) {}
+    ENSURE( player->keyframeCount == 1 && b2Replay_GetKeyframeInterval( player ) > 4 );
+    ENSURE( b2Replay_GetKeyframeBudget( player ) == 1 && b2Replay_GetKeyframeBytes( player ) > 1 );
+    // One snapshot may exceed the soft budget; the next capture evicts older snapshots.
+    b2Replay_SetKeyframePolicy( player, 0, 0 );
+    ENSURE( player->keyframeCount == 0 && b2Replay_GetKeyframeBytes( player ) == 0 );
+    ENSURE( b2Replay_GetKeyframeBudget( player ) == 1 && b2Replay_GetKeyframeMinInterval( player ) == 4 );
+    b2Replay_SetKeyframePolicy( player, 1024 * 1024, 8 ); b2Replay_Restart( player );
+    while ( b2Replay_StepFrame( player ) ) {}
+    ENSURE( player->keyframeCount > 1 && b2Replay_GetKeyframeInterval( player ) == 8 );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}

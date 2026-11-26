@@ -1522,3 +1522,9 @@ B2_API void b2Replay_Restart( b2Replay* player );
 
 B2_API bool b2Replay_HasDiverged( const b2Replay* player );
 B2_API int b2Replay_GetDivergeFrame( const b2Replay* player );
+
+B2_API void b2Replay_SetKeyframePolicy( b2Replay* player, size_t budgetBytes, int minIntervalFrames );
+B2_API size_t b2Replay_GetKeyframeBudget( const b2Replay* player );
+B2_API int b2Replay_GetKeyframeMinInterval( const b2Replay* player );
+B2_API int b2Replay_GetKeyframeInterval( const b2Replay* player );
+B2_API size_t b2Replay_GetKeyframeBytes( const b2Replay* player );
