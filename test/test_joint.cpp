@@ -135,3 +135,17 @@ int RevoluteJointBasicTest(void)
  b2DestroyWorld(id);id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.rotation={0,1};bd.angularVelocity=1;b=b2CreateBody(id,&bd);b2Circle circle={{0,0},1};b2CreateCircleShape(b,&sd,&circle);def=b2DefaultRevoluteJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.base.localFrameA.q={0,1};joint=b2CreateRevoluteJoint(id,&def);ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(joint),0.00001f);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(joint)-1,0.00001f);ENSURE_SMALL(JointAnchorError(joint),0.00001f);
  b2Body_Disable(b);b2Body_Enable(b);b2World_Step(id,0.01f,1);ENSURE(JointAnchorError(joint)<0.01f);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int RevoluteJointSpringTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.rotation=b2MakeRot(1.5f);b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2RevoluteJointDef def=b2DefaultRevoluteJointDef();ENSURE(!def.enableSpring && def.hertz==0 && def.dampingRatio==0 && def.targetAngle==0);def.base.bodyIdA=a;def.base.bodyIdB=b;def.enableSpring=true;def.hertz=2;def.dampingRatio=1;def.targetAngle=0.5f;b2JointId j=b2CreateRevoluteJoint(id,&def);
+ ENSURE(b2RevoluteJoint_IsSpringEnabled(j) && b2RevoluteJoint_GetSpringHertz(j)==2 && b2RevoluteJoint_GetSpringDampingRatio(j)==1 && b2RevoluteJoint_GetTargetAngle(j)==0.5f);
+ for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(j)-0.5f,0.002f);ENSURE_SMALL(JointAnchorError(j),0.00001f);
+ b2RevoluteJoint_SetTargetAngle(j,-0.8f);b2RevoluteJoint_SetSpringHertz(j,3);b2RevoluteJoint_SetSpringDampingRatio(j,0.8f);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(j)+0.8f,0.002f);
+ b2RevoluteJoint_EnableSpring(j,false);ENSURE(!b2RevoluteJoint_IsSpringEnabled(j));b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.00001f);
+ b2RevoluteJoint_SetSpringHertz(j,0);b2RevoluteJoint_EnableSpring(j,true);b2World_EnableWarmStarting(id,false);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.00001f);
+ b2DestroyJoint(j);def.base.localFrameA.q={0,1};def.targetAngle=0;def.hertz=2;def.dampingRatio=1;j=b2CreateRevoluteJoint(id,&def);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(j),0.002f);ENSURE_SMALL(b2Rot_GetAngle(b2Body_GetRotation(b))-0.5f*B2_PI,0.002f);
+ b2MotionLocks locks={false,false,true};b2Body_SetMotionLocks(b,locks);float angle=b2Rot_GetAngle(b2Body_GetRotation(b));b2RevoluteJoint_SetTargetAngle(j,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Rot_GetAngle(b2Body_GetRotation(b))-angle,0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

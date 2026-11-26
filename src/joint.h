@@ -84,11 +84,18 @@ typedef struct b2DistanceJoint
 typedef struct b2RevoluteJoint
 {
 	b2Vec2 linearImpulse;
+	float springImpulse;
+	float hertz;
+	float dampingRatio;
+	float targetAngle;
 	int indexA;
 	int indexB;
 	b2Transform frameA;
 	b2Transform frameB;
 	b2Vec2 deltaCenter;
+	float axialMass;
+	b2Softness springSoftness;
+	bool enableSpring;
 } b2RevoluteJoint;
 
 typedef struct b2JointSim

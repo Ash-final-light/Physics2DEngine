@@ -54,11 +54,15 @@ void b2PrepareRevoluteJoint( b2JointSim* base, b2StepContext* context )
 	// 计算初始质心差。增量位置更新都相对此值。
 	joint->deltaCenter = b2SubPos( bodySimB->center, bodySimA->center );
 
+	float k = iA + iB;
+	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
 
+	joint->springSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
 	if ( context->world->enableWarmStarting == false )
 	{
 		joint->linearImpulse = b2Vec2_zero;
+		joint->springImpulse = 0.0f;
 	}
 }
 
@@ -81,7 +85,7 @@ void b2WarmStartRevoluteJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
 
-	float axialImpulse = 0.0f;
+	float axialImpulse = joint->springImpulse;
 
 	if ( stateA->flags & b2_dynamicFlag )
 	{
@@ -118,17 +122,41 @@ void b2SolveRevoluteJoint( b2JointSim* base, b2StepContext* context, bool useBia
 	b2Vec2 vB = stateB->linearVelocity;
 	float wB = stateB->angularVelocity;
 
+	b2Rot qA = b2MulRot( stateA->deltaRotation, joint->frameA.q );
+	b2Rot qB = b2MulRot( stateB->deltaRotation, joint->frameB.q );
+	b2Rot relQ = b2InvMulRot( qA, qB );
 
 	// 当前锚点
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
 
 	b2Vec2 linearCdot = b2Sub( b2Add( vB, b2CrossSV( wB, rB ) ), b2Add( vA, b2CrossSV( wA, rA ) ) );
+	float angularCdot = wB - wA;
 	float axialImpulse = 0.0f;
 
+	float k = iA + iB;
+	bool fixedRotation = ( k == 0.0f );
 
+	// 求解弹簧。
+	if ( joint->enableSpring && fixedRotation == false )
+	{
+		float jointAngle = b2Rot_GetAngle( relQ );
+		float jointAngleDelta = b2UnwindAngle( jointAngle - joint->targetAngle );
 
+		float C = jointAngleDelta;
+		float bias = joint->springSoftness.biasRate * C;
+		float massScale = joint->springSoftness.massScale;
+		float impulseScale = joint->springSoftness.impulseScale;
 
+		float Cdot = angularCdot;
+		float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->springImpulse;
+		joint->springImpulse += impulse;
+
+		angularCdot += k * impulse;
+		axialImpulse += impulse;
+	}
+
+	// 求解马达约束。
 
 
 
@@ -214,4 +242,66 @@ float b2RevoluteJoint_GetCurrentSpeed( b2JointId jointId )
 	float wB = bodyStateB ? bodyStateB->angularVelocity : 0.0f;
 
 	return wB - wA;
+}
+
+void b2RevoluteJoint_EnableSpring( b2JointId jointId, bool enableSpring )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( enableSpring != joint->revoluteJoint.enableSpring )
+	{
+		joint->revoluteJoint.enableSpring = enableSpring;
+		joint->revoluteJoint.springImpulse = 0.0f;
+	}
+}
+
+bool b2RevoluteJoint_IsSpringEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.enableSpring;
+}
+
+void b2RevoluteJoint_SetSpringHertz( b2JointId jointId, float hertz )
+{
+	if (!(b2IsValidFloat( hertz ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	joint->revoluteJoint.hertz = hertz;
+}
+
+float b2RevoluteJoint_GetSpringHertz( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.hertz;
+}
+
+void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
+{
+	if (!(b2IsValidFloat( dampingRatio ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	joint->revoluteJoint.dampingRatio = dampingRatio;
+}
+
+float b2RevoluteJoint_GetSpringDampingRatio( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.dampingRatio;
+}
+
+void b2RevoluteJoint_SetTargetAngle( b2JointId jointId, float angle )
+{
+	if (!(b2IsValidFloat( angle ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	joint->revoluteJoint.targetAngle = angle;
+}
+
+float b2RevoluteJoint_GetTargetAngle( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.targetAngle;
 }

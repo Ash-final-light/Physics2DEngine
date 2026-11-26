@@ -139,6 +139,7 @@ int DistanceJointSpringTest( void );
 int DistanceJointLimitTest( void );
 int DistanceJointMotorTest( void );
 int RevoluteJointBasicTest( void );
+int RevoluteJointSpringTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -1023,6 +1024,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"DistanceJointMotorTest")==0) { ran=1; RUN_TEST(DistanceJointMotorTest); }
 
 	if(filter==NULL || strcmp(filter,"RevoluteJointBasicTest")==0) { ran=1; RUN_TEST(RevoluteJointBasicTest); }
+
+	if(filter==NULL || strcmp(filter,"RevoluteJointSpringTest")==0) { ran=1; RUN_TEST(RevoluteJointSpringTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

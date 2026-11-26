@@ -1014,6 +1014,10 @@ B2_API float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId );
 typedef struct b2RevoluteJointDef
 {
 	b2JointDef base;
+	float targetAngle;
+	bool enableSpring;
+	float hertz;
+	float dampingRatio;
 	int internalValue;
 } b2RevoluteJointDef;
 B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef(void);
@@ -1021,3 +1025,12 @@ B2_API b2JointId b2CreateRevoluteJoint(b2WorldId worldId,const b2RevoluteJointDe
 
 B2_API float b2RevoluteJoint_GetCurrentAngle( b2JointId jointId );
 B2_API float b2RevoluteJoint_GetCurrentSpeed( b2JointId jointId );
+
+B2_API void b2RevoluteJoint_EnableSpring( b2JointId jointId, bool enableSpring );
+B2_API bool b2RevoluteJoint_IsSpringEnabled( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetSpringHertz( b2JointId jointId, float hertz );
+B2_API float b2RevoluteJoint_GetSpringHertz( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2RevoluteJoint_GetSpringDampingRatio( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetTargetAngle( b2JointId jointId, float angle );
+B2_API float b2RevoluteJoint_GetTargetAngle( b2JointId jointId );

@@ -534,6 +534,9 @@ b2RevoluteJointDef b2DefaultRevoluteJointDef( void )
 b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* def )
 {
 	B2_CHECK_DEF( def );
+	if (!(b2IsValidFloat( def->targetAngle ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->hertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
 
@@ -551,8 +554,12 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	b2RevoluteJoint empty = {};
 	joint->revoluteJoint = empty;
 
+	joint->revoluteJoint.targetAngle = b2ClampFloat( def->targetAngle, -B2_PI, B2_PI );
+	joint->revoluteJoint.hertz = def->hertz;
+	joint->revoluteJoint.dampingRatio = def->dampingRatio;
 
 
+	joint->revoluteJoint.enableSpring = def->enableSpring;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
