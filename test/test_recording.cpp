@@ -3,6 +3,8 @@
 
 #include "test_macros.h"
 #include "recording.h"
+#include "state_hash.h"
+#include "world.h"
 
 #include <string.h>
 #include <vector>
@@ -186,6 +188,133 @@ int RecordingCapacityTest( void )
 		for ( int i = 0; i < capacity + 100; ++i ) ENSURE( bytes[i] == (uint8_t)i );
 		b2DestroyRecording( rec );
 	}
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+static uint32_t ReadRecordingU32( const uint8_t* data )
+{
+	return (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 | (uint32_t)data[3] << 24;
+}
+
+static int RecordingPayloadSize( const uint8_t* record )
+{
+	return record[1] | (int)record[2] << 8 | (int)record[3] << 16;
+}
+
+int RecordingSessionTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.type = b2_dynamicBody;
+	bd.position = { 2, 4 };
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 1.0f };
+	b2CreateCircleShape( body, &sd, &circle );
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( id, rec );
+	ENSURE( b2_worlds[id.index1 - 1].recording == rec );
+	b2RecHeader header;
+	memcpy( &header, b2Recording_GetData( rec ), sizeof( header ) );
+	ENSURE( sizeof( header ) == 32 && header.magic == B2_REC_MAGIC );
+	ENSURE( header.versionMajor == 3 && header.versionMinor == 13 );
+	ENSURE( header.pointerWidth == sizeof( void* ) && header.bigEndian == 0 );
+	ENSURE( header.lengthScale == b2GetLengthUnitsPerMeter() && header.snapshotSize > 0 );
+	int snapshotSize = b2World_GetSnapshot( id, NULL, 0 );
+	ENSURE( header.snapshotSize == snapshotSize );
+	std::vector<uint8_t> snapshot( snapshotSize );
+	b2World_GetSnapshot( id, snapshot.data(), snapshotSize );
+	ENSURE( memcmp( b2Recording_GetData( rec ) + sizeof( header ), snapshot.data(), snapshotSize ) == 0 );
+	b2WorldId loaded = b2CreateWorldFromSnapshot( snapshot.data(), snapshotSize, 1 );
+	ENSURE( b2World_IsValid( loaded ) );
+	ENSURE( b2World_GetStateHash( loaded ) == b2World_GetStateHash( id ) );
+	b2DestroyWorld( loaded );
+	int offset = (int)sizeof( header ) + snapshotSize;
+	const uint8_t* bytes = b2Recording_GetData( rec );
+	ENSURE( bytes[offset] == 0xF1 && RecordingPayloadSize( bytes + offset ) == 12 );
+	ENSURE( ReadRecordingU32( bytes + offset + 4 ) == b2StoreWorldId( id ) );
+	uint64_t hash = b2HashWorldState( b2_worlds + id.index1 - 1 );
+	ENSURE( ReadRecordingU32( bytes + offset + 8 ) == (uint32_t)hash );
+	ENSURE( ReadRecordingU32( bytes + offset + 12 ) == (uint32_t)( hash >> 32 ) );
+	offset += 16;
+	ENSURE( b2Recording_GetSize( rec ) == offset );
+	b2World_StopRecording( id );
+	ENSURE( b2_worlds[id.index1 - 1].recording == NULL );
+	bytes = b2Recording_GetData( rec );
+	ENSURE( bytes[offset] == 0xF2 && RecordingPayloadSize( bytes + offset ) == 16 );
+	offset += 20;
+	ENSURE( bytes[offset] == 0x01 && RecordingPayloadSize( bytes + offset ) == 4 );
+	ENSURE( ReadRecordingU32( bytes + offset + 4 ) == b2StoreWorldId( id ) );
+	ENSURE( b2Recording_GetSize( rec ) == offset + 8 );
+	std::vector<uint8_t> session( bytes, bytes + b2Recording_GetSize( rec ) );
+	b2World_StopRecording( id );
+	ENSURE( b2Recording_GetSize( rec ) == session.size() );
+	b2World_StartRecording( id, rec );
+	b2World_StopRecording( id );
+	ENSURE( b2Recording_GetSize( rec ) == session.size() );
+	ENSURE( memcmp( session.data(), b2Recording_GetData( rec ), session.size() ) == 0 );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+static bool RecordingFilter( b2ShapeId, b2ShapeId, void* ) { return true; }
+
+int RecordingSessionGuardTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2World* world = b2_worlds + id.index1 - 1;
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2Recording* unused = b2CreateRecording( 0 );
+	b2World_StartRecording( id, NULL );
+	ENSURE( world->recording == NULL );
+	world->locked = true;
+	b2World_StartRecording( id, rec );
+	ENSURE( world->recording == NULL && b2Recording_GetSize( rec ) == 0 );
+	world->locked = false;
+	b2World_SetCustomFilterCallback( id, RecordingFilter, NULL );
+	b2World_StartRecording( id, rec );
+	ENSURE( world->recording == NULL && b2Recording_GetSize( rec ) == 0 );
+	b2World_SetCustomFilterCallback( id, NULL, NULL );
+	b2World_StartRecording( id, rec );
+	int size = b2Recording_GetSize( rec );
+	b2World_StartRecording( id, unused );
+	ENSURE( world->recording == rec && b2Recording_GetSize( unused ) == 0 );
+	world->locked = true;
+	b2World_StopRecording( id );
+	ENSURE( world->recording == rec && b2Recording_GetSize( rec ) == size );
+	world->locked = false;
+	b2World_StopRecording( id );
+	ENSURE( world->recording == NULL );
+	b2DestroyRecording( unused );
+	b2DestroyRecording( rec );
+	b2DestroyWorld( id );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingWorldLifetimeTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( id, rec );
+	int before = b2Recording_GetSize( rec );
+	b2DestroyWorld( id );
+	ENSURE( b2Recording_GetSize( rec ) == before + 28 );
+	const uint8_t* bytes = b2Recording_GetData( rec );
+	ENSURE( bytes[before] == 0xF2 && bytes[before + 20] == 0x01 );
+	b2WorldId next = b2CreateWorld( &wd );
+	ENSURE( b2_worlds[next.index1 - 1].recording == NULL );
+	b2DestroyWorld( next );
+	b2DestroyRecording( rec );
 	ENSURE( b2GetByteCount() == baseline );
 	return 0;
 }

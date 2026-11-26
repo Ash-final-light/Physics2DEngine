@@ -32,6 +32,7 @@ struct b2TaskContext
 
 struct b2World
 {
+    b2Recording* recording;
     b2DynamicArray<b2TaskContext> taskContexts;
 	uint16_t worldId;
 	uint16_t generation;

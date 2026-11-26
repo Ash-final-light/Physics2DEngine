@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "world.h"
+#include "recording.h"
 
 #include "core.h"
 #include "aabb.h"
@@ -162,6 +163,8 @@ void b2DestroyWorld( b2WorldId worldId )
 	{
 		return;
 	}
+
+    b2StopRecordingInternal( world );
 
     for(int i=0;i<world->sensors.count;++i)
     { b2Sensor* sensor=world->sensors.data+i;b2Array_Destroy(sensor->hits);b2Array_Destroy(sensor->overlaps1);b2Array_Destroy(sensor->overlaps2); }
@@ -1926,4 +1929,35 @@ void b2World_RebuildStaticTree( b2WorldId worldId )
 	{
 		b2Free( movedProxies, proxyCount * sizeof( int ) );
 	}
+}
+
+void b2World_StartRecording( b2WorldId worldId, b2Recording* recording )
+{
+	// 必须是步边界，因此拒绝锁定的世界
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == NULL || !world->inUse || world->locked || recording == NULL || world->recording != NULL )
+	{
+		return;
+	}
+
+	if ( world->preSolveFcn != NULL || world->preContinuousFcn != NULL || world->customFilterFcn != NULL )
+	{
+		printf( "b2World_StartRecording: preSolve and custom filtering are not supported when "
+				"recording\n" );
+		return;
+	}
+
+	b2StartRecordingIntoBuffer( world, recording );
+}
+
+void b2World_StopRecording( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	if ( world == NULL || !world->inUse || world->locked )
+	{
+		return;
+	}
+
+	b2StopRecordingInternal( world );
 }

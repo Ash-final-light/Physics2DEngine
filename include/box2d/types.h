@@ -1476,3 +1476,8 @@ B2_API void b2DestroyRecording( b2Recording* recording );
 /// 指针在下一次录制调用或销毁之前有效。
 B2_API const uint8_t* b2Recording_GetData( const b2Recording* recording );
 B2_API int b2Recording_GetSize( const b2Recording* recording );
+
+/// 在步边界开始快照播种的录制会话；已录制、锁定或带自定义过滤回调时无效果。
+B2_API void b2World_StartRecording( b2WorldId worldId, b2Recording* recording );
+/// 停止会话，字节仍由用户持有。
+B2_API void b2World_StopRecording( b2WorldId worldId );

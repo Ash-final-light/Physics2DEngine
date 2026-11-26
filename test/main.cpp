@@ -53,6 +53,9 @@ int RecordingStringEncodingTest( void );
 int RecordingDefinitionEncodingTest( void );
 int RecordingLifetimeTest( void );
 int RecordingCapacityTest( void );
+int RecordingSessionTest( void );
+int RecordingSessionGuardTest( void );
+int RecordingWorldLifetimeTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1005,6 +1008,12 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingLifetimeTest")==0) { ran=1; RUN_TEST(RecordingLifetimeTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingCapacityTest")==0) { ran=1; RUN_TEST(RecordingCapacityTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingSessionTest")==0) { ran=1; RUN_TEST(RecordingSessionTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingSessionGuardTest")==0) { ran=1; RUN_TEST(RecordingSessionGuardTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingWorldLifetimeTest")==0) { ran=1; RUN_TEST(RecordingWorldLifetimeTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

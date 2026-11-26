@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "recording.h"
+#include "snapshot.h"
+#include "state_hash.h"
+#include "world.h"
+#include "box2d/math_functions.h"
 
 #include <string.h>
 
@@ -535,4 +539,184 @@ const uint8_t* b2Recording_GetData( const b2Recording* recording )
 int b2Recording_GetSize( const b2Recording* recording )
 {
 	return recording->buffer.size;
+}
+
+// 记录分帧
+
+void b2RecBeginRecord( b2Recording* rec, uint8_t opcode )
+{
+	b2RecW_U8( &rec->buffer, opcode );
+	rec->recordStart = rec->buffer.size;
+	// 预留保存 24 位载荷大小的空间，该大小直到调用 b2RecEndRecord 才知道。
+	uint8_t zero[3] = { 0, 0, 0 };
+	b2RecBufAppend( &rec->buffer, zero, 3 );
+}
+
+void b2RecEndRecord( b2Recording* rec )
+{
+	// 计算最终载荷大小，并写入紧接操作码之后预留的 24 位空间。
+	int payloadSize = rec->buffer.size - rec->recordStart - 3;
+	B2_ASSERT( payloadSize >= 0 && payloadSize < ( 1 << 24 ) );
+	uint8_t* p = rec->buffer.data + rec->recordStart;
+	p[0] = (uint8_t)payloadSize;
+	p[1] = (uint8_t)( payloadSize >> 8 );
+	p[2] = (uint8_t)( payloadSize >> 16 );
+}
+
+// 代码生成第 1b 遍：参数写入器。每个生成的函数将其结构字段写入缓冲区
+// 例如：
+// B2_REC_OP( 0x80, Step, RET_NONE, ARG( WORLDID, world ) ARG( F32, dt ) ARG( I32, subStepCount ) )
+// 变为：
+// void b2RecWriteArgs_Step( b2Recording* rec, const b2RecArgs_Step* a)
+// {
+//   b2RecW_WORLDID( &rec->buffer, a->world );
+//   b2RecW_F32( &rec->buffer, a->dt );
+//   b2RecW_I32( &rec->buffer, a->subStepCount );
+// }
+#define ARG( TAG, field ) b2RecW_##TAG( &rec->buffer, a->field );
+#define B2_REC_OP( op, Name, RET, ... )                                                                                          \
+	void b2RecWriteArgs_##Name( b2Recording* rec, const b2RecArgs_##Name* a )                                                    \
+	{                                                                                                                            \
+		__VA_ARGS__                                                                                                              \
+	}
+#include "recording_ops.inl"
+#undef B2_REC_OP
+#undef ARG
+
+// 代码生成：包装 begin、参数写入器、end 的完整写入器
+// 设置器与创建可能在各自持有不同对象的线程上运行，因此整条记录期间持锁。
+// 否则并发写入器会把字节插入我们的 begin 与 end 之间，记录会使回放失步。
+// 与查询提交路径使用同一把锁。
+// 例如：
+// B2_REC_OP( 0x80, Step, RET_NONE, ARG( WORLDID, world ) ARG( F32, dt ) ARG( I32, subStepCount ) )
+// 变为：
+// void b2RecWrite_Step( b2Recording* rec, const b2RecArgs_Step* a)
+// {
+//   b2LockMutex( rec->lock );
+//   b2RecBeginRecord( rec, (uint8_t)( 0x80 ) );
+//   b2RecWriteArgs_Step( rec, a );
+//   b2RecEndRecord( rec );
+//   b2UnlockMutex( rec->lock );
+// }
+#define B2_REC_OP( op, Name, RET, ... )                                                                                          \
+	void b2RecWrite_##Name( b2Recording* rec, const b2RecArgs_##Name* a )                                                        \
+	{                                                                                                                            \
+		b2LockMutex( rec->lock );                                                                                                \
+		b2RecBeginRecord( rec, (uint8_t)( op ) );                                                                                \
+		b2RecWriteArgs_##Name( rec, a );                                                                                         \
+		b2RecEndRecord( rec );                                                                                                   \
+		b2UnlockMutex( rec->lock );                                                                                              \
+	}
+#include "recording_ops.inl"
+#undef B2_REC_OP
+
+// 代码生成：在记录内追加返回 id 的创建操作写入器。RET 标签
+// 选择 id 类型及其写入原语。RET_NONE 操作不生成任何内容。
+// 例如：
+// B2_REC_OP( 0x40, CreateCircleShape, RET_SHAPEID, ARG( BODYID, body ) ARG( SHAPEDEF, def ) ARG( CIRCLE, circle ) )
+// 变为：
+// 	void b2RecWriteRet_CreateCircleShape( b2Recording* rec, const b2RecArgs_CreateCircleShape* a, idType id )
+//	{
+//		b2LockMutex( rec->lock );
+//		b2RecBeginRecord( rec, (uint8_t)( 0x40 ) );
+//		b2RecWriteArgs_CreateCircleShape( rec, a );
+//		b2RecW_SHAPEID( &rec->buffer, id );
+//		b2RecEndRecord( rec );
+//		b2UnlockMutex( rec->lock );
+//	}
+
+#define B2_REC_RETWRITE( op, Name, idType, idW )                                                                                 \
+	void b2RecWriteRet_##Name( b2Recording* rec, const b2RecArgs_##Name* a, idType id )                                          \
+	{                                                                                                                            \
+		b2LockMutex( rec->lock );                                                                                                \
+		b2RecBeginRecord( rec, (uint8_t)( op ) );                                                                                \
+		b2RecWriteArgs_##Name( rec, a );                                                                                         \
+		idW( &rec->buffer, id );                                                                                                 \
+		b2RecEndRecord( rec );                                                                                                   \
+		b2UnlockMutex( rec->lock );                                                                                              \
+	}
+#define B2_REC_RETWRITE_RET_NONE( op, Name )
+#define B2_REC_RETWRITE_RET_BODYID( op, Name ) B2_REC_RETWRITE( op, Name, b2BodyId, b2RecW_BODYID )
+#define B2_REC_RETWRITE_RET_SHAPEID( op, Name ) B2_REC_RETWRITE( op, Name, b2ShapeId, b2RecW_SHAPEID )
+#define B2_REC_RETWRITE_RET_CHAINID( op, Name ) B2_REC_RETWRITE( op, Name, b2ChainId, b2RecW_CHAINID )
+#define B2_REC_RETWRITE_RET_JOINTID( op, Name ) B2_REC_RETWRITE( op, Name, b2JointId, b2RecW_JOINTID )
+#define B2_REC_OP( op, Name, RET, ... ) B2_REC_RETWRITE_##RET( op, Name )
+#include "recording_ops.inl"
+#undef B2_REC_OP
+#undef B2_REC_RETWRITE_RET_NONE
+#undef B2_REC_RETWRITE_RET_BODYID
+#undef B2_REC_RETWRITE_RET_SHAPEID
+#undef B2_REC_RETWRITE_RET_CHAINID
+#undef B2_REC_RETWRITE_RET_JOINTID
+#undef B2_REC_RETWRITE
+
+void b2RecAccumulateBounds( b2Recording* rec, b2AABB bounds )
+{
+	rec->accumulatedBounds = rec->haveBounds ? b2AABB_Union( rec->accumulatedBounds, bounds ) : bounds;
+	rec->haveBounds = true;
+}
+
+void b2StartRecordingIntoBuffer( b2World* world, b2Recording* recording )
+{
+	// 重置以便录制句柄可复用于新会话
+	recording->buffer.size = 0;
+	recording->recordStart = 0;
+	recording->haveBounds = false;
+
+	// 将活动世界序列化为头之后的数据块，并为回放播种。
+	b2RecBuffer blob = {};
+	b2SerializeWorld( world, &blob );
+
+	b2RecHeader hdr = {};
+	hdr.magic = B2_REC_MAGIC;
+	hdr.versionMajor = B2_REC_VERSION_MAJOR;
+	hdr.versionMinor = B2_REC_VERSION_MINOR;
+	hdr.lengthScale = b2GetLengthUnitsPerMeter();
+	hdr.pointerWidth = (uint8_t)sizeof( void* );
+	hdr.bigEndian = 0;
+	hdr.validationEnabled = B2_ENABLE_VALIDATION ? 1u : 0u;
+	hdr.snapshotSize = (uint64_t)blob.size;
+	b2RecBufAppend( &recording->buffer, &hdr, (int)sizeof( hdr ) );
+	b2RecBufAppend( &recording->buffer, blob.data, blob.size );
+	b2RecBufFree( &blob );
+
+	world->recording = recording;
+
+	// 用快照状态为包围盒播种，即使没有运动也能框住第 0 帧
+	b2AABB seed;
+	if ( b2ComputeWorldBounds( world, &seed ) )
+	{
+		b2RecAccumulateBounds( recording, seed );
+	}
+
+	// 锚定已录制的状态哈希，以便回放验证数据块反序列化为同一世界。
+	b2WorldId worldId = { (uint16_t)( world->worldId + 1 ), world->generation };
+	b2RecArgs_StateHash stateHash = { worldId, b2HashWorldState( world ) };
+	b2RecWrite_StateHash( recording, &stateHash );
+}
+
+void b2StopRecordingInternal( b2World* world )
+{
+	if ( world->recording == NULL )
+	{
+		return;
+	}
+
+	b2Recording* rec = world->recording;
+	world->recording = NULL;
+
+	// 暂存累计包围盒，使查看器在打开时能框住整个运动。位于操作流中结束标记之前；
+	// 旧录制中不存在。
+	b2RecArgs_RecordingBounds rb = {};
+	if ( rec->haveBounds )
+	{
+		rb.bounds = rec->accumulatedBounds;
+	}
+	b2RecWrite_RecordingBounds( rec, &rb );
+
+	// 写入 DestroyWorld，使缓冲区自包含，作为查看器读取的结束标记。
+	// 缓冲区和句柄属于用户，由 b2DestroyRecording 释放。
+	b2WorldId wid = { (uint16_t)( world->worldId + 1 ), world->generation };
+	b2RecArgs_DestroyWorld a = { wid };
+	b2RecWrite_DestroyWorld( rec, &a );
 }
