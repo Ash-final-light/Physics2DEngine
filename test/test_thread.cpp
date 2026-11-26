@@ -7,6 +7,7 @@
 #include "scheduler.h"
 #include "solver.h"
 #include "test_macros.h"
+#include "world.h"
 
 #include <atomic>
 #include <thread>
@@ -363,5 +364,127 @@ int SchedulerTest( void )
 {
 	ENSURE( RunSchedulerPass( 4, 24 ) == 0 );
 	ENSURE( RunSchedulerPass( 2, 8 ) == 0 );
+	return 0;
+}
+
+typedef struct ExternalTaskRecord
+{
+	int enqueueCount;
+	int finishCount;
+	int runCount;
+	bool inlineMode;
+	b2TaskCallbackFcn* pendingFcn[8];
+	void* pendingContext[8];
+	int pendingCount;
+} ExternalTaskRecord;
+
+typedef struct ExternalCounter
+{
+	int* calls;
+	int* sequence;
+	int* sequenceCount;
+	int id;
+} ExternalCounter;
+
+static void ExternalTaskFcn( void* context )
+{
+	ExternalCounter* counter = (ExternalCounter*)context;
+	counter->calls[counter->id] += 1;
+	counter->sequence[counter->sequenceCount[0]++] = counter->id;
+}
+
+static void* ExternalEnqueue( b2TaskCallbackFcn* task, void* taskContext, void* userContext )
+{
+	ExternalTaskRecord* record = (ExternalTaskRecord*)userContext;
+	record->enqueueCount += 1;
+	if ( record->inlineMode )
+	{
+		task( taskContext );
+		return NULL;
+	}
+	int slot = record->pendingCount++;
+	record->pendingFcn[slot] = task;
+	record->pendingContext[slot] = taskContext;
+	return (void*)(intptr_t)( slot + 1 );
+}
+
+static void ExternalFinish( void* userTask, void* userContext )
+{
+	ExternalTaskRecord* record = (ExternalTaskRecord*)userContext;
+	record->finishCount += 1;
+	int slot = (int)(intptr_t)userTask - 1;
+	record->pendingFcn[slot]( record->pendingContext[slot] );
+}
+
+static b2TaskBatch MakeExternalBatch( b2StepContext* context, ExternalCounter* counters )
+{
+	b2ResetTaskBatch( context );
+	for ( int i = 0; i < 4; ++i )
+	{
+		b2AddTask( context, (b2TaskType)( b2_taskPairs + i ), ExternalTaskFcn, counters + i );
+	}
+	return b2MakeTaskBatch( context );
+}
+
+int ExternalTaskTest( void )
+{
+	ExternalTaskRecord record = {};
+	int calls[4] = {};
+	int sequence[8] = {};
+	int sequenceCount = 0;
+	ExternalCounter counters[4];
+	for ( int i = 0; i < 4; ++i )
+	{
+		counters[i] = ExternalCounter{ calls, sequence, &sequenceCount, i };
+	}
+
+	// 入队回调内同步执行并返回空句柄：不调用 finish
+	b2StepContext context = {};
+	b2TaskBatch batch = MakeExternalBatch( &context, counters );
+	record.inlineMode = true;
+	b2RunTaskBatch( ExternalEnqueue, ExternalFinish, &record, batch );
+	ENSURE( record.enqueueCount == 3 && record.finishCount == 0 );
+	ENSURE( sequenceCount == 4 );
+	for ( int i = 0; i < 4; ++i )
+	{
+		ENSURE( calls[i] == 1 );
+	}
+
+	// 返回非空句柄时由 finish 完成剩余任务；最后一个任务仍本地执行
+	record = ExternalTaskRecord{};
+	for ( int i = 0; i < 4; ++i )
+	{
+		calls[i] = 0;
+	}
+	sequenceCount = 0;
+	batch = MakeExternalBatch( &context, counters );
+	b2RunTaskBatch( ExternalEnqueue, ExternalFinish, &record, batch );
+	ENSURE( record.enqueueCount == 3 && record.finishCount == 3 );
+	ENSURE( sequenceCount == 4 );
+	for ( int i = 0; i < 4; ++i )
+	{
+		ENSURE( calls[i] == 1 );
+	}
+
+	// 世界定义保存外部回调与用户上下文；默认世界使用串行回调
+	b2WorldDef def = b2DefaultWorldDef();
+	ENSURE( def.enqueueTask == NULL && def.finishTask == NULL && def.userTaskContext == NULL );
+	def.workerCount = 4;
+	def.enqueueTask = ExternalEnqueue;
+	def.finishTask = ExternalFinish;
+	def.userTaskContext = &record;
+	b2WorldId worldId = b2CreateWorld( &def );
+	ENSURE( b2World_IsValid( worldId ) );
+	b2World* world = b2_worlds + worldId.index1 - 1;
+	ENSURE( world->workerCount == 4 && world->enqueueTaskFcn == ExternalEnqueue );
+	ENSURE( world->finishTaskFcn == ExternalFinish && world->userTaskContext == &record );
+	b2DestroyWorld( worldId );
+
+	def = b2DefaultWorldDef();
+	worldId = b2CreateWorld( &def );
+	world = b2_worlds + worldId.index1 - 1;
+	ENSURE( world->workerCount == 1 && world->enqueueTaskFcn != NULL && world->finishTaskFcn != NULL );
+	ENSURE( world->userTaskContext == NULL );
+	b2DestroyWorld( worldId );
 	return 0;
 }

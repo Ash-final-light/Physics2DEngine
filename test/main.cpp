@@ -42,6 +42,7 @@ int SemaphoreTest( void );
 int ThreadTest( void );
 int TaskBatchTest( void );
 int SchedulerTest( void );
+int ExternalTaskTest( void );
 int AABBTest( void );
 int AABBRayCastTest( void );
 int CircleSegmentTest( void );
@@ -446,6 +447,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( SchedulerTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "ExternalTaskTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( ExternalTaskTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "AABBTest" ) == 0 )

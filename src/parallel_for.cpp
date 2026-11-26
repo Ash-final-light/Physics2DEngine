@@ -51,3 +51,50 @@ b2TaskBatch b2MakeTaskBatch( const b2StepContext* stepContext )
 		stepContext->joinTaskCount,
 	};
 }
+
+void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
+					 b2TaskBatch batch )
+{
+	if ( batch.count <= 0 )
+	{
+		return;
+	}
+
+	void* handles[B2_STEP_TASK_CAPACITY] = {};
+	void* joinHandle = NULL;
+	int lastIndex = batch.count - 1;
+	B2_ASSERT( lastIndex < B2_STEP_TASK_CAPACITY );
+
+	for ( int i = 0; i < lastIndex; ++i )
+	{
+		const b2Task* task = batch.tasks + i;
+		void* handle = enqueue( task->fcn, task->context, userContext );
+		if ( task->deferred )
+		{
+			joinHandle = handle;
+		}
+		else
+		{
+			handles[i] = handle;
+		}
+	}
+
+	// 最后一个任务在当前线程执行，避免尾巴等待。
+	const b2Task* lastTask = batch.tasks + lastIndex;
+	lastTask->fcn( lastTask->context );
+
+	if ( finish != NULL )
+	{
+		for ( int i = 0; i < lastIndex; ++i )
+		{
+			if ( handles[i] != NULL )
+			{
+				finish( handles[i], userContext );
+			}
+		}
+		if ( joinHandle != NULL )
+		{
+			finish( joinHandle, userContext );
+		}
+	}
+}

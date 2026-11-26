@@ -76,6 +76,9 @@ struct b2World
 	bool enableSleep;
 	bool enableContinuous;
 	int workerCount;
+	b2EnqueueTaskCallbackFcn* enqueueTaskFcn;
+	b2FinishTaskCallbackFcn* finishTaskFcn;
+	void* userTaskContext;
 	void* userData;
 	b2Stack stack;
 	b2IdPool bodyIdPool;

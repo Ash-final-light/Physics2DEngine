@@ -40,6 +40,9 @@ typedef struct b2TaskBatch
 	int joinCount;
 } b2TaskBatch;
 
+typedef void* b2EnqueueTaskCallbackFcn( b2TaskCallbackFcn* task, void* taskContext, void* userContext );
+typedef void b2FinishTaskCallbackFcn( void* userTask, void* userContext );
+
 typedef void b2PreSolveCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Manifold* manifold,void* context);
 typedef bool b2PreContinuousCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Pos point,b2Vec2 normal,void* context);
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId,b2PreSolveCallbackFcn* preSolveFcn,b2PreContinuousCallbackFcn* preContinuousFcn,void* context);
@@ -79,6 +82,9 @@ typedef struct b2WorldDef
 	bool enableSleep;
 	bool enableContinuous;
 	int workerCount;
+	b2EnqueueTaskCallbackFcn* enqueueTask;
+	b2FinishTaskCallbackFcn* finishTask;
+	void* userTaskContext;
 	void* userData;
 	b2Capacity capacity;
 	int internalValue;

@@ -19,6 +19,19 @@ static_assert( B2_MAX_WORLDS > 0, "must be 1 or more" );
 static_assert( B2_MAX_WORLDS < UINT16_MAX, "B2_MAX_WORLDS limit exceeded" );
 b2World b2_worlds[B2_MAX_WORLDS];
 
+static void* b2DefaultAddTaskFcn( b2TaskCallbackFcn* task, void* taskContext, void* userContext )
+{
+	(void)userContext;
+	task( taskContext );
+	return NULL;
+}
+
+static void b2DefaultFinishTaskFcn( void* userTask, void* userContext )
+{
+	(void)userTask;
+	(void)userContext;
+}
+
 b2WorldId b2CreateWorld( const b2WorldDef* def )
 {
 	B2_CHECK_DEF( def );
@@ -68,6 +81,19 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->enableSleep = def->enableSleep;
 	world->enableContinuous = def->enableContinuous;
 	world->workerCount = 1;
+	if ( def->workerCount > 0 && def->enqueueTask != NULL )
+	{
+		world->workerCount = b2MinInt( def->workerCount, B2_MAX_WORKERS );
+		world->enqueueTaskFcn = def->enqueueTask;
+		world->finishTaskFcn = def->finishTask;
+		world->userTaskContext = def->userTaskContext;
+	}
+	else
+	{
+		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
+		world->finishTaskFcn = b2DefaultFinishTaskFcn;
+		world->userTaskContext = NULL;
+	}
 	world->userData = def->userData;
 	world->bodyIdPool = b2CreateIdPool();
 	b2Array_Create( world->bodies );
