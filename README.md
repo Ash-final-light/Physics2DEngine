@@ -178,3 +178,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2World_CastMover` 扫掠相对查询原点的胶囊，返回可移动分数。它使用角色贴面推进语义，并忽略初始重叠形状。
 
 `b2World_CollideMover` 为胶囊收集世界接触平面，通过形状过滤器和回调选择需要的接触。平面可交给 `b2SolvePlanes` 与 `b2ClipVector` 处理位移和速度。
+
+`b2World_GetBounds` 返回参与世界粗检测的形状边界并集；禁用形状不参与，空世界返回零边界。

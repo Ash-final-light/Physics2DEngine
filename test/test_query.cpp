@@ -223,3 +223,18 @@ int WorldMoverPlanesTest(void)
  shape.type=b2_chainSegmentShape;shape.chainSegment.segment={{1,0},{-1,0}};testMover={{0,0.25f},{0,1.25f},0.5f};p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(p.hit);testMover={{0,-0.25f},{0,-1.25f},0.5f};p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(!p.hit);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldBoundsTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2AABB box=b2World_GetBounds(id);ENSURE(box.lowerBound.x==0 && box.lowerBound.y==0 && box.upperBound.x==0 && box.upperBound.y==0);
+ b2BodyId bodies[3];b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};
+ for(int i=0;i<3;++i) { b2BodyDef bd=b2DefaultBodyDef();bd.type=(b2BodyType)i;bd.position={10.0f*i,5.0f*i};bodies[i]=b2CreateBody(id,&bd);b2CreateCircleShape(bodies[i],&sd,&c); }
+ b2World* world=b2_worlds+id.index1-1;b2AABB expected=b2DynamicTree_GetRootBounds(world->broadPhase.trees);
+ for(int i=1;i<3;++i) { b2AABB part=b2DynamicTree_GetRootBounds(world->broadPhase.trees+i);expected.lowerBound=b2Min(expected.lowerBound,part.lowerBound);expected.upperBound=b2Max(expected.upperBound,part.upperBound); }
+ box=b2World_GetBounds(id);ENSURE(box.lowerBound.x==expected.lowerBound.x && box.upperBound.y==expected.upperBound.y);
+ b2Body_SetTransform(bodies[2],{30,15},b2Rot_identity);box=b2World_GetBounds(id);ENSURE(box.upperBound.x>30);
+ b2Body_Disable(bodies[2]);box=b2World_GetBounds(id);ENSURE(box.upperBound.x<20);
+ world->locked=true;box=b2World_GetBounds(id);world->locked=false;ENSURE(box.upperBound.x==0);
+ b2DestroyBody(bodies[0]);b2DestroyBody(bodies[1]);b2DestroyBody(bodies[2]);box=b2World_GetBounds(id);ENSURE(box.lowerBound.x==0 && box.upperBound.x==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

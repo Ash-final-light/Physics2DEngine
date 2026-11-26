@@ -630,3 +630,5 @@ B2_API float b2World_CastMover(b2WorldId worldId,b2Pos origin,const b2Capsule* m
 
 typedef bool b2PlaneResultCallbackFcn(b2ShapeId shapeId,const b2PlaneResult* plane,void* context);
 B2_API void b2World_CollideMover(b2WorldId worldId,b2Pos origin,const b2Capsule* mover,b2QueryFilter filter,b2PlaneResultCallbackFcn* fcn,void* context);
+
+B2_API b2AABB b2World_GetBounds(b2WorldId worldId);

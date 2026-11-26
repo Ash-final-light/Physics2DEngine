@@ -76,3 +76,5 @@ struct b2World
 };
 
 extern b2World b2_worlds[B2_MAX_WORLDS];
+
+bool b2ComputeWorldBounds(b2World* world,b2AABB* bounds);

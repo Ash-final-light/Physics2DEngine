@@ -1210,3 +1210,38 @@ void b2World_CollideMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mov
 
 
 }
+
+bool b2ComputeWorldBounds( b2World* world, b2AABB* bounds )
+{
+	b2AABB worldBounds = {};
+	bool haveBounds = false;
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2DynamicTree* tree = world->broadPhase.trees + i;
+		if ( b2DynamicTree_GetProxyCount( tree ) == 0 )
+		{
+			continue;
+		}
+
+		b2AABB treeBounds = b2DynamicTree_GetRootBounds( tree );
+		worldBounds = haveBounds ? b2AABB_Union( worldBounds, treeBounds ) : treeBounds;
+		haveBounds = true;
+	}
+
+	*bounds = worldBounds;
+	return haveBounds;
+}
+
+b2AABB b2World_GetBounds( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	if ( world == NULL || world->locked )
+	{
+		return b2AABB{};
+	}
+
+	b2AABB bounds;
+	b2ComputeWorldBounds( world, &bounds );
+	return bounds;
+}
