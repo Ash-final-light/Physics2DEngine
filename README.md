@@ -160,3 +160,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 最近射线查询 `b2World_CastRayClosest` 返回最近命中的形状、世界坐标、法线和分数，同时提供树遍历统计；未命中时 `hit` 为 false。
 
 世界形状扫掠 `b2World_CastShape` 使用相对查询原点的凸形状代理，可按回调选择忽略、终止或截断；链段保留单侧碰撞约定。
+
+`b2Shape_TestPoint` 对挂接形状执行世界坐标点包含查询，使用刚体当前变换；线段与链段返回 false。

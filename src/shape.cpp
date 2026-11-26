@@ -1228,3 +1228,34 @@ b2CastOutput b2ShapeCastShape( const b2ShapeCastInput* input, const b2Shape* sha
 	output.normal = b2RotateVector( transform.q, output.normal );
 	return output;
 }
+
+bool b2Shape_TestPoint( b2ShapeId shapeId, b2Pos point )
+{
+	b2World* world = b2_worlds + shapeId.world0;
+	b2Shape* shape = b2GetShapeFromId(shapeId);
+
+	b2WorldTransform transform = b2GetBodySim(world,b2Array_Get(world->bodies,shape->bodyId))->transform;
+	b2Vec2 localPoint = b2InvTransformWorldPoint( transform, point );
+
+	bool result;
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			result = b2PointInCapsule( &shape->capsule, localPoint );
+			break;
+
+		case b2_circleShape:
+			result = b2PointInCircle( &shape->circle, localPoint );
+			break;
+
+		case b2_polygonShape:
+			result = b2PointInPolygon( &shape->polygon, localPoint );
+			break;
+
+		default:
+			result = false;
+			break;
+	}
+
+	return result;
+}

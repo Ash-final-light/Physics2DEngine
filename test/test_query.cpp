@@ -116,3 +116,15 @@ int WorldShapeCastTest(void)
  proxy.count=0;hits.count=0;b2World_CastShape(id,{100,200},&proxy,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int AttachedShapePointTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};bd.rotation={0,1};b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();
+ b2Circle c={{2,0},0.5f};b2ShapeId circle=b2CreateCircleShape(body,&sd,&c);ENSURE(b2Shape_TestPoint(circle,{100,202}));ENSURE(!b2Shape_TestPoint(circle,{102,200}));
+ b2Capsule cap={{-1,0},{1,0},0.5f};b2ShapeId capsule=b2CreateCapsuleShape(body,&sd,&cap);ENSURE(b2Shape_TestPoint(capsule,{100,201.25f}));ENSURE(!b2Shape_TestPoint(capsule,{100.75f,200}));
+ b2Polygon box=b2MakeBox(2,0.25f);b2ShapeId polygon=b2CreatePolygonShape(body,&sd,&box);ENSURE(b2Shape_TestPoint(polygon,{100.1f,201.5f}));ENSURE(!b2Shape_TestPoint(polygon,{101,200}));
+ b2Segment edge={{-1,0},{1,0}};b2ShapeId segment=b2CreateSegmentShape(body,&sd,&edge);ENSURE(!b2Shape_TestPoint(segment,{100,200}));
+ b2Body_SetTransform(body,{20,30},b2Rot_identity);ENSURE(b2Shape_TestPoint(circle,{22,30}));ENSURE(!b2Shape_TestPoint(circle,{100,202}));
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

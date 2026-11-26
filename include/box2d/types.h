@@ -591,3 +591,5 @@ typedef struct b2RayResult
 B2_API b2RayResult b2World_CastRayClosest(b2WorldId worldId,b2Pos origin,b2Vec2 translation,b2QueryFilter filter);
 
 B2_API b2TreeStats b2World_CastShape(b2WorldId worldId,b2Pos origin,const b2ShapeProxy* proxy,b2Vec2 translation,b2QueryFilter filter,b2CastResultCallbackFcn* fcn,void* context);
+
+B2_API bool b2Shape_TestPoint(b2ShapeId shapeId,b2Pos point);

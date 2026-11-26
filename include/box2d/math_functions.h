@@ -571,3 +571,10 @@ B2_INLINE b2Pos b2OffsetPos( b2Pos p, b2Vec2 d )
 {
 	return B2_LITERAL( b2Pos ){ p.x + d.x, p.y + d.y };
 }
+
+B2_INLINE b2Vec2 b2InvTransformWorldPoint( b2WorldTransform t, b2Pos p )
+{
+	float vx = (float)( p.x - t.p.x );
+	float vy = (float)( p.y - t.p.y );
+	return B2_LITERAL( b2Vec2 ){ t.q.c * vx + t.q.s * vy, -t.q.s * vx + t.q.c * vy };
+}
