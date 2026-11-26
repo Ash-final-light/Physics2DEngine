@@ -112,3 +112,53 @@ int ReplayCreateInvalidTest( void )
 	b2DestroyRecording( rec ); b2DestroyWorld( world );
 	ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+static std::vector<uint8_t> MakeReplayFixture( int frames, std::vector<uint64_t>* hashes = nullptr )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody; bd.position = { 0, 10 };
+    b2BodyId body = b2CreateBody( world, &bd ); b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0, 0 }, 1 };
+    b2CreateCircleShape( body, &sd, &circle );
+    b2Recording* rec = b2CreateRecording( 1 ); b2World_StartRecording( world, rec );
+    for ( int i = 0; i < frames; ++i ) {
+        b2World_Step( world, 1.0f / 60.0f, 4 );
+        if ( hashes ) hashes->push_back( b2World_GetStateHash( world ) );
+    }
+    b2World_StopRecording( world );
+    std::vector<uint8_t> bytes( b2Recording_GetData( rec ), b2Recording_GetData( rec ) + b2Recording_GetSize( rec ) );
+    b2DestroyRecording( rec ); b2DestroyWorld( world ); return bytes;
+}
+
+int ReplayRestartTest( void )
+{
+    int before = b2GetByteCount(); std::vector<uint64_t> hashes;
+    auto bytes = MakeReplayFixture( 12, &hashes );
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    b2WorldId id = b2Replay_GetWorldId( player );
+    for ( int pass = 0; pass < 3; ++pass ) {
+        int steps = pass == 0 ? 5 : 12;
+        for ( int i = 0; i < steps; ++i ) {
+            ENSURE( b2Replay_StepFrame( player ) ); ENSURE( b2World_GetStateHash( id ) == hashes[i] );
+        }
+        b2Replay_Restart( player );
+        b2WorldId restored = b2Replay_GetWorldId( player );
+        ENSURE( restored.index1 == id.index1 && restored.generation == id.generation );
+        ENSURE( b2Replay_GetFrame( player ) == 0 && !b2Replay_IsAtEnd( player ) && player->rdr.ok );
+    }
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int ReplayLifetimeTest( void )
+{
+    int before = b2GetByteCount(); float original = b2GetLengthUnitsPerMeter();
+    b2SetLengthUnitsPerMeter( 2 ); auto bytes = MakeReplayFixture( 3 ); b2SetLengthUnitsPerMeter( 3 );
+    b2DestroyReplay( nullptr );
+    for ( int i = 0; i < 10; ++i ) {
+        b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+        ENSURE( b2GetLengthUnitsPerMeter() == 2 );
+        ENSURE( b2Replay_StepFrame( player ) ); b2Replay_Restart( player );
+        b2DestroyReplay( player );
+        ENSURE( b2GetLengthUnitsPerMeter() == 3 && b2GetByteCount() == before );
+    }
+    b2SetLengthUnitsPerMeter( original ); return 0;
+}

@@ -53,6 +53,8 @@ struct b2Replay
     int divergeFrame;
     bool atEnd;
     b2RecReader rdr;
+    const uint8_t* frame0Image;
+    int frame0Size;
 };
 
 uint8_t b2RecR_U8( b2RecReader* rdr );

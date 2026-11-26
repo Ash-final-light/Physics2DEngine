@@ -2019,6 +2019,8 @@ b2Replay* b2CreateReplay( const void* data, int size, int workerCount )
 		return NULL;
 	}
 	player->recordedWorkerCount = workerCount;
+    player->frame0Image = copy + 32;
+	player->frame0Size = (int)hdr.snapshotSize;
 	return player;
 }
 
@@ -2106,4 +2108,23 @@ b2ReplayInfo b2Replay_GetInfo( const b2Replay* player )
 bool b2Replay_IsAtEnd( const b2Replay* player )
 {
 	return player != NULL ? player->atEnd : true;
+}
+
+void b2Replay_Restart( b2Replay* player )
+{
+	// 原地恢复第 0 帧映像，使回放世界 id 在重启或向后拖动时保持稳定。
+	// 步进从第一个 Step 恢复，该步会确定性重建刚体列表。
+	if ( b2World_RestoreFromSnapshot( player->rdr.replayWorldId, player->frame0Image, player->frame0Size ) == false )
+	{
+		player->rdr.ok = false;
+		return;
+	}
+	// 步进从第一个 Step 恢复，它紧接在头和快照数据块之后
+	player->rdr.cursor = player->headerEnd;
+	player->rdr.ok = true;
+	player->rdr.diverged = false;
+	player->frame = 0;
+	player->divergeFrame = -1;
+	player->atEnd = false;
+
 }
