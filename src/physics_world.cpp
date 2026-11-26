@@ -566,3 +566,89 @@ b2TreeStats b2World_OverlapAABB( b2WorldId worldId, b2Pos origin, b2AABB aabb, b
 
 	return treeStats;
 }
+
+typedef struct WorldOverlapContext
+{
+	b2World* world;
+	b2OverlapResultCallbackFcn* fcn;
+	b2QueryFilter filter;
+	const b2ShapeProxy* proxy;
+	b2Pos origin;
+	void* userContext;
+} WorldOverlapContext;
+
+static bool TreeOverlapCallback( int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+
+	WorldOverlapContext* worldContext = static_cast<WorldOverlapContext *>( context );
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return true;
+	}
+
+	// 以查询原点重定心，使远离世界原点时距离测试仍保持 float 精度
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2Transform transform = b2ToRelativeTransform( b2GetBodySim(world,body)->transform, worldContext->origin );
+
+	b2DistanceInput input;
+	input.proxyA = *worldContext->proxy;
+	input.proxyB = b2MakeShapeDistanceProxy( shape );
+	input.transform = transform;
+	input.useRadii = true;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput output = b2ComputeShapeDistance( &input, &cache, NULL, 0 );
+
+	float tolerance = 0.1f * B2_LINEAR_SLOP;
+	if ( output.distance > tolerance )
+	{
+		return true;
+	}
+
+	b2ShapeId id = { shape->id + 1, world->worldId, shape->generation };
+	bool result = worldContext->fcn( id, worldContext->userContext );
+	return result;
+}
+
+b2TreeStats b2World_OverlapShape( b2WorldId worldId, b2Pos origin, const b2ShapeProxy* proxy, b2QueryFilter filter,
+								  b2OverlapResultCallbackFcn* fcn, void* context )
+{
+	b2TreeStats treeStats = {};
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world==NULL || world->locked || fcn==NULL || proxy==NULL )
+	{
+		return treeStats;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+
+
+
+	// 相对盒向外取整提升到世界 float，对树保守
+	b2AABB aabb = b2OffsetAABB( b2MakeAABB( proxy->points, proxy->count, proxy->radius ), origin );
+	WorldOverlapContext worldContext = {
+		world, fcn, filter, proxy, origin, context,
+	};
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2TreeStats treeResult = b2DynamicTree_OverlapAABB( world->broadPhase.trees + i, aabb, filter.maskBits,
+															TreeOverlapCallback, &worldContext );
+
+		treeStats.nodeVisits += treeResult.nodeVisits;
+		treeStats.leafVisits += treeResult.leafVisits;
+	}
+
+
+
+	return treeStats;
+}

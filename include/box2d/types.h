@@ -127,6 +127,7 @@ typedef struct b2QueryFilter
 } b2QueryFilter;
 B2_API b2QueryFilter b2DefaultQueryFilter(void);
 typedef bool b2OverlapResultCallbackFcn(b2ShapeId shapeId,void* context);
+B2_API b2TreeStats b2World_OverlapShape(b2WorldId worldId,b2Pos origin,const b2ShapeProxy* proxy,b2QueryFilter filter,b2OverlapResultCallbackFcn* fcn,void* context);
 B2_API b2TreeStats b2World_OverlapAABB(b2WorldId worldId,b2Pos origin,b2AABB aabb,b2QueryFilter filter,b2OverlapResultCallbackFcn* fcn,void* context);
 typedef struct b2Filter
 {

@@ -34,3 +34,25 @@ int WorldOverlapAABBTest(void)
     world->locked=true;hits.count=0;stats=b2World_OverlapAABB(id,origin,box,filter,CollectOverlap,&hits);world->locked=false;ENSURE(hits.count==0 && stats.nodeVisits==0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldOverlapShapeTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2Pos origin={1000,2000};b2BodyDef bd=b2DefaultBodyDef();b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.25f};
+    bd.position={origin.x+0.8f,origin.y};b2BodyId body=b2CreateBody(id,&bd);sd.isSensor=true;b2ShapeId near=b2CreateCircleShape(body,&sd,&c);
+    bd.position={origin.x+0.9f,origin.y+0.9f};body=b2CreateBody(id,&bd);c.radius=0.05f;sd.isSensor=false;b2CreateCircleShape(body,&sd,&c);
+    bd.position={origin.x+3,origin.y};body=b2CreateBody(id,&bd);c.radius=0.25f;sd.filter.categoryBits=2;b2ShapeId far=b2CreateCircleShape(body,&sd,&c);
+    bd.position={origin.x,origin.y-2};bd.rotation=b2MakeRot(0.5f*B2_PI);body=b2CreateBody(id,&bd);sd.filter.categoryBits=1;
+    b2Polygon bar=b2MakeBox(1,0.1f);b2ShapeId rotated=b2CreatePolygonShape(body,&sd,&bar);
+    QueryHits hits={};hits.keepGoing=true;hits.valid=true;b2QueryFilter filter=b2DefaultQueryFilter();
+    b2Vec2 center={0,0};b2ShapeProxy proxy=b2MakeProxy(&center,1,1);
+    b2World_OverlapAABB(id,origin,b2AABB{{-1,-1},{1,1}},filter,CollectOverlap,&hits);ENSURE(hits.count==3);
+    hits.count=0;b2TreeStats stats=b2World_OverlapShape(id,origin,&proxy,filter,CollectOverlap,&hits);ENSURE(hits.count==2 && hits.valid && stats.leafVisits>=2);
+    bool foundNear=false,foundRotated=false;
+    for(int i=0;i<hits.count;++i) { foundNear|=hits.shapes[i].index1==near.index1;foundRotated|=hits.shapes[i].index1==rotated.index1; }
+    ENSURE(foundNear && foundRotated);
+    b2Vec2 segment[2]={{0,0},{3,0}};proxy=b2MakeProxy(segment,2,0.1f);hits.count=0;
+    b2World_OverlapShape(id,origin,&proxy,filter,CollectOverlap,&hits);ENSURE(hits.count==2);
+    filter.maskBits=2;hits.count=0;b2World_OverlapShape(id,origin,&proxy,filter,CollectOverlap,&hits);ENSURE(hits.count==1 && hits.shapes[0].index1==far.index1);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

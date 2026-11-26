@@ -536,3 +536,28 @@ B2_INLINE float b2RoundUpFloat( double x )
 	return (float)x;
 #endif
 }
+
+B2_INLINE b2AABB b2MakeAABB( const b2Vec2* points, int count, float radius )
+{
+	B2_ASSERT( count > 0 );
+	b2AABB a = { points[0], points[0] };
+	for ( int i = 1; i < count; ++i )
+	{
+		a.lowerBound = b2Min( a.lowerBound, points[i] );
+		a.upperBound = b2Max( a.upperBound, points[i] );
+	}
+
+	b2Vec2 r = { radius, radius };
+	a.lowerBound = b2Sub( a.lowerBound, r );
+	a.upperBound = b2Add( a.upperBound, r );
+
+	return a;
+}
+
+B2_INLINE b2Transform b2ToRelativeTransform( b2WorldTransform t, b2Pos base )
+{
+	b2Transform r;
+	r.q = t.q;
+	r.p = B2_LITERAL( b2Vec2 ){ (float)( t.p.x - base.x ), (float)( t.p.y - base.y ) };
+	return r;
+}

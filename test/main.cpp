@@ -116,6 +116,7 @@ int ContactHitEventsTest( void );
 int CustomCollisionFilterTest( void );
 int PreSolveCallbackTest( void );
 int WorldOverlapAABBTest( void );
+int WorldOverlapShapeTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
 int ContactFrictionTest( void );
@@ -954,6 +955,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"CustomCollisionFilterTest")==0) { ran=1; RUN_TEST(CustomCollisionFilterTest); }
 	if(filter==NULL || strcmp(filter,"PreSolveCallbackTest")==0) { ran=1; RUN_TEST(PreSolveCallbackTest); }
 	if(filter==NULL || strcmp(filter,"WorldOverlapAABBTest")==0) { ran=1; RUN_TEST(WorldOverlapAABBTest); }
+	if(filter==NULL || strcmp(filter,"WorldOverlapShapeTest")==0) { ran=1; RUN_TEST(WorldOverlapShapeTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;
