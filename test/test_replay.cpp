@@ -242,3 +242,61 @@ int ReplayKeyframeBudgetTest( void )
     ENSURE( player->keyframeCount > 1 && b2Replay_GetKeyframeInterval( player ) == 8 );
     b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int ReplaySeekTest( void )
+{
+    int before = b2GetByteCount(); std::vector<uint64_t> hashes; auto bytes = MakeReplayFixture( 50, &hashes );
+    int workers[] = { 1, 4 };
+    for ( int worker : workers ) {
+        b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), worker ); ENSURE( player != nullptr );
+        b2WorldId id = b2Replay_GetWorldId( player ); uint64_t initial = b2World_GetStateHash( id );
+        b2Replay_SetKeyframePolicy( player, 1024 * 1024, 4 );
+        while ( b2Replay_StepFrame( player ) ) {}
+        int targets[] = { 0, 30, 5, 45, 16, 49, 1, 50, 100, -5, 27, 8, 50 };
+        for ( int target : targets ) {
+            b2Replay_SeekFrame( player, target ); int expected = target < 0 ? 0 : target > 50 ? 50 : target;
+            ENSURE( b2Replay_GetFrame( player ) == expected && player->rdr.ok && !b2Replay_HasDiverged( player ) );
+            b2WorldId restored = b2Replay_GetWorldId( player );
+            ENSURE( restored.index1 == id.index1 && restored.generation == id.generation );
+            ENSURE( b2World_GetStateHash( id ) == ( expected == 0 ? initial : hashes[expected - 1] ) );
+        }
+        b2DestroyReplay( player );
+    }
+    ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+static std::vector<uint8_t> MakeMutableReplayFixture( std::vector<uint64_t>* hashes )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody; bd.position = { 0, 10 };
+    b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0, 0 }, 1 };
+    b2CreateCircleShape( b2CreateBody( world, &bd ), &sd, &circle );
+    b2Recording* rec = b2CreateRecording( 1 ); b2World_StartRecording( world, rec ); b2BodyId extra = {};
+    for ( int i = 0; i < 50; ++i ) {
+        b2World_Step( world, 1.0f / 60.0f, 4 );
+        if ( i == 10 ) { bd.position = { 10, 10 }; extra = b2CreateBody( world, &bd ); b2CreateCircleShape( extra, &sd, &circle ); }
+        if ( i == 30 ) b2DestroyBody( extra );
+        hashes->push_back( b2World_GetStateHash( world ) );
+    }
+    b2World_StopRecording( world );
+    std::vector<uint8_t> bytes( b2Recording_GetData( rec ), b2Recording_GetData( rec ) + b2Recording_GetSize( rec ) );
+    b2DestroyWorld( world ); b2DestroyRecording( rec ); return bytes;
+}
+
+int ReplaySeekMutationTest( void )
+{
+    int before = b2GetByteCount(); std::vector<uint64_t> hashes; auto bytes = MakeMutableReplayFixture( &hashes );
+    size_t budgets[] = { 1, 1024 * 1024 };
+    for ( size_t budget : budgets ) {
+        b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+        b2Replay_SetKeyframePolicy( player, budget, 4 ); while ( b2Replay_StepFrame( player ) ) {}
+        int targets[] = { 8, 15, 35, 11, 30, 31, 50, 10, 20, 32 };
+        for ( int target : targets ) {
+            b2Replay_SeekFrame( player, target );
+            ENSURE( player->rdr.ok && !b2Replay_HasDiverged( player ) && b2Replay_GetFrame( player ) == target );
+            ENSURE( b2World_GetStateHash( b2Replay_GetWorldId( player ) ) == hashes[target - 1] );
+        }
+        b2DestroyReplay( player );
+    }
+    ENSURE( b2GetByteCount() == before ); return 0;
+}

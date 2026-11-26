@@ -2341,3 +2341,73 @@ size_t b2Replay_GetKeyframeBytes( const b2Replay* player )
 {
 	return player != NULL ? player->keyframeBytes : 0;
 }
+
+static void b2ReplayRestoreKeyframe( b2Replay* player, const b2RecKeyframe* kf )
+{
+	if ( b2World_RestoreFromSnapshot( player->rdr.replayWorldId, kf->image, kf->imageSize ) == false )
+	{
+		player->rdr.ok = false;
+		return;
+	}
+	player->rdr.cursor = kf->cursor;
+	player->rdr.ok = true;
+	player->rdr.diverged = kf->diverged;
+	player->frame = kf->frame;
+	player->divergeFrame = kf->divergeFrame;
+	player->atEnd = false;
+
+	b2RecGrow( (void**)&player->bodyIds, &player->bodyIdCap, kf->bodyIdCount, 0, (int)sizeof( b2BodyId ) );
+	player->bodyIdCount = kf->bodyIdCount;
+	if ( kf->bodyIdCount > 0 )
+	{
+		memcpy( player->bodyIds, kf->bodyIds, kf->bodyIdCount * (int)sizeof( b2BodyId ) );
+	}
+}
+
+void b2Replay_SeekFrame( b2Replay* player, int targetFrame )
+{
+	if ( player == NULL )
+	{
+		return;
+	}
+
+	if ( targetFrame < 0 )
+	{
+		targetFrame = 0;
+	}
+
+	// 当最近且严格低于目标的关键帧优于当前光标时，从该处恢复。
+	// 向后寻址必须恢复，因为光标不能回退。向前寻址仅当关键帧位于光标前方时才恢复，
+	// 把长距离前甩限制在一个关键帧间距的回放，而不是每一个中间帧。
+	// 严格低于目标，使步进循环仍运行目标帧并再生其每帧查询存储、刚体列表和分叉锁存，
+	// 与普通正向回放完全一致。
+	const b2RecKeyframe* best = NULL;
+	for ( int i = 0; i < player->keyframeCount; ++i )
+	{
+		const b2RecKeyframe* kf = &player->keyframes[i];
+		if ( kf->frame < targetFrame && ( best == NULL || kf->frame > best->frame ) )
+		{
+			best = kf;
+		}
+	}
+
+	if ( targetFrame < player->frame )
+	{
+		if ( best != NULL )
+		{
+			b2ReplayRestoreKeyframe( player, best );
+		}
+		else
+		{
+			b2Replay_Restart( player );
+		}
+	}
+	else if ( best != NULL && best->frame > player->frame )
+	{
+		b2ReplayRestoreKeyframe( player, best );
+	}
+
+	while ( player->frame < targetFrame && b2Replay_StepFrame( player ) )
+	{
+	}
+}

@@ -1528,3 +1528,5 @@ B2_API size_t b2Replay_GetKeyframeBudget( const b2Replay* player );
 B2_API int b2Replay_GetKeyframeMinInterval( const b2Replay* player );
 B2_API int b2Replay_GetKeyframeInterval( const b2Replay* player );
 B2_API size_t b2Replay_GetKeyframeBytes( const b2Replay* player );
+
+B2_API void b2Replay_SeekFrame( b2Replay* player, int targetFrame );
