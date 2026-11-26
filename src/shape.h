@@ -111,3 +111,5 @@ b2PlaneResult b2CollideMoverAndCapsule( const b2Capsule* mover, const b2Capsule*
 b2PlaneResult b2CollideMoverAndPolygon( const b2Capsule* mover, const b2Polygon* shape );
 b2PlaneResult b2CollideMoverAndSegment( const b2Capsule* mover, const b2Segment* shape );
 b2PlaneResult b2CollideMover( const b2Capsule* mover, const b2Shape* shape, b2Transform transform );
+
+void b2FreeChainData( b2ChainShape* chain );

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "shape.h"
+#include "recording.h"
 #include "body.h"
 #include "core.h"
 #include "contact.h"
@@ -246,6 +247,7 @@ void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
     {
         return;
     }
+    B2_REC( world, DestroyShape, shapeId, updateBodyMass );
     b2Body* body = world->bodies.data + shape->bodyId;
     b2DestroyShapeInternal( world, shape, body );
     if ( updateBodyMass )
@@ -256,6 +258,34 @@ void b2DestroyShape( b2ShapeId shapeId, bool updateBodyMass )
 
 
 
+static bool b2IsValidChainSegment( const b2ChainSegment* segment )
+{
+    return segment != NULL && b2IsValidVec2( segment->ghost1 ) &&
+           b2IsValidVec2( segment->segment.point1 ) && b2IsValidVec2( segment->segment.point2 ) &&
+           b2IsValidVec2( segment->ghost2 );
+}
+
+static void b2FixGhostVertices( b2ChainSegment* chainSegment )
+{
+	b2Vec2 p1 = chainSegment->segment.point1;
+	b2Vec2 p2 = chainSegment->segment.point2;
+	float tolSqr = B2_LINEAR_SLOP * B2_LINEAR_SLOP;
+
+	// 最坏情况下法线会计算两次，但正常情况两者都不应发生。
+
+	if ( b2DistanceSquared( chainSegment->ghost1, p1 ) <= tolSqr )
+	{
+		b2Vec2 normal = b2RightPerp( b2Normalize( b2Sub( p2, p1 ) ) );
+		chainSegment->ghost1 = b2Sub( p1, normal );
+	}
+
+	if ( b2DistanceSquared( chainSegment->ghost2, p2 ) <= tolSqr )
+	{
+		b2Vec2 normal = b2RightPerp( b2Normalize( b2Sub( p2, p1 ) ) );
+		chainSegment->ghost2 = b2Sub( p2, normal );
+	}
+}
+
 b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Circle* circle )
 {
     if ( circle == NULL || b2IsValidVec2( circle->center ) == false ||
@@ -263,7 +293,12 @@ b2ShapeId b2CreateCircleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2C
     {
         return b2_nullShapeId;
     }
-    return b2CreateShape( bodyId, def, circle, b2_circleShape );
+    b2ShapeId id = b2CreateShape( bodyId, def, circle, b2_circleShape );
+    if ( id.index1 != 0 )
+    {
+        B2_REC_CREATE( ( b2_worlds + bodyId.world0 ), CreateCircleShape, id, bodyId, *def, *circle );
+    }
+    return id;
 }
 
 b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2Capsule* capsule )
@@ -274,7 +309,12 @@ b2ShapeId b2CreateCapsuleShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
     {
         return b2_nullShapeId;
     }
-    return b2CreateShape( bodyId, def, capsule, b2_capsuleShape );
+    b2ShapeId id = b2CreateShape( bodyId, def, capsule, b2_capsuleShape );
+    if ( id.index1 != 0 )
+    {
+        B2_REC_CREATE( ( b2_worlds + bodyId.world0 ), CreateCapsuleShape, id, bodyId, *def, *capsule );
+    }
+    return id;
 }
 
 
@@ -302,7 +342,12 @@ b2ShapeId b2CreatePolygonShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
     {
         return b2_nullShapeId;
     }
-    return b2CreateShape( bodyId, def, polygon, b2_polygonShape );
+    b2ShapeId id = b2CreateShape( bodyId, def, polygon, b2_polygonShape );
+    if ( id.index1 != 0 )
+    {
+        B2_REC_CREATE( ( b2_worlds + bodyId.world0 ), CreatePolygonShape, id, bodyId, *def, *polygon );
+    }
+    return id;
 }
 
 
@@ -313,7 +358,12 @@ b2ShapeId b2CreateSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2
     {
         return b2_nullShapeId;
     }
-    return b2CreateShape( bodyId, def, segment, b2_segmentShape );
+    b2ShapeId id = b2CreateShape( bodyId, def, segment, b2_segmentShape );
+    if ( id.index1 != 0 )
+    {
+        B2_REC_CREATE( ( b2_worlds + bodyId.world0 ), CreateSegmentShape, id, bodyId, *def, *segment );
+    }
+    return id;
 }
 
 
@@ -413,6 +463,10 @@ void b2Shape_SetCircle( b2ShapeId id, const b2Circle* circle )
 {
     if ( circle != NULL && b2IsValidVec2( circle->center ) && b2IsValidFloat( circle->radius ) && circle->radius >= 0.0f )
     {
+        if ( b2Shape_IsValid( id ) && !b2_worlds[id.world0].locked )
+        {
+            B2_REC( ( b2_worlds + id.world0 ), ShapeSetCircle, id, *circle );
+        }
         b2SetShapeGeometry( id, circle, b2_circleShape );
     }
 }
@@ -423,6 +477,10 @@ void b2Shape_SetCapsule( b2ShapeId id, const b2Capsule* capsule )
          b2IsValidFloat( capsule->radius ) && capsule->radius >= 0.0f &&
          b2DistanceSquared( capsule->center1, capsule->center2 ) > B2_LINEAR_SLOP * B2_LINEAR_SLOP )
     {
+        if ( b2Shape_IsValid( id ) && !b2_worlds[id.world0].locked )
+        {
+            B2_REC( ( b2_worlds + id.world0 ), ShapeSetCapsule, id, *capsule );
+        }
         b2SetShapeGeometry( id, capsule, b2_capsuleShape );
     }
 }
@@ -431,6 +489,10 @@ void b2Shape_SetPolygon( b2ShapeId id, const b2Polygon* polygon )
 {
     if ( b2IsValidPolygon( polygon ) )
     {
+        if ( b2Shape_IsValid( id ) && !b2_worlds[id.world0].locked )
+        {
+            B2_REC( ( b2_worlds + id.world0 ), ShapeSetPolygon, id, *polygon );
+        }
         b2SetShapeGeometry( id, polygon, b2_polygonShape );
     }
 }
@@ -439,6 +501,10 @@ void b2Shape_SetSegment( b2ShapeId id, const b2Segment* segment )
 {
     if ( segment != NULL && b2IsValidVec2( segment->point1 ) && b2IsValidVec2( segment->point2 ) )
     {
+        if ( b2Shape_IsValid( id ) && !b2_worlds[id.world0].locked )
+        {
+            B2_REC( ( b2_worlds + id.world0 ), ShapeSetSegment, id, *segment );
+        }
         b2SetShapeGeometry( id, segment, b2_segmentShape );
     }
 }
@@ -537,6 +603,7 @@ void b2Shape_SetDensity( b2ShapeId id, float density, bool updateBodyMass )
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeSetDensity, id, density, updateBodyMass );
     shape->density = density;
     if ( updateBodyMass )
     {
@@ -655,7 +722,9 @@ b2ChainId b2CreateChain( b2BodyId bodyId, const b2ChainDef* def )
         B2_ASSERT( shape.index1 != 0 );
         chain->shapeIndices[i] = shape.index1 - 1;
     }
-    return b2ChainId{ id+1, world->worldId, generation };
+    b2ChainId result = { id + 1, world->worldId, generation };
+    B2_REC_CREATE( world, CreateChain, result, bodyId, *def );
+    return result;
 }
 
 void b2DestroyChain( b2ChainId id )
@@ -665,6 +734,7 @@ void b2DestroyChain( b2ChainId id )
         return;
     }
     b2World* world = b2_worlds + id.world0;
+    B2_REC( world, DestroyChain, id );
     b2ChainShape* chain = world->chainShapes.data + id.index1 - 1;
     b2Body* body = world->bodies.data + chain->bodyId;
     int* link = &body->headChainId;
@@ -678,7 +748,7 @@ void b2DestroyChain( b2ChainId id )
     {
         b2DestroyShapeInternal( world, world->shapes.data + chain->shapeIndices[i], body );
     }
-    b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
+    b2FreeChainData( chain );
     b2FreeId( &world->chainIdPool, chain->id );
     uint16_t generation = chain->generation;
     *chain = b2ChainShape{};
@@ -749,6 +819,7 @@ void b2Chain_SetSurfaceMaterial( b2ChainId id, const b2SurfaceMaterial* material
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), ChainSetSurfaceMaterial, id, *material, segmentIndex );
     b2_worlds[id.world0].shapes.data[chain->shapeIndices[segmentIndex]].material = *material;
 }
 
@@ -759,6 +830,7 @@ void b2Chain_SetAllSurfaceMaterials( b2ChainId id, const b2SurfaceMaterial* mate
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), ChainSetAllSurfaceMaterials, id, *material );
     for ( int i = 0; i < chain->segmentCount; ++i )
     {
         b2_worlds[id.world0].shapes.data[chain->shapeIndices[i]].material = *material;
@@ -842,6 +914,7 @@ void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
         return;
     }
     b2World* world = b2_worlds+id.world0;
+    B2_REC( world, ShapeSetFilter, id, filter );
     b2Body* body = world->bodies.data+shape->bodyId;
     b2DestroyShapeContacts(world,shape);
     if(shape->sensorIndex!=B2_NULL_INDEX) { b2DestroySensor(world,shape); }
@@ -889,6 +962,7 @@ int b2Shape_GetContactData( b2ShapeId id, b2ContactData* output, int capacity )
 void b2Shape_SetFriction(b2ShapeId id,float friction)
 {
     if(!b2IsValidFloat(friction) || friction<0.0f || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeSetFriction, id, friction );
     b2GetShapeFromId(id)->material.friction=friction;
 }
 
@@ -900,6 +974,7 @@ float b2Shape_GetFriction(b2ShapeId id)
 void b2Shape_SetSurfaceMaterial(b2ShapeId id,const b2SurfaceMaterial* material)
 {
     if(material==NULL || !b2IsValidMaterial(material) || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeSetSurfaceMaterial, id, *material );
     b2GetShapeFromId(id)->material=*material;
 }
 
@@ -911,6 +986,7 @@ b2SurfaceMaterial b2Shape_GetSurfaceMaterial(b2ShapeId id)
 void b2Shape_SetRestitution(b2ShapeId id,float restitution)
 {
     if(!b2IsValidFloat(restitution) || restitution<0.0f || !b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeSetRestitution, id, restitution );
     b2GetShapeFromId(id)->material.restitution=restitution;
 }
 
@@ -921,7 +997,9 @@ float b2Shape_GetRestitution(b2ShapeId id)
 
 void b2Shape_SetUserMaterial(b2ShapeId id,uint64_t material)
 {
-    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->material.userMaterialId=material;
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeSetUserMaterial, id, material );
+    b2GetShapeFromId(id)->material.userMaterialId=material;
 }
 
 uint64_t b2Shape_GetUserMaterial(b2ShapeId id)
@@ -998,7 +1076,9 @@ b2ShapeProxy b2MakeShapeDistanceProxy( const b2Shape* shape )
 
 void b2Shape_EnableContactEvents(b2ShapeId id,bool flag)
 {
-    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->enableContactEvents=flag;
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeEnableContactEvents, id, flag );
+    b2GetShapeFromId(id)->enableContactEvents=flag;
 }
 
 bool b2Shape_AreContactEventsEnabled(b2ShapeId id)
@@ -1008,7 +1088,9 @@ bool b2Shape_AreContactEventsEnabled(b2ShapeId id)
 
 void b2Shape_EnableHitEvents(b2ShapeId id,bool flag)
 {
-    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->enableHitEvents=flag;
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeEnableHitEvents, id, flag );
+    b2GetShapeFromId(id)->enableHitEvents=flag;
 }
 
 bool b2Shape_AreHitEventsEnabled(b2ShapeId id)
@@ -1023,7 +1105,9 @@ bool b2Shape_IsSensor(b2ShapeId id)
 
 void b2Shape_EnableSensorEvents(b2ShapeId id,bool flag)
 {
-    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }b2GetShapeFromId(id)->enableSensorEvents=flag;
+    if(!b2Shape_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), ShapeEnableSensorEvents, id, flag );
+    b2GetShapeFromId(id)->enableSensorEvents=flag;
 }
 
 bool b2Shape_AreSensorEventsEnabled(b2ShapeId id)
@@ -1056,6 +1140,7 @@ void b2Shape_EnablePreSolveEvents( b2ShapeId shapeId, bool flag )
 	}
 
 
+	B2_REC( world, ShapeEnablePreSolveEvents, shapeId, flag );
 	b2Shape* shape = b2GetShapeFromId(shapeId);
 	if ( shape->enablePreSolveEvents == flag )
 	{
@@ -1385,6 +1470,7 @@ void b2Shape_ApplyWind( b2ShapeId shapeId, b2Vec2 wind, float drag, float lift, 
 
 
 
+	B2_REC( world, ShapeApplyWind, shapeId, wind, drag, lift, wake );
 	b2Shape* shape = b2GetShapeFromId(shapeId);
 
 	b2ShapeType shapeType = shape->type;
@@ -1583,4 +1669,71 @@ b2PlaneResult b2CollideMover( const b2Capsule* mover, const b2Shape* shape, b2Tr
 
 	result.plane.normal = b2RotateVector( transform.q, result.plane.normal );
 	return result;
+}
+
+b2ShapeId b2CreateChainSegmentShape( b2BodyId bodyId, const b2ShapeDef* def,
+									 const b2ChainSegment* chainSegment )
+{
+	if ( !b2IsValidChainSegment( chainSegment ) ) { return b2_nullShapeId; }
+
+	float lengthSqr =
+		b2DistanceSquared( chainSegment->segment.point1, chainSegment->segment.point2 );
+	if ( lengthSqr <= B2_LINEAR_SLOP * B2_LINEAR_SLOP )
+	{
+		return b2_nullShapeId;
+	}
+
+	// 没有父链条形状
+	b2ChainSegment local = *chainSegment;
+	local.chainId = B2_NULL_INDEX;
+	b2FixGhostVertices( &local );
+
+	b2ShapeId id = b2CreateShape( bodyId, def, &local, b2_chainSegmentShape );
+
+	if ( id.index1 != 0 )
+	{
+		B2_REC_CREATE( ( b2_worlds + bodyId.world0 ), CreateChainSegmentShape, id, bodyId, *def, local );
+	}
+
+	return id;
+}
+
+void b2Shape_SetChainSegment( b2ShapeId shapeId, const b2ChainSegment* chainSegment )
+{
+    if ( !b2IsValidChainSegment( chainSegment ) || !b2Shape_IsValid( shapeId ) ) { return; }
+    b2World* world = b2_worlds + shapeId.world0;
+    if ( world->locked ) { return; }
+    b2Shape* shape = b2GetShapeFromId( shapeId );
+    if ( shape->type == b2_chainSegmentShape && shape->chainSegment.chainId != B2_NULL_INDEX ) { return; }
+    float lengthSqr = b2DistanceSquared( chainSegment->segment.point1, chainSegment->segment.point2 );
+    if ( lengthSqr <= B2_LINEAR_SLOP * B2_LINEAR_SLOP ) { return; }
+
+    B2_REC( world, ShapeSetChainSegment, shapeId, *chainSegment );
+    shape->chainSegment = *chainSegment;
+    shape->chainSegment.chainId = B2_NULL_INDEX;
+    b2FixGhostVertices( &shape->chainSegment );
+    shape->type = b2_chainSegmentShape;
+    shape->aabbMargin = b2ComputeShapeMargin( shape );
+
+    b2DestroyShapeContacts( world, shape );
+    b2Body* body = world->bodies.data + shape->bodyId;
+    b2WorldTransform transform = b2GetBodySim( world, body )->transform;
+    if ( shape->proxyKey != B2_NULL_INDEX )
+    {
+        b2DestroyShapeProxy( shape, &world->broadPhase );
+        b2CreateShapeProxy( world, shape, body->type, transform, true );
+    }
+    else
+    {
+        b2UpdateShapeAABB( shape, transform );
+        float margin = body->type == b2_staticBody ? B2_SPECULATIVE_DISTANCE : shape->aabbMargin;
+        b2Vec2 extra = { margin, margin };
+        world->fatAABBs.data[shape->id] = { b2Sub( shape->aabb.lowerBound, extra ), b2Add( shape->aabb.upperBound, extra ) };
+    }
+}
+
+void b2FreeChainData( b2ChainShape* chain )
+{
+	b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
+	chain->shapeIndices = NULL;
 }

@@ -1481,3 +1481,8 @@ B2_API int b2Recording_GetSize( const b2Recording* recording );
 B2_API void b2World_StartRecording( b2WorldId worldId, b2Recording* recording );
 /// 停止会话，字节仍由用户持有。
 B2_API void b2World_StopRecording( b2WorldId worldId );
+
+/// 创建没有父链的独立单面链段，并修正退化幽灵顶点。
+B2_API b2ShapeId b2CreateChainSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2ChainSegment* chainSegment );
+/// 设置独立链段几何；父链拥有的链段不能单独修改。
+B2_API void b2Shape_SetChainSegment( b2ShapeId shapeId, const b2ChainSegment* chainSegment );

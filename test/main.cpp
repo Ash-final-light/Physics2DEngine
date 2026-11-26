@@ -59,6 +59,10 @@ int RecordingWorldLifetimeTest( void );
 int RecordingWorldOperationsTest( void );
 int RecordingBodyOperationsTest( void );
 int RecordingBodyPayloadTest( void );
+int RecordingShapeOperationsTest( void );
+int RecordingChainOperationsTest( void );
+int RecordingCascadeDestroyTest( void );
+int RecordingChainSegmentTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1023,6 +1027,14 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingBodyOperationsTest")==0) { ran=1; RUN_TEST(RecordingBodyOperationsTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingBodyPayloadTest")==0) { ran=1; RUN_TEST(RecordingBodyPayloadTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingShapeOperationsTest")==0) { ran=1; RUN_TEST(RecordingShapeOperationsTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingChainOperationsTest")==0) { ran=1; RUN_TEST(RecordingChainOperationsTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingCascadeDestroyTest")==0) { ran=1; RUN_TEST(RecordingCascadeDestroyTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingChainSegmentTest")==0) { ran=1; RUN_TEST(RecordingChainSegmentTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

@@ -153,16 +153,41 @@ void b2DestroyBody( b2BodyId bodyId )
     B2_REC( world, DestroyBody, bodyId );
     while(body->headJointKey!=B2_NULL_INDEX) { b2DestroyJointInternal(world,world->joints.data+(body->headJointKey>>1)); }
     b2DestroyBodyContacts( world, body );
-    while ( body->headChainId != B2_NULL_INDEX )
-    {
-        b2ChainShape* chain = world->chainShapes.data + body->headChainId;
-        b2DestroyChain( b2ChainId{ chain->id + 1, world->worldId, chain->generation } );
-    }
-    while ( body->headShapeId != B2_NULL_INDEX )
-    {
-        b2Shape* shape = world->shapes.data + body->headShapeId;
-        b2DestroyShape( b2ShapeId{ shape->id + 1, world->worldId, shape->generation }, false );
-    }
+	// 销毁附着的形状及其粗检测代理。
+	int shapeId = body->headShapeId;
+	while ( shapeId != B2_NULL_INDEX )
+	{
+		b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+		if ( shape->sensorIndex != B2_NULL_INDEX )
+		{
+			b2DestroySensor( world, shape );
+		}
+
+		b2DestroyShapeProxy( shape, &world->broadPhase );
+
+		// 将形状归还空闲列表。
+		b2FreeId( &world->shapeIdPool, shapeId );
+		shape->id = B2_NULL_INDEX;
+
+		shapeId = shape->nextShapeId;
+	}
+
+	// 销毁附着的链条。关联形状已在上面销毁。
+	int chainId = body->headChainId;
+	while ( chainId != B2_NULL_INDEX )
+	{
+		b2ChainShape* chain = b2Array_Get( world->chainShapes, chainId );
+
+		b2FreeChainData( chain );
+
+		// 将链条归还空闲列表。
+		b2FreeId( &world->chainIdPool, chainId );
+		chain->id = B2_NULL_INDEX;
+
+		chainId = chain->nextChainId;
+	}
+
     b2RemoveBodyFromIsland(world,body);
     b2RemoveBodyFromSolverSet(world,body);
 	b2FreeId( &world->bodyIdPool, body->id );

@@ -446,3 +446,214 @@ int RecordingBodyPayloadTest( void )
 	b2DestroyRecording( rec );
 	return 0;
 }
+
+int RecordingShapeOperationsTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.type = b2_dynamicBody;
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( id, rec );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 1 };
+	b2Capsule capsule = { { -1, 0 }, { 1, 0 }, 0.5f };
+	b2Segment segment = { { -1, 0 }, { 1, 0 } };
+	b2Polygon polygon = b2MakeBox( 1, 1 );
+	b2ChainSegment chainSegment = { { -2, 0 }, { { -1, 0 }, { 1, 0 } }, { 2, 0 }, 23 };
+	b2ShapeId shapes[5];
+	int start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0x40, shapes[0] = b2CreateCircleShape( body, &sd, &circle ) );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	int payload = RecordingPayloadSize( frame );
+	uint64_t stored = b2StoreShapeId( shapes[0] );
+	ENSURE( ReadRecordingU32( frame + payload - 4 ) == (uint32_t)stored );
+	ENSURE( ReadRecordingU32( frame + payload ) == (uint32_t)( stored >> 32 ) );
+	CHECK_RECORD( 0x41, shapes[1] = b2CreateCapsuleShape( body, &sd, &capsule ) );
+	CHECK_RECORD( 0x42, shapes[2] = b2CreateSegmentShape( body, &sd, &segment ) );
+	CHECK_RECORD( 0x43, shapes[3] = b2CreatePolygonShape( body, &sd, &polygon ) );
+	CHECK_RECORD( 0x44, shapes[4] = b2CreateChainSegmentShape( body, &sd, &chainSegment ) );
+	b2ShapeId shape = shapes[0];
+	CHECK_RECORD( 0x50, b2Shape_SetDensity( shape, 2.0f, true ) );
+	CHECK_RECORD( 0x51, b2Shape_SetFriction( shape, 0.25f ) );
+	CHECK_RECORD( 0x52, b2Shape_SetRestitution( shape, 0.5f ) );
+	CHECK_RECORD( 0x53, b2Shape_SetUserMaterial( shape, 0x123456789ABCDEFull ) );
+	b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
+	material.friction = 0.4f;
+	CHECK_RECORD( 0x54, b2Shape_SetSurfaceMaterial( shape, &material ) );
+	b2Filter filter = b2DefaultFilter();
+	filter.categoryBits = 4;
+	CHECK_RECORD( 0x55, b2Shape_SetFilter( shape, filter ) );
+	CHECK_RECORD( 0x56, b2Shape_EnableSensorEvents( shape, true ) );
+	CHECK_RECORD( 0x57, b2Shape_EnableContactEvents( shape, true ) );
+	CHECK_RECORD( 0x58, b2Shape_EnablePreSolveEvents( shape, true ) );
+	CHECK_RECORD( 0x59, b2Shape_EnableHitEvents( shape, true ) );
+	CHECK_RECORD( 0x5F, b2Shape_ApplyWind( shape, ( b2Vec2{ 2, 0 } ), 0.2f, 0.1f, true ) );
+	CHECK_RECORD( 0x5A, b2Shape_SetCircle( shape, &circle ) );
+	CHECK_RECORD( 0x5B, b2Shape_SetCapsule( shape, &capsule ) );
+	CHECK_RECORD( 0x5C, b2Shape_SetSegment( shape, &segment ) );
+	CHECK_RECORD( 0x5D, b2Shape_SetPolygon( shape, &polygon ) );
+	CHECK_RECORD( 0x5E, b2Shape_SetChainSegment( shape, &chainSegment ) );
+	ENSURE( b2Shape_GetChainSegment( shape ).chainId == B2_NULL_INDEX );
+	CHECK_RECORD( 0x45, b2DestroyShape( shape, true ) );
+	b2World_StopRecording( id );
+	int stopped = b2Recording_GetSize( rec );
+	b2Shape_SetFriction( shapes[1], 0.7f );
+	ENSURE( b2Recording_GetSize( rec ) == stopped );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingChainOperationsTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( id, rec );
+	b2Vec2 points[] = { { 0, 0 }, { 2, 0 }, { 2, 2 }, { 0, 2 } };
+	b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
+	b2ChainDef cd = b2DefaultChainDef();
+	cd.points = points;
+	cd.pointCount = 4;
+	cd.materials = &material;
+	cd.materialCount = 1;
+	cd.isLoop = true;
+	b2ChainId chain;
+	int start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0x70, chain = b2CreateChain( body, &cd ) );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	ENSURE( ReadRecordingU32( frame + 20 ) == 4 );
+	ENSURE( ReadRecordingU32( frame + 32 ) == 0x40000000u );
+	int payload = RecordingPayloadSize( frame );
+	uint64_t stored = b2StoreChainId( chain );
+	ENSURE( ReadRecordingU32( frame + payload - 4 ) == (uint32_t)stored );
+	ENSURE( ReadRecordingU32( frame + payload ) == (uint32_t)( stored >> 32 ) );
+	std::vector<uint8_t> saved( frame, frame + 4 + payload );
+	points[1].x = 17;
+	material.friction = 0.9f;
+	ENSURE( memcmp( saved.data(), b2Recording_GetData( rec ) + start, saved.size() ) == 0 );
+	CHECK_RECORD( 0x72, b2Chain_SetSurfaceMaterial( chain, &material, 1 ) );
+	CHECK_RECORD( 0x73, b2Chain_SetAllSurfaceMaterials( chain, &material ) );
+	b2ShapeId segments[4];
+	ENSURE( b2Chain_GetSegments( chain, segments, 4 ) == 4 );
+	CHECK_RECORD( 0x71, b2DestroyChain( chain ) );
+	for ( b2ShapeId segmentId : segments ) ENSURE( !b2Shape_IsValid( segmentId ) );
+	b2World_StopRecording( id );
+	b2DestroyRecording( rec );
+	b2DestroyWorld( id );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingCascadeDestroyTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 1 };
+	b2ShapeId ordinary = b2CreateCircleShape( body, &sd, &circle );
+	sd.isSensor = true;
+	b2ShapeId sensor = b2CreateCircleShape( body, &sd, &circle );
+	b2Vec2 points[] = { { 0, 0 }, { 2, 0 }, { 1, 2 } };
+	b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
+	b2ChainDef cd = b2DefaultChainDef();
+	cd.points = points;
+	cd.pointCount = 3;
+	cd.materials = &material;
+	cd.materialCount = 1;
+	cd.isLoop = true;
+	b2ChainId chain = b2CreateChain( body, &cd );
+	b2ShapeId segments[3];
+	ENSURE( b2Chain_GetSegments( chain, segments, 3 ) == 3 );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( id, rec );
+	CHECK_RECORD( 0x11, b2DestroyBody( body ) );
+	ENSURE( !b2Body_IsValid( body ) && !b2Chain_IsValid( chain ) );
+	ENSURE( !b2Shape_IsValid( ordinary ) && !b2Shape_IsValid( sensor ) );
+	for ( b2ShapeId segment : segments ) ENSURE( !b2Shape_IsValid( segment ) );
+	ENSURE( b2_worlds[id.index1 - 1].sensors.count == 0 );
+	// Reusing the freed slots must retain valid generations and linked ownership.
+	b2BodyId reused = b2CreateBody( id, &bd );
+	b2ShapeId reusedShape = b2CreateCircleShape( reused, &sd, &circle );
+	ENSURE( b2Shape_IsValid( reusedShape ) && !b2Shape_IsValid( sensor ) );
+	b2World_StopRecording( id );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+static bool CountRecordingShape( b2ShapeId, void* context )
+{
+	*(int*)context += 1;
+	return true;
+}
+
+int RecordingChainSegmentTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( id, rec );
+	b2ChainSegment geometry = { { 0, 0 }, { { 0, 0 }, { 2, 0 } }, { 2, 0 }, 99 };
+	b2ShapeId shape;
+	CHECK_RECORD( 0x44, shape = b2CreateChainSegmentShape( body, &sd, &geometry ) );
+	b2ChainSegment stored = b2Shape_GetChainSegment( shape );
+	ENSURE( stored.chainId == B2_NULL_INDEX );
+	ENSURE( stored.ghost1.x == 0 && stored.ghost1.y == 1 );
+	ENSURE( stored.ghost2.x == 2 && stored.ghost2.y == 1 );
+	geometry = { { 10, 0 }, { { 10, 0 }, { 12, 0 } }, { 12, 0 }, 88 };
+	CHECK_RECORD( 0x5E, b2Shape_SetChainSegment( shape, &geometry ) );
+	stored = b2Shape_GetChainSegment( shape );
+	ENSURE( stored.chainId == B2_NULL_INDEX && stored.ghost1.x == 10 && stored.ghost1.y == 1 );
+	b2World* world = b2_worlds + id.index1 - 1;
+	b2Shape* internal = world->shapes.data + shape.index1 - 1;
+	ENSURE( internal->aabb.lowerBound.x > 9 && world->fatAABBs.data[internal->id].lowerBound.x > 9 );
+	int oldHits = 0, newHits = 0;
+	b2World_OverlapAABB( id, b2Vec2_zero, ( b2AABB{ { -1, -1 }, { 3, 1 } } ), b2DefaultQueryFilter(), CountRecordingShape, &oldHits );
+	b2World_OverlapAABB( id, b2Vec2_zero, ( b2AABB{ { 9, -1 }, { 13, 1 } } ), b2DefaultQueryFilter(), CountRecordingShape, &newHits );
+	ENSURE( oldHits == 0 && newHits == 1 );
+	int size = b2Recording_GetSize( rec );
+	geometry.segment.point2 = geometry.segment.point1;
+	b2Shape_SetChainSegment( shape, &geometry );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	ENSURE( b2CreateChainSegmentShape( body, &sd, &geometry ).index1 == 0 );
+	ENSURE( b2CreateChainSegmentShape( body, &sd, NULL ).index1 == 0 );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	geometry.segment.point2 = { 12, 0 };
+	world->locked = true;
+	b2Shape_SetChainSegment( shape, &geometry );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	world->locked = false;
+	b2Vec2 points[] = { { 0, 0 }, { 2, 0 }, { 1, 2 } };
+	b2SurfaceMaterial material = b2DefaultSurfaceMaterial();
+	b2ChainDef cd = b2DefaultChainDef();
+	cd.points = points; cd.pointCount = 3; cd.materials = &material; cd.materialCount = 1; cd.isLoop = true;
+	b2ChainId chain = b2CreateChain( body, &cd );
+	b2ShapeId owned;
+	ENSURE( b2Chain_GetSegments( chain, &owned, 1 ) == 1 );
+	size = b2Recording_GetSize( rec );
+	b2Shape_SetChainSegment( owned, &geometry );
+	b2DestroyShape( owned, false );
+	ENSURE( b2Recording_GetSize( rec ) == size && b2Shape_IsValid( owned ) );
+	ENSURE( b2Shape_GetParentChain( owned ).index1 == chain.index1 );
+	b2World_StopRecording( id );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
