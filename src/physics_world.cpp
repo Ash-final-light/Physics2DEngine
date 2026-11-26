@@ -747,3 +747,58 @@ b2TreeStats b2World_CastRay( b2WorldId worldId, b2Pos origin, b2Vec2 translation
 
 	return treeStats;
 }
+
+// 此回调找出最近命中。这是游戏中最常用的回调。
+static float b2RayCastClosestFcn( b2ShapeId shapeId, b2Pos point, b2Vec2 normal, float fraction, void* context )
+{
+	// 忽略初始重叠
+	if ( fraction == 0.0f )
+	{
+		return -1.0f;
+	}
+
+	b2RayResult* rayResult = (b2RayResult*)context;
+	rayResult->shapeId = shapeId;
+	rayResult->point = point;
+	rayResult->normal = normal;
+	rayResult->fraction = fraction;
+	rayResult->hit = true;
+	return fraction;
+}
+
+b2RayResult b2World_CastRayClosest( b2WorldId worldId, b2Pos origin, b2Vec2 translation, b2QueryFilter filter )
+{
+	b2RayResult result = {};
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked )
+	{
+		return result;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidVec2( translation ) );
+
+	b2RayCastInput input = { b2ToVec2( origin ), translation, 1.0f };
+	WorldRayCastContext worldContext = { world, b2RayCastClosestFcn, filter, 1.0f, origin, &result };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2TreeStats treeResult = b2DynamicTree_CastRay( world->broadPhase.trees + i, &input, filter.maskBits,
+														RayCastCallback, &worldContext );
+		result.nodeVisits += treeResult.nodeVisits;
+		result.leafVisits += treeResult.leafVisits;
+
+		if ( worldContext.fraction == 0.0f )
+		{
+			break;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+
+
+
+	return result;
+}

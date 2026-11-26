@@ -117,6 +117,7 @@ int CustomCollisionFilterTest( void );
 int PreSolveCallbackTest( void );
 int WorldOverlapAABBTest( void );
 int WorldOverlapShapeTest( void );
+int WorldRayClosestTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -958,6 +959,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"WorldOverlapAABBTest")==0) { ran=1; RUN_TEST(WorldOverlapAABBTest); }
 	if(filter==NULL || strcmp(filter,"WorldOverlapShapeTest")==0) { ran=1; RUN_TEST(WorldOverlapShapeTest); }
 	if(filter==NULL || strcmp(filter,"WorldRayCastTest")==0) { ran=1; RUN_TEST(WorldRayCastTest); }
+	if(filter==NULL || strcmp(filter,"WorldRayClosestTest")==0) { ran=1; RUN_TEST(WorldRayClosestTest); }
+
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

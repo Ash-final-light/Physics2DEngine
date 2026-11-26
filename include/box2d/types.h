@@ -562,3 +562,30 @@ B2_API int b2Body_GetContactCapacity( b2BodyId bodyId );
 B2_API int b2Body_GetContactData( b2BodyId bodyId, b2ContactData* contactData, int capacity );
 B2_API int b2Shape_GetContactCapacity( b2ShapeId shapeId );
 B2_API int b2Shape_GetContactData( b2ShapeId shapeId, b2ContactData* contactData, int capacity );
+
+typedef struct b2RayResult
+{
+	/// 命中的形状。
+	b2ShapeId shapeId;
+
+	/// 接触点，位于命中形状的表面上。
+	b2Pos point;
+
+	/// 接触点处的单位法向量。
+	b2Vec2 normal;
+
+	/// 输入射线的分数。
+	float fraction;
+
+	/// 访问的 BVH 节点数。用于诊断。
+	int nodeVisits;
+
+	/// 访问的 BVH 叶节点数。用于诊断。
+	int leafVisits;
+
+	/// 射线是否命中？若为 false，所有其他数据无效。
+	bool hit;
+} b2RayResult;
+
+
+B2_API b2RayResult b2World_CastRayClosest(b2WorldId worldId,b2Pos origin,b2Vec2 translation,b2QueryFilter filter);

@@ -86,3 +86,18 @@ int WorldRayCastTest(void)
     world->locked=true;stats=b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);world->locked=false;ENSURE(hits.count==0 && stats.nodeVisits==0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldRayClosestTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},0.5f};
+ bd.position={105,200};b2BodyId body=b2CreateBody(id,&bd);b2CreateCircleShape(body,&sd,&circle);
+ bd.type=b2_dynamicBody;bd.position={102,200};body=b2CreateBody(id,&bd);sd.filter.categoryBits=2;b2ShapeId near=b2CreateCircleShape(body,&sd,&circle);
+ b2QueryFilter filter=b2DefaultQueryFilter();b2RayResult r=b2World_CastRayClosest(id,{100,200},{10,0},filter);
+ ENSURE(r.hit && r.shapeId.index1==near.index1 && r.leafVisits>=2);ENSURE_SMALL(r.fraction-0.15f,0.00001f);
+ ENSURE(r.point.x==101.5f && r.point.y==200 && r.normal.x==-1);
+ filter.maskBits=1;r=b2World_CastRayClosest(id,{100,200},{10,0},filter);ENSURE(r.hit);ENSURE_SMALL(r.fraction-0.45f,0.00001f);
+ r=b2World_CastRayClosest(id,{100,210},{10,0},filter);ENSURE(!r.hit && r.shapeId.index1==0);
+ b2World* world=b2_worlds+id.index1-1;world->locked=true;r=b2World_CastRayClosest(id,{100,200},{10,0},filter);world->locked=false;ENSURE(!r.hit && r.leafVisits==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
