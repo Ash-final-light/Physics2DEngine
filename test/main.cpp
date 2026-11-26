@@ -144,6 +144,7 @@ int RevoluteJointLimitTest( void );
 int RevoluteJointMotorTest( void );
 int PrismaticJointBasicTest( void );
 int PrismaticJointSpringTest( void );
+int PrismaticJointLimitTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -1038,6 +1039,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"PrismaticJointBasicTest")==0) { ran=1; RUN_TEST(PrismaticJointBasicTest); }
 
 	if(filter==NULL || strcmp(filter,"PrismaticJointSpringTest")==0) { ran=1; RUN_TEST(PrismaticJointSpringTest); }
+
+	if(filter==NULL || strcmp(filter,"PrismaticJointLimitTest")==0) { ran=1; RUN_TEST(PrismaticJointLimitTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

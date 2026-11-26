@@ -206,3 +206,16 @@ int PrismaticJointSpringTest(void)
  b2DestroyJoint(j);b2Body_SetTransform(b,{100,203},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,0});def.base.localFrameA.q={0,1};def.base.localFrameB.q={0,1};def.targetTranslation=1;j=b2CreatePrismaticJoint(id,&def);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-1,0.005f);b2Vec2 error=PrismaticErrors(j);ENSURE_SMALL(error.x,0.005f);ENSURE_SMALL(error.y,0.005f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int PrismaticJointLimitTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={3,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};b2CreateCircleShape(b,&sd,&c);
+ b2PrismaticJointDef def=b2DefaultPrismaticJointDef();ENSURE(!def.enableLimit);def.base.bodyIdA=a;def.base.bodyIdB=b;def.enableLimit=true;def.lowerTranslation=0;def.upperTranslation=2;b2JointId j=b2CreatePrismaticJoint(id,&def);ENSURE(b2PrismaticJoint_IsLimitEnabled(j) && b2PrismaticJoint_GetLowerLimit(j)==0 && b2PrismaticJoint_GetUpperLimit(j)==2);
+ for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-2,0.01f);
+ b2World_EnableWarmStarting(id,false);b2Body_SetTransform(b,{-1,0},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,0});for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j),0.01f);
+ b2Body_SetTransform(b,{1,0},b2Rot_identity);b2Body_SetLinearVelocity(b,{1,0});b2World_Step(id,0.1f,4);ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-1.1f,0.0001f);
+ b2PrismaticJoint_SetLimits(j,0.5f,0.5f);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-0.5f,0.01f);
+ b2PrismaticJoint_SetLimits(j,-0.5f,0.5f);b2PrismaticJoint_EnableSpring(j,true);b2PrismaticJoint_SetTargetTranslation(j,2);b2PrismaticJoint_SetSpringHertz(j,2);b2PrismaticJoint_SetSpringDampingRatio(j,1);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2PrismaticJoint_GetCurrentTranslation(j)<=0.52f && b2PrismaticJoint_GetCurrentTranslation(j)>=0.49f);
+ b2PrismaticJoint_EnableLimit(j,false);ENSURE(!b2PrismaticJoint_IsLimitEnabled(j));for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-2,0.005f);b2Vec2 error=PrismaticErrors(j);ENSURE_SMALL(error.x,0.0001f);ENSURE_SMALL(error.y,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

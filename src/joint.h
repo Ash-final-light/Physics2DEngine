@@ -113,9 +113,13 @@ typedef struct b2PrismaticJoint
 {
 	b2Vec2 impulse;
 	float springImpulse;
+	float lowerImpulse;
+	float upperImpulse;
 	float hertz;
 	float dampingRatio;
 	float targetTranslation;
+	float lowerTranslation;
+	float upperTranslation;
 	int indexA;
 	int indexB;
 	b2Transform frameA;
@@ -123,6 +127,7 @@ typedef struct b2PrismaticJoint
 	b2Vec2 deltaCenter;
 	b2Softness springSoftness;
 	bool enableSpring;
+	bool enableLimit;
 } b2PrismaticJoint;
 
 typedef struct b2JointSim

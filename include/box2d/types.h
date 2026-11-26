@@ -1085,6 +1085,9 @@ typedef struct b2PrismaticJointDef
 	float hertz;
 	float dampingRatio;
 	float targetTranslation;
+	bool enableLimit;
+	float lowerTranslation;
+	float upperTranslation;
 	int internalValue;
 } b2PrismaticJointDef;
 B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef(void);
@@ -1101,3 +1104,9 @@ B2_API void b2PrismaticJoint_SetSpringDampingRatio( b2JointId jointId, float dam
 B2_API float b2PrismaticJoint_GetSpringDampingRatio( b2JointId jointId );
 B2_API void b2PrismaticJoint_SetTargetTranslation( b2JointId jointId, float translation );
 B2_API float b2PrismaticJoint_GetTargetTranslation( b2JointId jointId );
+
+B2_API void b2PrismaticJoint_EnableLimit( b2JointId jointId, bool enableLimit );
+B2_API bool b2PrismaticJoint_IsLimitEnabled( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetLimits( b2JointId jointId, float lower, float upper );
+B2_API float b2PrismaticJoint_GetLowerLimit( b2JointId jointId );
+B2_API float b2PrismaticJoint_GetUpperLimit( b2JointId jointId );

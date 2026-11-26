@@ -210,3 +210,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 移动关节 `b2CreatePrismaticJoint` 保持两侧参考系的相对角度，并限制锚点偏离参考轴，仅允许沿轴平移。参考轴为刚体 A 局部关节坐标系的 x 轴。
 
 移动关节可沿参考轴启用弹簧，配置目标平移、频率和阻尼；横向偏移和相对角度继续由基础约束保持。
+
+移动关节可设置参考轴上的最小、最大平移，并在运行时切换限位。平移弹簧继续驱动目标，行程由限位约束。
