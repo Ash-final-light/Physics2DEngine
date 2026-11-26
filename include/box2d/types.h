@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1077,3 +1077,14 @@ B2_API float b2RevoluteJoint_GetTargetMotorSpeed( b2JointId jointId );
 B2_API void b2RevoluteJoint_SetMaxMotorTorque( b2JointId jointId, float torque );
 B2_API float b2RevoluteJoint_GetMaxMotorTorque( b2JointId jointId );
 B2_API float b2RevoluteJoint_GetCurrentMotorTorque( b2JointId jointId );
+
+typedef struct b2PrismaticJointDef
+{
+	b2JointDef base;
+	int internalValue;
+} b2PrismaticJointDef;
+B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef(void);
+B2_API b2JointId b2CreatePrismaticJoint(b2WorldId worldId,const b2PrismaticJointDef* def);
+
+B2_API float b2PrismaticJoint_GetCurrentTranslation( b2JointId jointId );
+B2_API float b2PrismaticJoint_GetCurrentSpeed( b2JointId jointId );

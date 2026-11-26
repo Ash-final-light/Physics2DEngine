@@ -477,6 +477,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PrepareRevoluteJoint( joint, context );
 			break;
 
+		case b2_prismaticJoint:
+			b2PreparePrismaticJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -494,6 +498,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartRevoluteJoint( joint, context );
 			break;
 
+		case b2_prismaticJoint:
+			b2WarmStartPrismaticJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -509,6 +517,10 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_revoluteJoint:
 			b2SolveRevoluteJoint( joint, context, useBias );
+			break;
+
+		case b2_prismaticJoint:
+			b2SolvePrismaticJoint( joint, context, useBias );
 			break;
 
 		default:
@@ -575,6 +587,42 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	joint->revoluteJoint.enableMotor = def->enableMotor;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
+
+
+	return jointId;
+}
+
+b2PrismaticJointDef b2DefaultPrismaticJointDef( void )
+{
+	b2PrismaticJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+b2JointId b2CreatePrismaticJoint( b2WorldId worldId, const b2PrismaticJointDef* def )
+{
+	B2_CHECK_DEF( def );
+
+	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
+
+	B2_ASSERT( world->locked == false );
+
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_prismaticJoint );
+
+	b2JointSim* joint = pair.jointSim;
+
+	joint->prismaticJoint = b2PrismaticJoint{};
+
+	b2JointId jointId = {
+		.index1 = joint->jointId + 1,
+		.world0 = world->worldId,
+		.generation = pair.joint->generation,
+	};
 
 
 	return jointId;

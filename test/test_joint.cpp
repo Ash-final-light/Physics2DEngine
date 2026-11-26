@@ -177,3 +177,20 @@ int RevoluteJointMotorTest(void)
  b2DestroyJoint(j);b2Body_SetAngularVelocity(b,0);def.maxMotorTorque=1;def.motorSpeed=10;for(int i=0;i<26;++i) { ENSURE(b2CreateRevoluteJoint(id,&def).index1>0); }b2World* world=b2_worlds+id.index1-1;ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-0.26f,0.0001f);ENSURE_SMALL(JointAnchorError(b2Body_GetJointCount(b)>0?b2JointId{1,world->worldId,world->joints.data[0].generation}:b2_nullJointId),0.00001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+static b2Vec2 PrismaticErrors(b2JointId j)
+{
+ b2BodyId a=b2Joint_GetBodyA(j),b=b2Joint_GetBodyB(j);b2Transform fa=b2Joint_GetLocalFrameA(j),fb=b2Joint_GetLocalFrameB(j);
+ b2Rot qa=b2MulRot(b2Body_GetRotation(a),fa.q),qb=b2MulRot(b2Body_GetRotation(b),fb.q);b2Vec2 axis=b2RotateVector(qa,{1,0});
+ return {b2Dot(b2LeftPerp(axis),b2SubPos(b2Body_GetWorldPoint(b,fb.p),b2Body_GetWorldPoint(a,fa.p))),b2RelativeAngle(qa,qb)};
+}
+int PrismaticJointBasicTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={101,203};bd.rotation={0,1};bd.linearVelocity={2,1};bd.angularVelocity=3;b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};b2CreateCircleShape(b,&sd,&c);
+ b2PrismaticJointDef def=b2DefaultPrismaticJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.base.localFrameA.q={0,1};def.base.localFrameB.p={1,1};b2JointId j=b2CreatePrismaticJoint(id,&def);ENSURE(b2Joint_IsValid(j) && b2Joint_GetType(j)==b2_prismaticJoint);ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-4,0.00001f);
+ for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4);b2Vec2 error=PrismaticErrors(j);ENSURE(b2AbsFloat(error.x)<0.02f && b2AbsFloat(error.y)<0.02f); }ENSURE_SMALL(b2PrismaticJoint_GetCurrentSpeed(j)-1,0.0001f);ENSURE_SMALL(b2PrismaticJoint_GetCurrentTranslation(j)-6,0.005f);
+ b2MotionLocks locks={false,false,true};b2Body_SetMotionLocks(b,locks);b2Body_SetLinearVelocity(b,{2,1});b2World_Step(id,0.1f,4);ENSURE_SMALL(PrismaticErrors(j).x,0.02f);b2DestroyWorld(id);
+ id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={-1,-0.5f};a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={1,0.5f};b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);def=b2DefaultPrismaticJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;j=b2CreatePrismaticJoint(id,&def);b2Body_SetLinearVelocity(a,{-1,2});b2Body_SetLinearVelocity(b,{1,-2});b2Body_SetAngularVelocity(a,1);b2Body_SetAngularVelocity(b,-1);
+ for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }b2Vec2 error=PrismaticErrors(j);ENSURE_SMALL(error.x,0.02f);ENSURE_SMALL(error.y,0.02f);ENSURE_SMALL(b2Body_GetPosition(a).x+b2Body_GetPosition(b).x,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(a).y+b2Body_GetLinearVelocity(b).y,0.0001f);
+ b2Body_Disable(b);b2Body_Enable(b);b2World_Step(id,0.01f,4);error=PrismaticErrors(j);ENSURE_SMALL(error.x,0.02f);ENSURE_SMALL(error.y,0.02f);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

@@ -109,6 +109,16 @@ typedef struct b2RevoluteJoint
 	bool enableLimit;
 } b2RevoluteJoint;
 
+typedef struct b2PrismaticJoint
+{
+	b2Vec2 impulse;
+	int indexA;
+	int indexB;
+	b2Transform frameA;
+	b2Transform frameB;
+	b2Vec2 deltaCenter;
+} b2PrismaticJoint;
+
 typedef struct b2JointSim
 {
 	int jointId;
@@ -128,7 +138,7 @@ typedef struct b2JointSim
 	float constraintDampingRatio;
 
 	b2Softness constraintSoftness;
-	union { b2DistanceJoint distanceJoint;b2RevoluteJoint revoluteJoint; };
+	union { b2DistanceJoint distanceJoint;b2RevoluteJoint revoluteJoint;b2PrismaticJoint prismaticJoint; };
 
 } b2JointSim;
 b2Joint* b2GetJointFullId(b2World* world,b2JointId id);
@@ -149,3 +159,7 @@ void b2SolveDistanceJoint(b2JointSim* joint,b2StepContext* context,bool useBias)
 void b2PrepareRevoluteJoint(b2JointSim* base,b2StepContext* context);
 void b2WarmStartRevoluteJoint(b2JointSim* base,b2StepContext* context);
 void b2SolveRevoluteJoint(b2JointSim* base,b2StepContext* context,bool useBias);
+
+void b2PreparePrismaticJoint(b2JointSim* base,b2StepContext* context);
+void b2WarmStartPrismaticJoint(b2JointSim* base,b2StepContext* context);
+void b2SolvePrismaticJoint(b2JointSim* base,b2StepContext* context,bool useBias);

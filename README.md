@@ -206,3 +206,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 旋转关节支持相对角的上下限与运行时开关，可与角弹簧共同使用。限位角夹紧到正负 `0.99π`。
 
 旋转关节马达按最大力矩驱动目标相对角速度，可与角度限位和弹簧同时使用；运行时可切换驱动和查询实际马达力矩。
+
+移动关节 `b2CreatePrismaticJoint` 保持两侧参考系的相对角度，并限制锚点偏离参考轴，仅允许沿轴平移。参考轴为刚体 A 局部关节坐标系的 x 轴。
