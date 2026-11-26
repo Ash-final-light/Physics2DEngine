@@ -99,3 +99,14 @@ bool b2IsAVX2Available( void )
 {
 	return b2DetectSIMDWidth() == 8;
 }
+
+void b2SetSIMDWidth( int width )
+{
+	B2_ASSERT( width == 0 || width == 4 || width == 8 );
+	if ( width == 8 && b2DetectSIMDWidth() != 8 )
+	{
+		width = 4;
+	}
+
+	b2AtomicStoreInt( &b2_simdWidth, width );
+}

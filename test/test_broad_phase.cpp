@@ -484,6 +484,72 @@ int SIMDContact8Test(void)
     b2DestroyWorld(four);b2DestroyWorld(eight);ENSURE(b2GetByteCount()==before);return 0;
 }
 
+static void AddSIMDBoxes(b2WorldId id)
+{
+    b2BodyDef bd=b2DefaultBodyDef();bd.position={1000,0};
+    b2ShapeDef sd=b2DefaultShapeDef();sd.enableContactEvents=true;sd.enableHitEvents=true;
+    sd.material.friction=0.4f;sd.material.restitution=0.5f;sd.material.rollingResistance=0.1f;
+    b2Polygon ground=b2MakeBox(40,0.5f);b2CreatePolygonShape(b2CreateBody(id,&bd),&sd,&ground);
+    b2Polygon box=b2MakeBox(0.4f,0.4f);
+    bd.type=b2_dynamicBody;bd.linearVelocity={1,-5};bd.enableSleep=false;
+    for(int i=0;i<13;++i)
+    {
+        bd.position={980.0f+float(i)*2,0.9f};b2CreatePolygonShape(b2CreateBody(id,&bd),&sd,&box);
+    }
+}
+
+int SIMDFallbackTest(void)
+{
+    size_t before=b2GetByteCount();bool avx=b2IsAVX2Available();
+    b2WorldId fixed=MakePairWorld(nullptr),changing=MakePairWorld(nullptr);
+    AddSIMDBoxes(fixed);AddSIMDBoxes(changing);b2World_SetWorkerCount(changing,4);
+    int widths[]={4,8,0};bool sawHit=false;
+    for(int step=0;step<15;++step)
+    {
+        b2SetSIMDWidth(4);ENSURE(b2GetSIMDWidth()==4);b2World_Step(fixed,1.0f/60,4);
+        int requested=widths[step%3];b2SetSIMDWidth(requested);
+        int expected=requested==4?4:avx?8:4;ENSURE(b2GetSIMDWidth()==expected);
+        bool captured=false;b2TaskBatch batch=b2World_BeginStep(changing,1.0f/60,4);
+        while(batch.count>0)
+        {
+            b2StepContext* context=b2_worlds[changing.index1-1].stepContext;
+            if(context->phase==5)
+            {
+                ENSURE(context->simdWidth==expected);
+                if(!captured)
+                {
+                    // 已准备的缓存继续使用本步函数表，新的设置留给下一步。
+                    b2SetSIMDWidth(expected==4?8:4);captured=true;
+                }
+            }
+            for(int i=batch.count-1;i>=0;--i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+            batch=b2World_ContinueStep(changing);
+        }
+        ENSURE(captured);ENSURE(CompareContactWorlds(fixed,changing)==0);
+        auto a=b2World_GetBodyEvents(fixed),b=b2World_GetBodyEvents(changing);ENSURE(a.moveCount==b.moveCount);
+        for(int i=0;i<a.moveCount;++i)
+        {
+            ENSURE(a.moveEvents[i].transform.p.x==b.moveEvents[i].transform.p.x);
+            ENSURE(a.moveEvents[i].transform.p.y==b.moveEvents[i].transform.p.y);
+            ENSURE(a.moveEvents[i].transform.q.c==b.moveEvents[i].transform.q.c);
+            ENSURE(a.moveEvents[i].transform.q.s==b.moveEvents[i].transform.q.s);
+        }
+        auto ea=b2World_GetContactEvents(fixed),eb=b2World_GetContactEvents(changing);ENSURE(ea.hitCount==eb.hitCount);
+        sawHit|=ea.hitCount>0;
+        for(int i=0;i<ea.hitCount;++i)
+        {
+            ENSURE(ea.hitEvents[i].shapeIdA.index1==eb.hitEvents[i].shapeIdA.index1);
+            ENSURE(ea.hitEvents[i].shapeIdB.index1==eb.hitEvents[i].shapeIdB.index1);
+            ENSURE(ea.hitEvents[i].approachSpeed==eb.hitEvents[i].approachSpeed);
+            ENSURE(ea.hitEvents[i].point.x==eb.hitEvents[i].point.x && ea.hitEvents[i].point.y==eb.hitEvents[i].point.y);
+        }
+    }
+    ENSURE(sawHit);
+    b2SetSIMDWidth(8);ENSURE(b2GetSIMDWidth()==(avx?8:4));
+    b2SetSIMDWidth(0);ENSURE(b2GetSIMDWidth()==(avx?8:4));
+    b2DestroyWorld(fixed);b2DestroyWorld(changing);ENSURE(b2GetByteCount()==before);return 0;
+}
+
 int BroadPhaseTreeTypesTest( void )
 {
     size_t before = b2GetByteCount();

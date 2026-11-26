@@ -294,4 +294,5 @@ B2_FORCE_INLINE int b2OverlapNodePairMask( b2AABBV av, const b2TreeNode* pair )
 #endif
 
 int b2GetSIMDWidth( void );
+void b2SetSIMDWidth( int width );
 bool b2IsAVX2Available( void );
