@@ -94,3 +94,8 @@ static inline float b2GetShapeRadius( const b2Shape* shape )
 b2AABB b2ComputeShapeAABB(const b2Shape* shape,b2WorldTransform xf);
 b2Vec2 b2GetShapeCentroid(const b2Shape* shape);
 b2ShapeProxy b2MakeShapeDistanceProxy(const b2Shape* shape);
+
+static inline bool b2ShouldQueryCollide( b2Filter shapeFilter, b2QueryFilter queryFilter )
+{
+	return ( shapeFilter.categoryBits & queryFilter.maskBits ) != 0 && ( shapeFilter.maskBits & queryFilter.categoryBits ) != 0;
+}

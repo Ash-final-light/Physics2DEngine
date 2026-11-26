@@ -291,16 +291,6 @@ b2MassData b2ComputePolygonMass( const b2Polygon* shape, float density )
 	return massData;
 }
 
-static float b2RoundDownFloat( double x )
-{
-	return (float)x;
-}
-
-static float b2RoundUpFloat( double x )
-{
-	return (float)x;
-}
-
 static b2AABB b2ComputeCircleFatAABB( const b2Circle* shape, b2WorldTransform xf, float extra )
 {
 	b2Vec2 c = b2TransformPoint( xf, shape->center );

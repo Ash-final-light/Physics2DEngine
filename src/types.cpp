@@ -80,3 +80,6 @@ b2ChainDef b2DefaultChainDef( void )
     def.internalValue = B2_SECRET_COOKIE;
     return def;
 }
+
+b2QueryFilter b2DefaultQueryFilter(void)
+{ return b2QueryFilter{1,UINT64_MAX}; }

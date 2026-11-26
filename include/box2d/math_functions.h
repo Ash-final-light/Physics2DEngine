@@ -516,3 +516,23 @@ BOX2D_EXPORT extern float b2_lengthUnitsPerMeter;
 #endif
 
 /**@}*/
+
+B2_INLINE float b2RoundDownFloat( double x )
+{
+#if defined( BOX2D_DOUBLE_PRECISION )
+	float f = (float)x;
+	return (double)f > x ? nextafterf( f, -FLT_MAX ) : f;
+#else
+	return (float)x;
+#endif
+}
+
+B2_INLINE float b2RoundUpFloat( double x )
+{
+#if defined( BOX2D_DOUBLE_PRECISION )
+	float f = (float)x;
+	return (double)f < x ? nextafterf( f, FLT_MAX ) : f;
+#else
+	return (float)x;
+#endif
+}

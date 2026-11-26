@@ -61,6 +61,7 @@ if(BUILD_TESTING)
 		test/test_dynamic_tree.cpp
 		test/test_world.cpp
 		test/test_step.cpp
+		test/test_query.cpp
 		test/test_sensor.cpp
 		test/test_contact.cpp
 		test/test_solver_set.cpp

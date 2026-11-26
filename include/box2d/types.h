@@ -117,6 +117,17 @@ B2_API void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation
 B2_API b2AABB b2Body_ComputeBounds( b2BodyId bodyId );
 
 
+typedef struct b2QueryFilter
+{
+	/// 此查询的碰撞类别位。通常只需设置一位。
+	uint64_t categoryBits;
+
+	/// 碰撞掩码位。这声明此查询会接受碰撞的形状类别。
+	uint64_t maskBits;
+} b2QueryFilter;
+B2_API b2QueryFilter b2DefaultQueryFilter(void);
+typedef bool b2OverlapResultCallbackFcn(b2ShapeId shapeId,void* context);
+B2_API b2TreeStats b2World_OverlapAABB(b2WorldId worldId,b2Pos origin,b2AABB aabb,b2QueryFilter filter,b2OverlapResultCallbackFcn* fcn,void* context);
 typedef struct b2Filter
 {
     uint64_t categoryBits;

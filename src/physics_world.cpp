@@ -4,6 +4,7 @@
 #include "world.h"
 
 #include "core.h"
+#include "aabb.h"
 #include "solver.h"
 
 #include "box2d/constants.h"
@@ -499,4 +500,69 @@ void b2World_SetPreSolveCallback(b2WorldId id,b2PreSolveCallbackFcn* preSolve,b2
 {
     b2World* world=b2GetWorldFromId(id);if(world==NULL) { return; }
     world->preSolveFcn=preSolve;world->preContinuousFcn=preContinuous;world->preSolveContext=context;
+}
+
+typedef struct WorldQueryContext
+{
+	b2World* world;
+	b2OverlapResultCallbackFcn* fcn;
+	b2QueryFilter filter;
+	void* userContext;
+} WorldQueryContext;
+
+static bool TreeQueryCallback( int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+
+	WorldQueryContext* worldContext = static_cast<WorldQueryContext *>( context );
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return true;
+	}
+
+	b2ShapeId id = { shapeId + 1, world->worldId, shape->generation };
+	bool result = worldContext->fcn( id, worldContext->userContext );
+	return result;
+}
+
+b2TreeStats b2World_OverlapAABB( b2WorldId worldId, b2Pos origin, b2AABB aabb, b2QueryFilter filter,
+								 b2OverlapResultCallbackFcn* fcn, void* context )
+{
+	b2TreeStats treeStats = {};
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world==NULL || world->locked || fcn==NULL )
+	{
+		return treeStats;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidAABB( aabb ) );
+
+
+
+	// 向外取整提升到世界 float 盒，使保守树测试永不漏检
+	b2AABB worldBox = b2OffsetAABB( aabb, origin );
+
+	WorldQueryContext worldContext = { world, fcn, filter, context };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2TreeStats treeResult = b2DynamicTree_OverlapAABB( world->broadPhase.trees + i, worldBox, filter.maskBits,
+															TreeQueryCallback, &worldContext );
+
+		treeStats.nodeVisits += treeResult.nodeVisits;
+		treeStats.leafVisits += treeResult.leafVisits;
+	}
+
+
+
+	return treeStats;
 }
