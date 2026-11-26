@@ -500,3 +500,39 @@ void b2RecW_TREESTATS( b2RecBuffer* buf, b2TreeStats v )
 	b2RecW_I32( buf, v.nodeVisits );
 	b2RecW_I32( buf, v.leafVisits );
 }
+
+b2Recording* b2CreateRecording( int byteCapacity )
+{
+	b2Recording* rec = static_cast<b2Recording *>( b2Alloc( (int)sizeof( b2Recording ) ) );
+	*rec = b2Recording{};
+
+	// 按需预分配；缓冲区仍会按需加倍。几百 KiB 对短会话足够，并可避免早期重分配。
+	int initCap = byteCapacity > 0 ? byteCapacity : 65536;
+	rec->buffer.data = static_cast<uint8_t *>( b2Alloc( initCap ) );
+	rec->buffer.capacity = initCap;
+	rec->buffer.size = 0;
+	rec->lock = b2CreateMutex();
+	return rec;
+}
+
+void b2DestroyRecording( b2Recording* recording )
+{
+	if ( recording == NULL )
+	{
+		return;
+	}
+
+	b2RecBufFree( &recording->buffer );
+	b2DestroyMutex( recording->lock );
+	b2Free( recording, (int)sizeof( b2Recording ) );
+}
+
+const uint8_t* b2Recording_GetData( const b2Recording* recording )
+{
+	return recording->buffer.data;
+}
+
+int b2Recording_GetSize( const b2Recording* recording )
+{
+	return recording->buffer.size;
+}

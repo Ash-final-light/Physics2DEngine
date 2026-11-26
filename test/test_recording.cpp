@@ -152,3 +152,40 @@ int RecordingDefinitionEncodingTest( void )
 	ENSURE( b2GetByteCount() == baseline );
 	return 0;
 }
+
+int RecordingLifetimeTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2DestroyRecording( NULL );
+	for ( int i = 0; i < 20; ++i )
+	{
+		b2Recording* rec = b2CreateRecording( i % 2 == 0 ? 0 : -1 );
+		ENSURE( rec != NULL && b2Recording_GetData( rec ) != NULL );
+		ENSURE( b2Recording_GetSize( rec ) == 0 );
+		ENSURE( rec->buffer.capacity == 65536 && rec->lock != NULL );
+		b2LockMutex( rec->lock );
+		b2UnlockMutex( rec->lock );
+		b2DestroyRecording( rec );
+		ENSURE( b2GetByteCount() == baseline );
+	}
+	return 0;
+}
+
+int RecordingCapacityTest( void )
+{
+	int baseline = b2GetByteCount();
+	int capacities[] = { 1, 17, 4096 };
+	for ( int capacity : capacities )
+	{
+		b2Recording* rec = b2CreateRecording( capacity );
+		ENSURE( rec->buffer.capacity == capacity );
+		for ( int i = 0; i < capacity + 100; ++i ) b2RecW_U8( &rec->buffer, (uint8_t)i );
+		ENSURE( b2Recording_GetSize( rec ) == capacity + 100 );
+		ENSURE( rec->buffer.capacity >= capacity + 100 );
+		const uint8_t* bytes = b2Recording_GetData( rec );
+		for ( int i = 0; i < capacity + 100; ++i ) ENSURE( bytes[i] == (uint8_t)i );
+		b2DestroyRecording( rec );
+	}
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}

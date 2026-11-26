@@ -1467,3 +1467,12 @@ B2_API void b2MotorJoint_SetMaxSpringForce( b2JointId jointId, float maxForce );
 B2_API float b2MotorJoint_GetMaxSpringForce( b2JointId jointId );
 B2_API void b2MotorJoint_SetMaxSpringTorque( b2JointId jointId, float maxTorque );
 B2_API float b2MotorJoint_GetMaxSpringTorque( b2JointId jointId );
+
+/// 由用户持有的录制字节缓冲区。
+typedef struct b2Recording b2Recording;
+/// byteCapacity为0时使用默认预分配，后续按需增长。
+B2_API b2Recording* b2CreateRecording( int byteCapacity );
+B2_API void b2DestroyRecording( b2Recording* recording );
+/// 指针在下一次录制调用或销毁之前有效。
+B2_API const uint8_t* b2Recording_GetData( const b2Recording* recording );
+B2_API int b2Recording_GetSize( const b2Recording* recording );

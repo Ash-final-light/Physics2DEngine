@@ -70,3 +70,16 @@ void b2RecW_SHAPEPROXY( b2RecBuffer* buf, b2ShapeProxy v );
 void b2RecW_RAYRESULT( b2RecBuffer* buf, b2RayResult v );
 void b2RecW_PLANERESULT( b2RecBuffer* buf, b2PlaneResult v );
 void b2RecW_TREESTATS( b2RecBuffer* buf, b2TreeStats v );
+
+// 用户持有的录制缓冲区。录制期间世界向其中追加；由用户保存并销毁。在公开 API 中不透明。
+typedef struct b2Recording
+{
+	b2RecBuffer buffer;
+	int recordStart; // 供 u24 回填的 3 字节大小字段偏移
+	b2Mutex* lock;	 // 跨并发查询线程串行化查询记录提交
+
+	// 每个已录制步的世界包围盒并集，在停止时写出，以便回放框住整个运动。
+	// haveBounds 以与 b2World_GetBounds 相同的方式门控第一次并集。
+	b2AABB accumulatedBounds;
+	bool haveBounds;
+} b2Recording;
