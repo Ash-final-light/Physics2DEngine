@@ -155,6 +155,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     contact->setIndex=(bodyA->setIndex==b2_awakeSet || bodyB->setIndex==b2_awakeSet)?b2_awakeSet:b2_disabledSet;
     if((bodyA->flags&b2_bodyEnableContactRecycling)!=0 && (bodyB->flags&b2_bodyEnableContactRecycling)!=0)
     { contact->flags|=b2_contactRecycleFlag; }
+    if(a->enableContactEvents || b->enableContactEvents) { contact->flags|=b2_contactEnableContactEvents; }
     contact->colorIndex = B2_NULL_INDEX;
     b2SolverSet* set=world->solverSets.data+contact->setIndex;
     contact->localIndex=set->contactSims.count;
@@ -192,9 +193,19 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     b2AddKey(&world->broadPhase.pairSet,key);
 }
 
+static void b2EmitContactEnd(b2World* world,const b2Contact* contact)
+{
+    if((contact->flags&b2_contactEnableContactEvents)==0) { return; }
+    const b2Shape* a=world->shapes.data+contact->shapeIdA;const b2Shape* b=world->shapes.data+contact->shapeIdB;
+    b2ContactEndTouchEvent event={b2ShapeId{a->id+1,world->worldId,a->generation},b2ShapeId{b->id+1,world->worldId,b->generation},
+        b2ContactId{contact->contactId+1,world->worldId,0,contact->generation}};
+    b2Array_Push(world->contactEndEvents[world->endEventArrayIndex],event);
+}
+
 void b2DestroyContact( b2World* world, b2Contact* contact )
 {
     bool touching=(contact->flags&b2_contactTouchingFlag)!=0;
+    if(touching) { b2EmitContactEnd(world,contact); }
     b2Body* bodyA=world->bodies.data+contact->edges[0].bodyId;
     b2Body* bodyB=world->bodies.data+contact->edges[1].bodyId;
     if(contact->islandId!=B2_NULL_INDEX) { b2UnlinkContact(world,contact); }
@@ -440,6 +451,12 @@ void b2UpdateContacts( b2World* world )
         else { contact->flags &= ~b2_contactTouchingFlag; }
         if(touching && !wasTouching)
         {
+            if(contact->flags&b2_contactEnableContactEvents)
+            {
+                b2ContactBeginTouchEvent event={b2ShapeId{a->id+1,world->worldId,a->generation},b2ShapeId{b->id+1,world->worldId,b->generation},
+                    b2ContactId{contact->contactId+1,world->worldId,0,contact->generation}};
+                b2Array_Push(world->contactBeginEvents,event);
+            }
             b2LinkContact(world,contact);
             // Linking can wake an entire set and relocate contact arrays.
             b2ContactSim copy=*b2GetContactSim(world,contact);
@@ -452,6 +469,7 @@ void b2UpdateContacts( b2World* world )
         }
         else if(!touching && wasTouching)
         {
+            b2EmitContactEnd(world,contact);
             b2UnlinkContact(world,contact);
             b2ContactSim copy=*b2GetContactSim(world,contact);
             b2RemoveContactFromGraph(world,bodyA->id,bodyB->id,contact->colorIndex,contact->localIndex);

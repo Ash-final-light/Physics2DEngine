@@ -141,6 +141,7 @@ typedef struct b2ShapeDef
     b2SurfaceMaterial material;
     float density;
     b2Filter filter;
+    bool enableContactEvents;
     bool invokeContactCreation;
     bool updateBodyMass;
     int internalValue;
@@ -231,6 +232,49 @@ B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
 B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
+typedef struct b2ContactBeginTouchEvent
+{
+	/// 第一个形状的 id
+	b2ShapeId shapeIdA;
+
+	/// 第二个形状的 id
+	b2ShapeId shapeIdB;
+
+	/// 瞬时接触 id。当世界被修改或仿真时，此接触可能被自动销毁。
+	/// 使用此前请用 b2Contact_IsValid 校验。
+	b2ContactId contactId;
+} b2ContactBeginTouchEvent;
+
+/// 当两个形状停止接触时生成结束触摸事件。若你在上一世界步进之前做了任何销毁接触的事，
+/// 也会得到结束事件。这些包括设置变换、销毁刚体或形状，或更改过滤器或刚体类型。
+typedef struct b2ContactEndTouchEvent
+{
+	/// 第一个形状的 id
+	/// @warning 此形状可能已被销毁
+	/// @see b2Shape_IsValid
+	b2ShapeId shapeIdA;
+
+	/// 第二个形状的 id
+	/// @warning 此形状可能已被销毁
+	/// @see b2Shape_IsValid
+	b2ShapeId shapeIdB;
+
+	/// 接触的 id。
+	/// @warning 此接触可能已被销毁
+	/// @see b2Contact_IsValid
+	b2ContactId contactId;
+} b2ContactEndTouchEvent;
+typedef struct b2ContactEvents
+{
+    b2ContactBeginTouchEvent* beginEvents;
+    b2ContactEndTouchEvent* endEvents;
+    int beginCount;
+    int endCount;
+} b2ContactEvents;
+B2_API b2ContactEvents b2World_GetContactEvents(b2WorldId worldId);
+B2_API void b2Shape_EnableContactEvents(b2ShapeId shapeId,bool flag);
+B2_API bool b2Shape_AreContactEventsEnabled(b2ShapeId shapeId);
+B2_API void b2Body_EnableContactEvents(b2BodyId bodyId,bool flag);
 typedef struct b2BodyMoveEvent
 {
 	/// 刚体用户数据。

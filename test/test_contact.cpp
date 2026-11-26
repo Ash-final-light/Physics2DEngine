@@ -211,3 +211,34 @@ int ContactRecycleTest(void)
     ENSURE(b2GetContactSim(world,contact)->manifold.pointCount==1);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ContactTouchEventsTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+id.index1-1;b2World_SetContactRecycleDistance(id,0);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2BodyId a=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();ENSURE(!sd.enableContactEvents);sd.enableContactEvents=true;b2Circle c={{0,0},1};b2ShapeId sa=b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);sd.enableContactEvents=false;b2ShapeId sb=b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.001f,1);b2ContactEvents events=b2World_GetContactEvents(id);ENSURE(events.beginCount==1 && events.endCount==0);
+    b2ContactId contact=events.beginEvents[0].contactId;ENSURE(b2Contact_IsValid(contact));
+    ENSURE(events.beginEvents[0].shapeIdA.index1==sa.index1 && events.beginEvents[0].shapeIdB.index1==sb.index1);
+    world->locked=true;ENSURE(b2World_GetContactEvents(id).beginCount==0);world->locked=false;
+    b2World_Step(id,0.001f,1);events=b2World_GetContactEvents(id);ENSURE(events.beginCount==0 && events.endCount==0);
+    b2Body_SetTransform(b,{2.03f,0},b2Rot_identity);b2World_Step(id,0.001f,1);events=b2World_GetContactEvents(id);
+    ENSURE(events.beginCount==0 && events.endCount==1 && b2Contact_IsValid(contact));ENSURE(events.endEvents[0].contactId.generation==contact.generation);
+    b2World_Step(id,0.001f,1);events=b2World_GetContactEvents(id);ENSURE(events.beginCount==0 && events.endCount==0);
+    b2Body_SetTransform(b,{2,0},b2Rot_identity);b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).beginCount==1);
+    b2DestroyShape(sa,true);ENSURE(!b2Contact_IsValid(contact));b2World_Step(id,0.001f,1);events=b2World_GetContactEvents(id);
+    ENSURE(events.endCount==1 && events.beginCount==0);ENSURE(!b2Shape_IsValid(events.endEvents[0].shapeIdA));
+    b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).endCount==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // Enabling applies to shapes and new contacts; default contacts remain silent.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;a=b2CreateBody(id,&bd);sd=b2DefaultShapeDef();sa=b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={2,0};b=b2CreateBody(id,&bd);sb=b2CreateCircleShape(b,&sd,&c);
+    b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).beginCount==0);
+    b2Body_EnableContactEvents(a,true);ENSURE(b2Shape_AreContactEventsEnabled(sa));
+    b2Shape_EnableContactEvents(sb,true);ENSURE(b2Shape_AreContactEventsEnabled(sb));
+    b2Filter filter=b2DefaultFilter();filter.maskBits=0;b2Shape_SetFilter(sa,filter);b2Shape_SetFilter(sa,b2DefaultFilter());
+    b2World_Step(id,0.001f,1);ENSURE(b2World_GetContactEvents(id).beginCount==1);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

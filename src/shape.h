@@ -19,6 +19,7 @@ struct b2Shape
     b2AABB aabb;
     b2Filter filter;
     void* userData;
+    bool enableContactEvents;
     union
     {
         b2Circle circle;

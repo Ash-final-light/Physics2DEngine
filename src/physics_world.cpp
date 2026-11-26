@@ -78,6 +78,9 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->contactIdPool = b2CreateIdPool();
 	b2Array_Create( world->contacts );
 	b2Array_CreateN(world->bodyMoveEvents,4);
+	b2Array_CreateN(world->contactBeginEvents,4);
+	b2Array_CreateN(world->contactEndEvents[0],4);
+	b2Array_CreateN(world->contactEndEvents[1],4);
 	world->islandIdPool=b2CreateIdPool();
 	b2Array_Create(world->islands);
 	b2CreateSolverSets( world );
@@ -99,6 +102,9 @@ void b2DestroyWorld( b2WorldId worldId )
 	}
 
 	b2Array_Destroy(world->bodyMoveEvents);
+	b2Array_Destroy(world->contactBeginEvents);
+	b2Array_Destroy(world->contactEndEvents[0]);
+	b2Array_Destroy(world->contactEndEvents[1]);
 	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase( &world->broadPhase );
 	b2Array_Destroy( world->contacts );
@@ -183,6 +189,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
         return;
     }
     b2Array_Clear(world->bodyMoveEvents);
+    b2Array_Clear(world->contactBeginEvents);
     for(int i=0;i<world->bodies.count;++i) { world->bodies.data[i].bodyMoveIndex=B2_NULL_INDEX; }
     uint64_t stepTicks=b2GetTicks();world->profile=b2Profile{};
     world->locked = true;
@@ -208,6 +215,8 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     b2SplitContactIslands( world );world->profile.splitIslands=b2GetMillisecondsAndReset(&stageTicks);
     b2SolveFreeBodies( world, timeStep, subStepCount );world->profile.solve=b2GetMillisecondsAndReset(&stageTicks);
     world->maxCapacity.arenaByteCount=b2MaxInt(world->maxCapacity.arenaByteCount,b2GetMaxStackAllocation(&world->stack));
+    world->endEventArrayIndex=1-world->endEventArrayIndex;
+    b2Array_Clear(world->contactEndEvents[world->endEventArrayIndex]);
     world->profile.step=b2GetMilliseconds(stepTicks);
     world->locked = false;
 }
@@ -424,6 +433,8 @@ void b2World_DumpMemoryStats(b2WorldId id)
     fprintf(file,"\nconstraint graph\n");b2WriteMemoryStat(file,"body bit sets",bitBytes,&total);b2WriteMemoryStat(file,"contact sim",graphBytes,&total);
     fprintf(file,"\n");b2WriteMemoryStat(file,"stack allocator",world->stack.capacity,&total);
     fprintf(file,"\nevents\n");b2WriteMemoryStat(file,"body moves",b2Array_ByteCount(world->bodyMoveEvents),&total);
+    b2WriteMemoryStat(file,"contact begins",b2Array_ByteCount(world->contactBeginEvents),&total);
+    b2WriteMemoryStat(file,"contact ends",b2Array_ByteCount(world->contactEndEvents[0])+b2Array_ByteCount(world->contactEndEvents[1]),&total);
     fprintf(file,"\ntotal: %d\n",total);fclose(file);
 }
 
@@ -431,4 +442,11 @@ b2BodyEvents b2World_GetBodyEvents(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return b2BodyEvents{}; }
     return b2BodyEvents{world->bodyMoveEvents.data,world->bodyMoveEvents.count};
+}
+
+b2ContactEvents b2World_GetContactEvents(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return b2ContactEvents{}; }
+    b2DynamicArray<b2ContactEndTouchEvent>* ends=world->contactEndEvents+(1-world->endEventArrayIndex);
+    return b2ContactEvents{world->contactBeginEvents.data,ends->data,world->contactBeginEvents.count,ends->count};
 }
