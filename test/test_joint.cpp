@@ -72,3 +72,16 @@ int DistanceJointBasicTest(void)
  for(int i=0;i<30;++i) { b2World_Step(id,0.01f,4); }ENSURE(b2IsValidFloat(b2DistanceJoint_GetCurrentLength(joint)));
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int DistanceJointSpringTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId anchor=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={3,0};b2BodyId bob=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=1/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(bob,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();ENSURE(!def.enableSpring && def.lowerSpringForce==-FLT_MAX && def.upperSpringForce==FLT_MAX);def.base.bodyIdA=anchor;def.base.bodyIdB=bob;def.length=1;def.enableSpring=true;def.hertz=2;def.dampingRatio=0.7f;b2JointId joint=b2CreateDistanceJoint(id,&def);ENSURE(b2DistanceJoint_IsSpringEnabled(joint));ENSURE(b2DistanceJoint_GetSpringHertz(joint)==2 && b2DistanceJoint_GetSpringDampingRatio(joint)==0.7f);
+ for(int i=0;i<240;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);
+ b2World_EnableWarmStarting(id,false);b2DistanceJoint_SetSpringHertz(joint,5);b2DistanceJoint_SetSpringDampingRatio(joint,1);b2DistanceJoint_SetSpringForceRange(joint,-2,3);float lower,upper;b2DistanceJoint_GetSpringForceRange(joint,&lower,&upper);ENSURE(lower==-2 && upper==3);
+ b2Body_SetTransform(bob,{3,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{0,0});b2World_Step(id,0.01f,1);ENSURE_SMALL(b2DistanceJoint_GetSpringForce(joint)+2,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x+0.02f,0.0001f);
+ b2Body_SetTransform(bob,{0.5f,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{0,0});b2World_Step(id,0.01f,1);ENSURE_SMALL(b2DistanceJoint_GetSpringForce(joint)-3,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x-0.03f,0.0001f);
+ b2DistanceJoint_SetSpringHertz(joint,0);b2Body_SetTransform(bob,{3,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{1,0});b2World_Step(id,0.1f,1);ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-3.1f,0.0001f);
+ b2DistanceJoint_EnableSpring(joint,false);ENSURE(!b2DistanceJoint_IsSpringEnabled(joint));for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);ENSURE(b2DistanceJoint_GetSpringForce(joint)==0);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

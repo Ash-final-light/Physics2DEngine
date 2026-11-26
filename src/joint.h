@@ -53,6 +53,9 @@ typedef struct b2Joint
 struct b2DistanceJoint
 {
  float length;
+ float hertz,dampingRatio,lowerSpringForce,upperSpringForce;
+ bool enableSpring;
+ b2Softness distanceSoftness;
  float impulse;
  int indexA,indexB;
  b2Vec2 anchorA,anchorB,deltaCenter;

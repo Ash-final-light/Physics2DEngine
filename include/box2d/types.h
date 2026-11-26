@@ -935,6 +935,9 @@ typedef struct b2DistanceJointDef
 {
  b2JointDef base;
  float length;
+ bool enableSpring;
+ float lowerSpringForce,upperSpringForce;
+ float hertz,dampingRatio;
  int internalValue;
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
@@ -948,3 +951,13 @@ B2_API b2Transform b2Joint_GetLocalFrameB(b2JointId jointId);
 B2_API void b2DistanceJoint_SetRestLength(b2JointId jointId,float length);
 B2_API float b2DistanceJoint_GetRestLength(b2JointId jointId);
 B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);
+
+B2_API void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring );
+B2_API bool b2DistanceJoint_IsSpringEnabled( b2JointId jointId );
+B2_API void b2DistanceJoint_SetSpringForceRange( b2JointId jointId, float lowerForce, float upperForce );
+B2_API void b2DistanceJoint_GetSpringForceRange( b2JointId jointId, float* lowerForce, float* upperForce );
+B2_API void b2DistanceJoint_SetSpringHertz( b2JointId jointId, float hertz );
+B2_API void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2DistanceJoint_GetSpringHertz( b2JointId jointId );
+B2_API float b2DistanceJoint_GetSpringDampingRatio( b2JointId jointId );
+B2_API float b2DistanceJoint_GetSpringForce( b2JointId jointId );

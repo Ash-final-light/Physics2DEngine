@@ -100,6 +100,7 @@ void b2PrepareDistanceJoint( b2JointSim* base, b2StepContext* context )
 	float crB = b2Cross( rB, axis );
 	float k = mA + mB + iA * crA * crA + iB * crB * crB;
 	joint->axialMass = k > 0.0f ? 1.0f / k : 0.0f;
+	joint->distanceSoftness=b2MakeSoft(joint->hertz,joint->dampingRatio,context->h);
 
 
 	if ( context->world->enableWarmStarting == false )
@@ -179,6 +180,37 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 	float length = b2Length( separation );
 	b2Vec2 axis = b2Normalize( separation );
 
+	// 关节为软约束，若
+	// - 弹簧已启用
+	// - 且（关节限位禁用或限位上下限不相等）
+	if ( joint->enableSpring )
+	{
+		// 弹簧
+		if ( joint->hertz > 0.0f )
+		{
+			// Cdot = dot(u, v + cross(w, r))
+			b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
+			float cdot = b2Dot( axis, vr );
+			float c = length - joint->length;
+			float bias = joint->distanceSoftness.biasRate * c;
+
+			float m = joint->distanceSoftness.massScale * joint->axialMass;
+			float oldImpulse = joint->impulse;
+			float impulse = -m * ( cdot + bias ) - joint->distanceSoftness.impulseScale * oldImpulse;
+
+			float h = context->h;
+			joint->impulse = b2ClampFloat( joint->impulse + impulse, joint->lowerSpringForce * h, joint->upperSpringForce * h );
+			impulse = joint->impulse - oldImpulse;
+
+			b2Vec2 P = b2MulSV( impulse, axis );
+			vA = b2MulSub( vA, mA, P );
+			wA -= iA * b2Cross( rA, P );
+			vB = b2MulAdd( vB, mB, P );
+			wB += iB * b2Cross( rB, P );
+		}
+
+	}
+	else
 	{
 		// 刚约束
 		b2Vec2 vr = b2Add( b2Sub( vB, vA ), b2Sub( b2CrossSV( wB, rB ), b2CrossSV( wA, rA ) ) );
@@ -217,4 +249,81 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 		stateB->linearVelocity = vB;
 		stateB->angularVelocity = wB;
 	}
+}
+
+void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	base->distanceJoint.enableSpring = enableSpring;
+}
+
+bool b2DistanceJoint_IsSpringEnabled( b2JointId jointId )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	return base->distanceJoint.enableSpring;
+}
+
+void b2DistanceJoint_SetSpringForceRange( b2JointId jointId, float lowerForce, float upperForce )
+{
+	if (!(b2IsValidFloat( lowerForce ))) { return; }
+	if (!(b2IsValidFloat( upperForce ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	B2_ASSERT( lowerForce <= upperForce );
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	base->distanceJoint.lowerSpringForce = b2MinFloat( lowerForce, upperForce );
+	base->distanceJoint.upperSpringForce = b2MaxFloat( lowerForce, upperForce );
+}
+
+void b2DistanceJoint_GetSpringForceRange( b2JointId jointId, float* lowerForce, float* upperForce )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	*lowerForce = base->distanceJoint.lowerSpringForce;
+	*upperForce = base->distanceJoint.upperSpringForce;
+}
+
+void b2DistanceJoint_SetSpringHertz( b2JointId jointId, float hertz )
+{
+	if (!(b2IsValidFloat( hertz ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	base->distanceJoint.hertz = hertz;
+}
+
+void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
+{
+	if (!(b2IsValidFloat( dampingRatio ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	base->distanceJoint.dampingRatio = dampingRatio;
+}
+
+float b2DistanceJoint_GetSpringHertz( b2JointId jointId )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->hertz;
+}
+
+float b2DistanceJoint_GetSpringDampingRatio( b2JointId jointId )
+{
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	return joint->dampingRatio;
+}
+
+float b2DistanceJoint_GetSpringForce( b2JointId jointId )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
+	b2DistanceJoint* joint = &base->distanceJoint;
+	if ( joint->enableSpring )
+	{
+		return joint->impulse * world->inv_h;
+	}
+
+	return 0.0f;
 }

@@ -404,6 +404,7 @@ b2DistanceJointDef b2DefaultDistanceJointDef( void )
 {
 	b2DistanceJointDef def = {};
 	def.base = b2DefaultJointDef();
+	def.lowerSpringForce=-FLT_MAX;def.upperSpringForce=FLT_MAX;
 	def.length = 1.0f;
 	def.internalValue = B2_SECRET_COOKIE;
 	return def;
@@ -441,9 +442,14 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def)
 {
  B2_CHECK_DEF(def);
  if(!b2World_IsValid(worldId) || !b2IsValidFloat(def->length) || def->length<=0 || !b2IsValidTransform(def->base.localFrameA) || !b2IsValidTransform(def->base.localFrameB) || !b2IsValidFloat(def->base.constraintHertz) || def->base.constraintHertz<0 || !b2IsValidFloat(def->base.constraintDampingRatio) || def->base.constraintDampingRatio<0 || !b2IsValidFloat(def->base.drawScale)) { return b2_nullJointId; }
+ if(!b2IsValidFloat(def->hertz) || !b2IsValidFloat(def->dampingRatio) || !b2IsValidFloat(def->lowerSpringForce) || !b2IsValidFloat(def->upperSpringForce)) { return b2_nullJointId; }
  b2World* world=b2_worlds+worldId.index1-1;const b2JointDef* base=&def->base;
  if(!world->inUse || world->locked || base->bodyIdA.world0!=world->worldId || base->bodyIdB.world0!=world->worldId || base->bodyIdA.index1==base->bodyIdB.index1 || !b2Body_IsValid(base->bodyIdA) || !b2Body_IsValid(base->bodyIdB)) { return b2_nullJointId; }
  b2JointPair pair=b2CreateJoint(world,base,b2_distanceJoint);pair.jointSim->distanceJoint={};pair.jointSim->distanceJoint.length=b2MaxFloat(def->length,B2_LINEAR_SLOP);
+
+ pair.jointSim->distanceJoint.enableSpring=def->enableSpring;pair.jointSim->distanceJoint.hertz=def->hertz;pair.jointSim->distanceJoint.dampingRatio=def->dampingRatio;
+ pair.jointSim->distanceJoint.lowerSpringForce=b2MinFloat(def->lowerSpringForce,def->upperSpringForce);pair.jointSim->distanceJoint.upperSpringForce=b2MaxFloat(def->lowerSpringForce,def->upperSpringForce);
+
  return b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
 }
 b2JointType b2Joint_GetType(b2JointId id) { return b2GetJointFullId(b2_worlds+id.world0,id)->type; }
