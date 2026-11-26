@@ -8,6 +8,12 @@
 #include "id.h"
 #include "math_types.h"
 
+typedef void b2PreSolveCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Manifold* manifold,void* context);
+typedef bool b2PreContinuousCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Pos point,b2Vec2 normal,void* context);
+B2_API void b2World_SetPreSolveCallback(b2WorldId worldId,b2PreSolveCallbackFcn* preSolveFcn,b2PreContinuousCallbackFcn* preContinuousFcn,void* context);
+B2_API void b2Shape_EnablePreSolveEvents(b2ShapeId shapeId,bool flag);
+B2_API bool b2Shape_ArePreSolveEventsEnabled(b2ShapeId shapeId);
+
 typedef bool b2CustomFilterCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,void* context);
 B2_API void b2World_SetCustomFilterCallback(b2WorldId worldId,b2CustomFilterCallbackFcn* fcn,void* context);
 
@@ -149,6 +155,7 @@ typedef struct b2ShapeDef
     bool enableSensorEvents;
     bool enableContactEvents;
     bool enableHitEvents;
+    bool enablePreSolveEvents;
     bool invokeContactCreation;
     bool updateBodyMass;
     int internalValue;

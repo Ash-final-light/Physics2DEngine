@@ -153,7 +153,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     b2Body* bodyA=world->bodies.data+a->bodyId;
     b2Body* bodyB=world->bodies.data+b->bodyId;
     contact->setIndex=(bodyA->setIndex==b2_awakeSet || bodyB->setIndex==b2_awakeSet)?b2_awakeSet:b2_disabledSet;
-    if((bodyA->flags&b2_bodyEnableContactRecycling)!=0 && (bodyB->flags&b2_bodyEnableContactRecycling)!=0)
+    if((bodyA->flags&b2_bodyEnableContactRecycling)!=0 && (bodyB->flags&b2_bodyEnableContactRecycling)!=0 && !a->enablePreSolveEvents && !b->enablePreSolveEvents)
     { contact->flags|=b2_contactRecycleFlag; }
     if(a->enableContactEvents || b->enableContactEvents) { contact->flags|=b2_contactEnableContactEvents; }
     contact->colorIndex = B2_NULL_INDEX;
@@ -163,6 +163,7 @@ void b2CreateContact( b2World* world, b2Shape* a, b2Shape* b )
     *sim = b2ContactSim{};
     sim->contactId = id;
     sim->simFlags=contact->flags;
+    if(a->enablePreSolveEvents || b->enablePreSolveEvents) { sim->simFlags|=b2_simEnablePreSolveEvents; }
     sim->shapeIdA = a->id;
     sim->shapeIdB = b->id;
 #if B2_ENABLE_VALIDATION
@@ -326,17 +327,24 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
     for ( int i = 0; i < local.pointCount; ++i )
     {
         b2ManifoldPoint* point = sim->manifold.points+i;
-        point->anchorA = b2Sub(b2RotateVector(transformA.q,local.points[i].point),centerOffsetA);
-        point->anchorB = b2Sub(b2Add(b2RotateVector(transformA.q,local.points[i].point),originDelta),centerOffsetB);
+        point->anchorA = b2RotateVector(transformA.q,local.points[i].point);
+        point->anchorB = b2Add(b2RotateVector(transformA.q,local.points[i].point),originDelta);
         point->separation = local.points[i].separation;
         point->id = local.points[i].id;
     }
-    if ( local.pointCount > 0 )
+    if(sim->manifold.pointCount>0 && world->preSolveFcn!=NULL && (sim->simFlags&b2_simEnablePreSolveEvents)!=0)
+    {
+        b2ShapeId idA={a->id+1,world->worldId,a->generation},idB={b->id+1,world->worldId,b->generation};
+        world->preSolveFcn(idA,idB,&sim->manifold,world->preSolveContext);
+        if(sim->manifold.pointCount==0) { sim->simFlags&=~b2_simRelativeTransformValid; }
+    }
+    if ( sim->manifold.pointCount > 0 )
     {
         sim->manifold.rollingImpulse = old.rollingImpulse;
-        for ( int i = 0; i < local.pointCount; ++i )
+        for ( int i = 0; i < sim->manifold.pointCount; ++i )
         {
             b2ManifoldPoint* point = sim->manifold.points+i;
+            point->anchorA=b2Sub(point->anchorA,centerOffsetA);point->anchorB=b2Sub(point->anchorB,centerOffsetB);
             for ( int j = 0; j < old.pointCount; ++j )
             {
                 if ( old.points[j].id == point->id )
@@ -349,7 +357,7 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
             }
         }
     }
-    bool touching = local.pointCount > 0;
+    bool touching = sim->manifold.pointCount > 0;
     if(touching && (a->enableHitEvents || b->enableHitEvents)) { sim->simFlags|=b2_simEnableHitEvent; }
     else { sim->simFlags&=~b2_simEnableHitEvent; }
     if ( touching ) { sim->simFlags |= b2_simTouchingFlag; }

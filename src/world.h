@@ -53,6 +53,9 @@ struct b2World
 	float contactDampingRatio;
 	float contactSpeed;
 	float maxLinearSpeed;
+	b2PreSolveCallbackFcn* preSolveFcn;
+	b2PreContinuousCallbackFcn* preContinuousFcn;
+	void* preSolveContext;
 	b2CustomFilterCallbackFcn* customFilterFcn;
 	void* customFilterContext;
 	b2FrictionCallbackFcn* frictionCallback;

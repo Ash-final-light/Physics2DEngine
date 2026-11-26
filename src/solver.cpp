@@ -96,6 +96,11 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
         if(0.0f<output.fraction && output.fraction<continuousContext->fraction)
         { hitFraction=output.fraction;didHit=true; }
     }
+    if(didHit && (shape->enablePreSolveEvents || fastShape->enablePreSolveEvents) && world->preContinuousFcn!=NULL)
+    {
+        b2ShapeId idA={shape->id+1,world->worldId,shape->generation},idB={fastShape->id+1,world->worldId,fastShape->generation};
+        didHit=world->preContinuousFcn(idA,idB,b2Add(continuousContext->base,output.point),output.normal,world->preSolveContext);
+    }
     if(didHit) { continuousContext->fraction=hitFraction; }
     return true;
 }

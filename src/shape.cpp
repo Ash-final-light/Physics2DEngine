@@ -173,6 +173,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     shape->enableCustomFiltering=def->enableCustomFiltering;
     shape->sensorIndex=B2_NULL_INDEX;
     shape->enableHitEvents=def->enableHitEvents;
+    shape->enablePreSolveEvents=def->enablePreSolveEvents;
     shape->prevShapeId = B2_NULL_INDEX;
     shape->nextShapeId = body->headShapeId;
     if ( body->headShapeId != B2_NULL_INDEX )
@@ -1044,4 +1045,84 @@ int b2Shape_GetSensorData(b2ShapeId id,b2ShapeId* output,int capacity)
     int count=b2MinInt(sensor->overlaps2.count,capacity);
     for(int i=0;i<count;++i) { output[i]={sensor->overlaps2.data[i].shapeId+1,id.world0,sensor->overlaps2.data[i].generation}; }
     return count;
+}
+
+void b2Shape_EnablePreSolveEvents( b2ShapeId shapeId, bool flag )
+{
+	b2World* world = b2Shape_IsValid(shapeId)?b2_worlds+shapeId.world0:NULL;
+	if ( world == NULL || world->locked )
+	{
+		return;
+	}
+
+
+	b2Shape* shape = b2GetShapeFromId(shapeId);
+	if ( shape->enablePreSolveEvents == flag )
+	{
+		return;
+	}
+
+	shape->enablePreSolveEvents = flag;
+
+	// 刷新接触上的缓存标志。
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	int contactKey = body->headContactKey;
+	while ( contactKey != B2_NULL_INDEX )
+	{
+		int contactId = contactKey >> 1;
+		int edgeIndex = contactKey & 1;
+
+		b2Contact* contact = b2Array_Get( world->contacts, contactId );
+
+		if ( contact->shapeIdA == shape->id || contact->shapeIdB == shape->id )
+		{
+			b2Shape* shapeA = b2Array_Get( world->shapes, contact->shapeIdA );
+			b2Shape* shapeB = b2Array_Get( world->shapes, contact->shapeIdB );
+			b2Body* bodyA = b2Array_Get( world->bodies, shapeA->bodyId );
+			b2Body* bodyB = b2Array_Get( world->bodies, shapeB->bodyId );
+
+			bool recycle = ( bodyA->flags & b2_bodyEnableContactRecycling ) != 0 &&
+						   ( bodyB->flags & b2_bodyEnableContactRecycling ) != 0 &&
+						   shapeA->enablePreSolveEvents == false &&
+						   shapeB->enablePreSolveEvents == false;
+
+			if ( recycle )
+			{
+				contact->flags |= b2_contactRecycleFlag;
+			}
+			else
+			{
+				contact->flags &= ~b2_contactRecycleFlag;
+			}
+
+			b2ContactSim* contactSim = b2GetContactSim( world, contact );
+
+			if ( recycle )
+			{
+				contactSim->simFlags |= b2_contactRecycleFlag;
+			}
+			else
+			{
+				contactSim->simFlags &= ~b2_contactRecycleFlag;
+			}
+
+			if ( shapeA->enablePreSolveEvents || shapeB->enablePreSolveEvents )
+			{
+				contactSim->simFlags |= b2_simEnablePreSolveEvents;
+			}
+			else
+			{
+				contactSim->simFlags &= ~b2_simEnablePreSolveEvents;
+			}
+		}
+
+		contactKey = contact->edges[edgeIndex].nextKey;
+	}
+}
+
+bool b2Shape_ArePreSolveEventsEnabled( b2ShapeId shapeId )
+{
+	b2World* world=b2_worlds+shapeId.world0;
+	b2Shape* shape = b2GetShapeFromId(shapeId);
+	return shape->enablePreSolveEvents;
 }

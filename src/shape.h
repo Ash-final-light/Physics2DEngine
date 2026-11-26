@@ -24,6 +24,7 @@ struct b2Shape
     bool enableSensorEvents;
     bool enableCustomFiltering;
     bool enableHitEvents;
+    bool enablePreSolveEvents;
     union
     {
         b2Circle circle;

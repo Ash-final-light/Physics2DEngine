@@ -314,3 +314,40 @@ int CustomCollisionFilterTest(void)
     state.allow=true;b2Body_SetTransform(bullet,{-2,0},b2Rot_identity);b2Body_SetLinearVelocity(bullet,{100,0});b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(bullet).x<0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+struct PreSolveState { bool allow;bool valid;int calls;float anchor; };
+static void TestPreSolve(b2ShapeId a,b2ShapeId b,b2Manifold* manifold,void* context)
+{
+    PreSolveState* state=static_cast<PreSolveState*>(context);state->valid&=b2Shape_IsValid(a)&&b2Shape_IsValid(b)&&manifold->pointCount>0;
+    ++state->calls;state->anchor=manifold->points[0].anchorA.x;if(!state->allow) { manifold->pointCount=0; }
+}
+static bool TestPreContinuous(b2ShapeId a,b2ShapeId b,b2Pos point,b2Vec2 normal,void* context)
+{
+    PreSolveState* state=static_cast<PreSolveState*>(context);state->valid&=b2Shape_IsValid(a)&&b2Shape_IsValid(b)&&b2IsValidVec2(point)&&b2IsValidVec2(normal);++state->calls;return state->allow;
+}
+
+int PreSolveCallbackTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+id.index1-1;PreSolveState state={false,true,0,0};b2World_SetPreSolveCallback(id,TestPreSolve,NULL,&state);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={10,20};b2BodyId a=b2CreateBody(id,&bd);
+    b2ShapeDef sd=b2DefaultShapeDef();sd.enablePreSolveEvents=true;b2Circle c={{1,0},1};b2ShapeId shape=b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={12.5f,20};b2BodyId b=b2CreateBody(id,&bd);sd.enablePreSolveEvents=false;c.center={0,0};b2CreateCircleShape(b,&sd,&c);
+    for(int i=0;i<3;++i) { b2World_Step(id,0.001f,1); }
+    ENSURE(state.calls==3 && state.valid);ENSURE_SMALL(state.anchor-1.75f,0.00001f);
+    ENSURE(b2Body_GetPosition(a).x==10 && world->contacts.data[0].colorIndex==B2_NULL_INDEX);
+    state.allow=true;b2World_Step(id,0.001f,1);ENSURE(state.calls==4 && world->contacts.data[0].colorIndex!=B2_NULL_INDEX);
+    ENSURE_SMALL(b2GetContactSim(world,world->contacts.data)->manifold.points[0].anchorA.x-0.75f,0.00001f);
+    b2Shape_EnablePreSolveEvents(shape,false);ENSURE(!b2Shape_ArePreSolveEventsEnabled(shape));
+    b2World_Step(id,0.001f,1);ENSURE(state.calls==4);
+    b2Shape_EnablePreSolveEvents(shape,true);state.allow=false;b2World_Step(id,0.001f,1);ENSURE(state.calls==5 && world->contacts.data[0].colorIndex==B2_NULL_INDEX);
+    b2World_SetPreSolveCallback(id,NULL,NULL,NULL);b2World_Step(id,0.001f,1);ENSURE(state.calls==5 && world->contacts.data[0].colorIndex!=B2_NULL_INDEX);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    id=b2CreateWorld(&wd);state={false,true,0,0};b2World_SetPreSolveCallback(id,NULL,TestPreContinuous,&state);
+    bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};a=b2CreateBody(id,&bd);
+    sd=b2DefaultShapeDef();sd.enablePreSolveEvents=true;c={{0,0},0.1f};b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,0};b=b2CreateBody(id,&bd);b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(b,&sd,&wall);
+    b2World_Step(id,0.05f,1);ENSURE_SMALL(b2Body_GetPosition(a).x-3,0.00001f);ENSURE(state.calls>0 && state.valid);
+    state.allow=true;b2Body_SetTransform(a,{-2,0},b2Rot_identity);b2Body_SetLinearVelocity(a,{100,0});b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(a).x<0 && state.valid);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

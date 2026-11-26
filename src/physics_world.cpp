@@ -494,3 +494,9 @@ void b2World_SetCustomFilterCallback(b2WorldId id,b2CustomFilterCallbackFcn* fcn
 {
     b2World* world=b2GetWorldFromId(id);if(world==NULL) { return; }world->customFilterFcn=fcn;world->customFilterContext=context;
 }
+
+void b2World_SetPreSolveCallback(b2WorldId id,b2PreSolveCallbackFcn* preSolve,b2PreContinuousCallbackFcn* preContinuous,void* context)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL) { return; }
+    world->preSolveFcn=preSolve;world->preContinuousFcn=preContinuous;world->preSolveContext=context;
+}
