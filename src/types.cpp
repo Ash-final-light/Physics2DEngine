@@ -83,3 +83,10 @@ b2ChainDef b2DefaultChainDef( void )
 
 b2QueryFilter b2DefaultQueryFilter(void)
 { return b2QueryFilter{1,UINT64_MAX}; }
+
+b2ExplosionDef b2DefaultExplosionDef( void )
+{
+	b2ExplosionDef def = {};
+	def.maskBits = UINT64_MAX;
+	return def;
+}

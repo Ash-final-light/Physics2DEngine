@@ -166,3 +166,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2Shape_CastRay` 直接查询一个挂接形状，输入和命中点使用世界坐标，返回法线、分数及命中标记。
 
 `b2Shape_GetClosestPoint` 以目标世界位置为查询点，使用当前几何及圆角半径求最近点，并返回世界位置。
+
+`b2World_Explode` 按类别掩码选择动态形状，根据投影宽度计算冲量，并在指定衰减距离内降低作用；支持负值内爆。

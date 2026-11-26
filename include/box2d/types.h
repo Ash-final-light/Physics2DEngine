@@ -597,3 +597,29 @@ B2_API bool b2Shape_TestPoint(b2ShapeId shapeId,b2Pos point);
 B2_API b2WorldCastOutput b2Shape_CastRay(b2ShapeId shapeId,b2Pos origin,b2Vec2 translation);
 
 B2_API b2Pos b2Shape_GetClosestPoint(b2ShapeId shapeId,b2Pos target);
+
+typedef struct b2ExplosionDef
+{
+	/// 用于过滤形状的掩码位
+	uint64_t maskBits;
+
+	/// 爆炸中心，位于世界空间
+	b2Pos position;
+
+	/// 爆炸半径
+	float radius;
+
+	/// 超出半径的衰减距离。冲量在此距离处减为零。
+	float falloff;
+
+	/// 单位长度冲量。这根据面向爆炸的形状周长施加冲量。爆炸仅适用于圆、胶囊与多边形。
+	/// 可为负值表示内爆。
+	float impulsePerLength;
+} b2ExplosionDef;
+
+/// 用此初始化你的爆炸定义
+/// @ingroup world
+B2_API b2ExplosionDef b2DefaultExplosionDef( void );
+
+
+B2_API void b2World_Explode(b2WorldId worldId,const b2ExplosionDef* explosionDef);

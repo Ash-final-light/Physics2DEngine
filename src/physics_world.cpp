@@ -914,3 +914,127 @@ b2TreeStats b2World_CastShape( b2WorldId worldId, b2Pos origin, const b2ShapePro
 
 	return treeStats;
 }
+
+struct ExplosionContext
+{
+	b2World* world;
+	b2Pos position;
+	float radius;
+	float falloff;
+	float impulsePerLength;
+};
+
+static bool ExplosionCallback( int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+	struct ExplosionContext* explosionContext = static_cast<ExplosionContext *>( context );
+	b2World* world = explosionContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	B2_ASSERT( body->type == b2_dynamicBody );
+
+	b2WorldTransform xf = b2GetBodySim(world,body)->transform;
+
+	// 将爆炸重定心到形状局部坐标系，使远离原点时距离和方向仍精确。
+	// 下面全部在该近原点坐标系中运行。
+	b2Vec2 localPosition = b2InvTransformWorldPoint( xf, explosionContext->position );
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeShapeDistanceProxy( shape );
+	input.proxyB = b2MakeProxy( &localPosition, 1, 0.0f );
+	input.transform = b2Transform_identity;
+	input.useRadii = true;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput output = b2ComputeShapeDistance( &input, &cache, NULL, 0 );
+
+	float radius = explosionContext->radius;
+	float falloff = explosionContext->falloff;
+	if ( output.distance > radius + falloff )
+	{
+		return true;
+	}
+
+	b2WakeBody( world, body );
+
+	if ( body->setIndex != b2_awakeSet )
+	{
+		return true;
+	}
+
+	b2Vec2 closestPoint = output.pointA;
+	if ( output.distance == 0.0f )
+	{
+		closestPoint = b2GetShapeCentroid( shape );
+	}
+
+	b2Vec2 direction = b2Sub( closestPoint, localPosition );
+	if ( b2LengthSquared( direction ) > 100.0f * FLT_EPSILON * FLT_EPSILON )
+	{
+		direction = b2Normalize( direction );
+	}
+	else
+	{
+		direction = b2Vec2{ 1.0f, 0.0f };
+	}
+
+	b2Vec2 localLine = b2LeftPerp( direction );
+	float perimeter = b2GetShapeProjectedPerimeter( shape, localLine );
+	float scale = 1.0f;
+	if ( output.distance > radius && falloff > 0.0f )
+	{
+		scale = b2ClampFloat( ( radius + falloff - output.distance ) / falloff, 0.0f, 1.0f );
+	}
+
+	float magnitude = explosionContext->impulsePerLength * perimeter * scale;
+	b2Vec2 impulse = b2MulSV( magnitude, b2RotateVector( xf.q, direction ) );
+
+	int localIndex = body->localIndex;
+	b2SolverSet* set = b2Array_Get( world->solverSets, b2_awakeSet );
+	b2BodyState* state = b2Array_Get( set->bodyStates, localIndex );
+	b2BodySim* bodySim = b2Array_Get( set->bodySims, localIndex );
+	state->linearVelocity = b2MulAdd( state->linearVelocity, bodySim->invMass, impulse );
+
+	// 从质心到最近点的力臂，旋转到世界
+	b2Vec2 r = b2RotateVector( xf.q, b2Sub( closestPoint, bodySim->localCenter ) );
+	state->angularVelocity += bodySim->invInertia * b2Cross( r, impulse );
+
+	return true;
+}
+
+void b2World_Explode( b2WorldId worldId, const b2ExplosionDef* explosionDef )
+{
+	uint64_t maskBits = explosionDef->maskBits;
+	b2Pos position = explosionDef->position;
+	float radius = explosionDef->radius;
+	float falloff = explosionDef->falloff;
+	float impulsePerLength = explosionDef->impulsePerLength;
+
+	if (!b2IsValidVec2(position)) { return; }
+	if (!b2IsValidFloat(radius) || radius < 0.0f) { return; }
+	if (!b2IsValidFloat(falloff) || falloff < 0.0f) { return; }
+	if (!b2IsValidFloat(impulsePerLength)) { return; }
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked )
+	{
+		return;
+	}
+
+
+
+	struct ExplosionContext explosionContext = { world, position, radius, falloff, impulsePerLength };
+
+	// 粗检测树是 float，因此将局部查询盒向外取整平移到世界。
+	float extent = radius + falloff;
+	b2AABB localBox = { { -extent, -extent }, { extent, extent } };
+	b2AABB aabb = b2OffsetAABB( localBox, position );
+
+	b2DynamicTree_OverlapAABB( world->broadPhase.trees + b2_dynamicBody, aabb, maskBits, ExplosionCallback,
+							   &explosionContext );
+}

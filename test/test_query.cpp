@@ -154,3 +154,16 @@ int ShapeClosestPointTest(void)
  b2Body_SetTransform(body,{20,30},b2Rot_identity);p=b2Shape_GetClosestPoint(circle,{25,30});ENSURE_SMALL(p.x-22.5f,0.00001f);ENSURE_SMALL(p.y-30,0.00001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldExplosionTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+ b2BodyId bodies[6];b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};
+ for(int i=0;i<6;++i) { b2BodyDef bd=b2DefaultBodyDef();bd.type=i==3?b2_staticBody:b2_dynamicBody;bd.position={100+(i==1?4.0f:i==2?8.0f:2.0f),200};bd.isAwake=i!=0;bd.isEnabled=i!=5;bodies[i]=b2CreateBody(id,&bd);sd.filter.categoryBits=i==4?2:1;b2CreateCircleShape(bodies[i],&sd,&c); }
+ b2ExplosionDef e=b2DefaultExplosionDef();ENSURE(e.maskBits==UINT64_MAX && e.radius==0 && e.falloff==0 && e.impulsePerLength==0);
+ e.maskBits=1;e.position={100,200};e.radius=2;e.falloff=2;e.impulsePerLength=2;b2World_Explode(id,&e);
+ ENSURE(b2Body_IsAwake(bodies[0]));ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[0]).x-8/B2_PI,0.00001f);ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[1]).x-2/B2_PI,0.00001f);
+ for(int i=2;i<6;++i) { ENSURE(b2LengthSquared(b2Body_GetLinearVelocity(bodies[i]))==0); }
+ ENSURE(b2Body_GetAngularVelocity(bodies[0])==0);e.impulsePerLength=-2;b2World_Explode(id,&e);ENSURE_SMALL(b2Body_GetLinearVelocity(bodies[0]).x,0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
