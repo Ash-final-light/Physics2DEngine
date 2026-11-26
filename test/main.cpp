@@ -149,6 +149,8 @@ int WorldMoverPlanesTest( void );
 int WorldBoundsTest( void );
 int WorldDebugDrawTest( void );
 int WorldStaticTreeRebuildTest( void );
+int WorldStateHashTest( void );
+int WorldStateHashFreeSlotTest( void );
 int JointLifecycleTest( void );
 int JointDefinitionTest( void );
 int JointOrganizationTest( void );
@@ -790,6 +792,18 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( WorldIdTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "WorldStateHashTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( WorldStateHashTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "WorldStateHashFreeSlotTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( WorldStateHashFreeSlotTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "WorldUserDataTest" ) == 0 )

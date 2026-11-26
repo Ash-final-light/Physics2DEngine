@@ -40,6 +40,7 @@ add_library(box2d
 	parallel_for.cpp
 	scheduler.cpp
 	simd.cpp
+	state_hash.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

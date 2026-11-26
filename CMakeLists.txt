@@ -86,6 +86,7 @@ if(BUILD_TESTING)
 		test/test_contact_solver.cpp
 		test/test_shape.cpp
 		test/test_broad_phase.cpp
+		test/test_state_hash.cpp
 		test/contact_solver_scalar4.cpp
 		test/test_hull.cpp
 		test/toolchain_c.c
