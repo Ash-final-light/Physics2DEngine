@@ -6,6 +6,7 @@
 #include "world.h"
 #include "shape.h"
 #include "platform.h"
+#include "simd.h"
 #include "box2d/math_functions.h"
 
 #include <bit>
@@ -291,10 +292,7 @@ void b2BeginSolve(b2World* world,b2StepContext* context)
  B2_ASSERT(set->bodySims.count==set->bodyStates.count);
  context->graph=&world->constraintGraph;context->states=set->bodyStates.data;
  context->h=context->timeStep/(float)context->subStepCount;context->inv_h=1.0f/context->h;
- context->simdWidth=4;
- context->prepareContacts=b2PrepareContacts_WideW4;context->warmStartContacts=b2WarmStartContacts_WideW4;
- context->pushContacts=b2PushContacts_WideW4;context->solveContacts=b2SolveContacts_WideW4;
- context->applyRestitution=b2ApplyRestitution_WideW4;context->storeImpulses=b2StoreImpulses_WideW4;
+ b2SelectContactFunctions(context,b2GetSIMDWidth());
  context->solverStage=0;context->solverColor=0;context->solverStep=0;
  context->solverTimingActive=false;
  b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);

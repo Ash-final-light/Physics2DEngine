@@ -4,6 +4,7 @@
 #include "world.h"
 #include "platform.h"
 #include <cstring>
+#include "simd.h"
 
 void b2PrepareContactConstraints(b2StepContext* context)
 {
@@ -86,11 +87,11 @@ void b2PrepareContactConstraints(b2StepContext* context)
 
     if(context->simdWidth>0)
     {
-        int total=0,span=0;int bytes=b2GetWideContactConstraintByteCountW4();
+        int total=0,span=0;int bytes=b2GetWideContactConstraintByteCount(context->simdWidth);
         for(int c=0;c<B2_OVERFLOW_INDEX;++c)
         {
             b2GraphColor* color=context->graph->colors+c;
-            color->wideConstraintCount=(color->contactSims.count+3)/4;
+            color->wideConstraintCount=(color->contactSims.count+context->simdWidth-1)/context->simdWidth;
             if(color->contactSims.count>0)
             {
                 context->contactPrepareSpans[span++]={total,color->contactSims.count,color->contactSims.data};
@@ -104,7 +105,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
         {
             auto color=context->graph->colors+c;
             color->wideConstraints=color->wideConstraintCount?(char*)context->wideContactConstraints+base*bytes:nullptr;
-            if(color->contactSims.count%4!=0)
+            if(color->contactSims.count%context->simdWidth!=0)
             {
                 memset((char*)color->wideConstraints+(color->wideConstraintCount-1)*bytes,0,bytes);
             }
@@ -433,4 +434,31 @@ void b2ApplyContactRestitution(b2StepContext* context)
         b2ApplyRestitutionColor(context,B2_OVERFLOW_INDEX);
         for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2ApplyRestitutionColor(context,i); }
     }
+}
+
+int b2GetWideContactConstraintByteCount(int simdWidth)
+{
+#if defined(B2_SIMD_HAS_WIDTH_8)
+ if(simdWidth==8) { return b2GetWideContactConstraintByteCountW8(); }
+#endif
+ return b2GetWideContactConstraintByteCountW4();
+}
+
+void b2SelectContactFunctions(b2StepContext* context,int width)
+{
+ context->simdWidth=4;
+ context->prepareContacts=b2PrepareContacts_WideW4;context->warmStartContacts=b2WarmStartContacts_WideW4;
+ context->pushContacts=b2PushContacts_WideW4;context->solveContacts=b2SolveContacts_WideW4;
+ context->applyRestitution=b2ApplyRestitution_WideW4;context->storeImpulses=b2StoreImpulses_WideW4;
+#if defined(B2_SIMD_HAS_WIDTH_8)
+ if(width==8 && b2IsAVX2Available())
+ {
+  context->simdWidth=8;
+  context->prepareContacts=b2PrepareContacts_WideW8;context->warmStartContacts=b2WarmStartContacts_WideW8;
+  context->pushContacts=b2PushContacts_WideW8;context->solveContacts=b2SolveContacts_WideW8;
+  context->applyRestitution=b2ApplyRestitution_WideW8;context->storeImpulses=b2StoreImpulses_WideW8;
+ }
+#else
+ (void)width;
+#endif
 }

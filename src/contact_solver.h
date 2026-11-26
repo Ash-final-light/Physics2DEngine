@@ -56,3 +56,15 @@ void b2PushContacts_WideW4(b2SolverBlock block,b2StepContext* context);
 void b2SolveContacts_WideW4(b2SolverBlock block,b2StepContext* context);
 void b2ApplyRestitution_WideW4(b2SolverBlock block,b2StepContext* context);
 void b2StoreImpulses_WideW4(b2SolverBlock block,b2StepContext* context,int workerIndex);
+
+int b2GetWideContactConstraintByteCount(int simdWidth);
+void b2SelectContactFunctions(b2StepContext* context,int simdWidth);
+#if defined(B2_SIMD_HAS_WIDTH_8)
+int b2GetWideContactConstraintByteCountW8(void);
+void b2PrepareContacts_WideW8(b2SolverBlock,b2StepContext*);
+void b2WarmStartContacts_WideW8(b2SolverBlock,b2StepContext*);
+void b2PushContacts_WideW8(b2SolverBlock,b2StepContext*);
+void b2SolveContacts_WideW8(b2SolverBlock,b2StepContext*);
+void b2ApplyRestitution_WideW8(b2SolverBlock,b2StepContext*);
+void b2StoreImpulses_WideW8(b2SolverBlock,b2StepContext*,int);
+#endif

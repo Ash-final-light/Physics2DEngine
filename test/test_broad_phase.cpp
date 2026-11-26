@@ -400,14 +400,11 @@ static void RunScalarContactStep(b2WorldId id)
         b2StepContext* context=b2_worlds[id.index1-1].stepContext;
         if(context->phase==5 && !changed)
         {
+            b2ReleaseContactConstraints(context);b2SelectContactFunctions(context,4);
             context->prepareContacts=b2PrepareContacts_WideScalar4;context->warmStartContacts=b2WarmStartContacts_WideScalar4;
             context->pushContacts=b2PushContacts_WideScalar4;context->solveContacts=b2SolveContacts_WideScalar4;
             context->applyRestitution=b2ApplyRestitution_WideScalar4;context->storeImpulses=b2StoreImpulses_WideScalar4;
-            for(int start=0;start<context->wideContactCount;start+=1024)
-            {
-                context->prepareContacts({start,(uint16_t)b2MinInt(1024,context->wideContactCount-start),0,0},context);
-            }
-            changed=true;
+            b2PrepareContactConstraints(context);changed=true;
         }
         for(int i=0;i<batch.count;++i) { batch.tasks[i].fcn(batch.tasks[i].context); }
         batch=b2World_ContinueStep(id);
@@ -422,12 +419,16 @@ int SIMDContact4Test(void)
     for(int step=0;step<12;++step)
     {
         RunScalarContactStep(scalar);
-        b2TaskBatch batch=b2World_BeginStep(wide,1.0f/60,4);
+        b2TaskBatch batch=b2World_BeginStep(wide,1.0f/60,4);bool selected=false;
         while(batch.count>0)
         {
             b2StepContext* context=b2_worlds[wide.index1-1].stepContext;
             if(context->phase==5)
             {
+                if(!selected)
+                {
+                    b2ReleaseContactConstraints(context);b2SelectContactFunctions(context,4);b2PrepareContactConstraints(context);selected=true;
+                }
                 ENSURE(context->simdWidth==4);
                 for(int c=0;c<B2_OVERFLOW_INDEX;++c) { sawTail|=context->graph->colors[c].contactSims.count%4!=0; }
             }
@@ -443,6 +444,44 @@ int SIMDContact4Test(void)
         }
     }
     ENSURE(sawTail);b2DestroyWorld(scalar);b2DestroyWorld(wide);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+static int RunContactWidthStep(b2WorldId id,int width)
+{
+    bool selected=false;b2TaskBatch batch=b2World_BeginStep(id,1.0f/60,4);
+    while(batch.count>0)
+    {
+        auto context=b2_worlds[id.index1-1].stepContext;
+        if(context->phase==5 && !selected)
+        {
+            b2ReleaseContactConstraints(context);b2SelectContactFunctions(context,width);b2PrepareContactConstraints(context);
+            ENSURE(context->simdWidth==width);selected=true;
+        }
+        for(int i=batch.count-1;i>=0;--i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+        batch=b2World_ContinueStep(id);
+    }
+    ENSURE(selected);return 0;
+}
+
+int SIMDContact8Test(void)
+{
+    if(!b2IsAVX2Available()) { printf("AVX2 unavailable: eight-lane execution skipped; four-lane fallback tested\n");return 0; }
+    size_t before=b2GetByteCount();b2WorldId four=MakePairWorld(nullptr),eight=MakePairWorld(nullptr);
+    b2World_SetWorkerCount(eight,4);
+    for(int step=0;step<12;++step)
+    {
+        ENSURE(RunContactWidthStep(four,4)==0);ENSURE(RunContactWidthStep(eight,8)==0);
+        ENSURE(CompareContactWorlds(four,eight)==0);
+        auto a=b2World_GetBodyEvents(four),b=b2World_GetBodyEvents(eight);ENSURE(a.moveCount==b.moveCount);
+        for(int i=0;i<a.moveCount;++i)
+        {
+            ENSURE(a.moveEvents[i].transform.p.x==b.moveEvents[i].transform.p.x);
+            ENSURE(a.moveEvents[i].transform.p.y==b.moveEvents[i].transform.p.y);
+            ENSURE(a.moveEvents[i].transform.q.c==b.moveEvents[i].transform.q.c);
+            ENSURE(a.moveEvents[i].transform.q.s==b.moveEvents[i].transform.q.s);
+        }
+    }
+    b2DestroyWorld(four);b2DestroyWorld(eight);ENSURE(b2GetByteCount()==before);return 0;
 }
 
 int BroadPhaseTreeTypesTest( void )

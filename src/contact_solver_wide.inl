@@ -12,10 +12,19 @@
 
 #include <stddef.h>
 
+#if B2_SIMD_WIDTH == 8
+#ifndef B2_WIDE
+#define B2_WIDE( name ) name##W8
+#endif
+#define B2_SIMD_SHIFT 3
+#elif B2_SIMD_WIDTH == 4
 #ifndef B2_WIDE
 #define B2_WIDE( name ) name##W4
 #endif
 #define B2_SIMD_SHIFT 2
+#else
+#error "B2_SIMD_WIDTH must be 4 or 8"
+#endif
 
 #define b2FloatW B2_WIDE( b2Float )
 #define b2Vec2W B2_WIDE( b2Vec2 )
@@ -23,7 +32,14 @@
 #define b2BodyStateW B2_WIDE( b2BodyState )
 #define b2ContactConstraintWide B2_WIDE( b2ContactConstraint )
 
-#if defined( B2_SIMD_NEON )
+#if B2_SIMD_WIDTH == 8
+
+#include <immintrin.h>
+
+// 宽浮点保存 8 个数
+typedef __m256 b2FloatW;
+
+#elif defined( B2_SIMD_NEON )
 
 #include <arm_neon.h>
 
@@ -59,7 +75,143 @@ typedef struct b2RotW
 	b2FloatW C, S;
 } b2RotW;
 
-#if defined( B2_SIMD_NEON )
+#if B2_SIMD_WIDTH == 8
+
+static inline b2FloatW b2ZeroW( void )
+{
+	return _mm256_setzero_ps();
+}
+
+static inline b2FloatW b2SplatW( float scalar )
+{
+	return _mm256_set1_ps( scalar );
+}
+
+static inline b2FloatW b2SetW( float a, float b, float c, float d, float e, float f, float g, float h )
+{
+	return _mm256_setr_ps( a, b, c, d, e, f, g, h );
+}
+
+static inline b2FloatW b2NegW( b2FloatW a )
+{
+	// 为每个元素创建符号位置位的掩码
+	__m256 mask = _mm256_set1_ps( -0.0f );
+
+	// 与掩码异或以取反每个元素
+	return _mm256_xor_ps( a, mask );
+}
+
+static inline b2FloatW b2AddW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_add_ps( a, b );
+}
+
+static inline b2FloatW b2SubW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_sub_ps( a, b );
+}
+
+static inline b2FloatW b2MulW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_mul_ps( a, b );
+}
+
+static inline b2FloatW b2DivW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_div_ps( a, b );
+}
+
+static inline b2FloatW b2MulAddW( b2FloatW a, b2FloatW b, b2FloatW c )
+{
+	// FMA can be emulated: https://github.com/lattera/glibc/blob/master/sysdeps/ieee754/dbl-64/s_fmaf.c#L34
+	// return _mm256_fmadd_ps( b, c, a );
+	return _mm256_add_ps( _mm256_mul_ps( b, c ), a );
+}
+
+static inline b2FloatW b2MulSubW( b2FloatW a, b2FloatW b, b2FloatW c )
+{
+	// return _mm256_fnmadd_ps(b, c, a);
+	return _mm256_sub_ps( a, _mm256_mul_ps( b, c ) );
+}
+
+static inline b2FloatW b2MinW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_min_ps( a, b );
+}
+
+static inline b2FloatW b2MaxW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_max_ps( a, b );
+}
+
+// a = clamp(a, -b, b)
+static inline b2FloatW b2SymClampW( b2FloatW a, b2FloatW b )
+{
+	__m256 mask = _mm256_set1_ps( -0.0f );
+	__m256 nb = _mm256_xor_ps( b, mask );
+	return _mm256_max_ps( nb, _mm256_min_ps( a, b ) );
+}
+
+static inline b2FloatW b2AndW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_and_ps( a, b );
+}
+
+static inline b2FloatW b2GreaterThanW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_cmp_ps( a, b, _CMP_GT_OQ );
+}
+
+static inline b2FloatW b2LessThanW( b2FloatW a, b2FloatW b )
+{
+	return _mm256_cmp_ps( a, b, _CMP_LT_OQ );
+}
+
+static inline bool b2AnyTrueW( b2FloatW mask )
+{
+	return _mm256_movemask_ps( mask ) != 0;
+}
+
+static inline bool b2AllZeroW( b2FloatW a )
+{
+	// 将每个元素与零比较
+	b2FloatW zero = _mm256_setzero_ps();
+	b2FloatW cmp = _mm256_cmp_ps( a, zero, _CMP_EQ_OQ );
+
+	// 由比较结果创建掩码
+	int mask = _mm256_movemask_ps( cmp );
+
+	// 若所有元素为零，掩码为 0xFF（二进制 11111111）
+	return mask == 0xFF;
+}
+
+// 按分量返回 mask ? b : a
+static inline b2FloatW b2BlendW( b2FloatW a, b2FloatW b, b2FloatW mask )
+{
+	return _mm256_blendv_ps( a, b, mask );
+}
+
+// 非对齐加载。
+static inline b2FloatW b2LoadU( const float* data )
+{
+	return _mm256_loadu_ps( data );
+}
+
+// 数据必须 32 字节对齐
+static inline void b2StoreW( float* data, b2FloatW a )
+{
+	_mm256_store_ps( data, a );
+}
+
+static inline b2FloatW b2SoftMaskW( const int* indexA, const int* indexB )
+{
+	__m256i zero = _mm256_setzero_si256();
+	__m256i a = _mm256_cmpeq_epi32( _mm256_load_si256( (const __m256i*)indexA ), zero );
+	__m256i b = _mm256_cmpeq_epi32( _mm256_load_si256( (const __m256i*)indexB ), zero );
+	return _mm256_castsi256_ps( _mm256_or_si256( a, b ) );
+}
+
+#elif defined( B2_SIMD_NEON )
 
 static inline b2FloatW b2ZeroW( void )
 {
@@ -593,7 +745,145 @@ typedef struct b2BodyStateW
 } b2BodyStateW;
 
 // 每种 SIMD 类型的自定义 gather/scatter。
-#if defined( B2_SIMD_NEON )
+#if B2_SIMD_WIDTH == 8
+
+// 这是一次加载和 8x8 转置
+B2_FORCE_INLINE b2BodyStateW b2GatherBodies( const b2BodyState* B2_RESTRICT states, int* B2_RESTRICT indices )
+{
+	static_assert( sizeof( b2BodyState ) == 32, "b2BodyState not 32 bytes" );
+	B2_ASSERT( ( (uintptr_t)states & 0x1F ) == 0 );
+
+	// 零表示空
+	int i1 = indices[0] - 1;
+	int i2 = indices[1] - 1;
+	int i3 = indices[2] - 1;
+	int i4 = indices[3] - 1;
+	int i5 = indices[4] - 1;
+	int i6 = indices[5] - 1;
+	int i7 = indices[6] - 1;
+	int i8 = indices[7] - 1;
+
+	// b2BodyState b2_identityBodyState = {{0.0f, 0.0f}, 0.0f, 0, {0.0f, 0.0f}, {1.0f, 0.0f}};
+	b2FloatW identity = _mm256_setr_ps( 0.0f, 0.0f, 0.0f, 0, 0.0f, 0.0f, 1.0f, 0.0f );
+	b2FloatW b0 = i1 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i1 ) );
+	b2FloatW b1 = i2 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i2 ) );
+	b2FloatW b2 = i3 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i3 ) );
+	b2FloatW b3 = i4 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i4 ) );
+	b2FloatW b4 = i5 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i5 ) );
+	b2FloatW b5 = i6 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i6 ) );
+	b2FloatW b6 = i7 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i7 ) );
+	b2FloatW b7 = i8 == B2_NULL_INDEX ? identity : _mm256_load_ps( (float*)( states + i8 ) );
+
+	b2FloatW t0 = _mm256_unpacklo_ps( b0, b1 );
+	b2FloatW t1 = _mm256_unpackhi_ps( b0, b1 );
+	b2FloatW t2 = _mm256_unpacklo_ps( b2, b3 );
+	b2FloatW t3 = _mm256_unpackhi_ps( b2, b3 );
+	b2FloatW t4 = _mm256_unpacklo_ps( b4, b5 );
+	b2FloatW t5 = _mm256_unpackhi_ps( b4, b5 );
+	b2FloatW t6 = _mm256_unpacklo_ps( b6, b7 );
+	b2FloatW t7 = _mm256_unpackhi_ps( b6, b7 );
+	b2FloatW tt0 = _mm256_shuffle_ps( t0, t2, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt1 = _mm256_shuffle_ps( t0, t2, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt2 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt3 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt4 = _mm256_shuffle_ps( t4, t6, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt5 = _mm256_shuffle_ps( t4, t6, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt6 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt7 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+
+	b2BodyStateW simdBody;
+	simdBody.v.X = _mm256_permute2f128_ps( tt0, tt4, 0x20 );
+	simdBody.v.Y = _mm256_permute2f128_ps( tt1, tt5, 0x20 );
+	simdBody.w = _mm256_permute2f128_ps( tt2, tt6, 0x20 );
+	simdBody.flags = _mm256_permute2f128_ps( tt3, tt7, 0x20 );
+	simdBody.dp.X = _mm256_permute2f128_ps( tt0, tt4, 0x31 );
+	simdBody.dp.Y = _mm256_permute2f128_ps( tt1, tt5, 0x31 );
+	simdBody.dq.C = _mm256_permute2f128_ps( tt2, tt6, 0x31 );
+	simdBody.dq.S = _mm256_permute2f128_ps( tt3, tt7, 0x31 );
+	return simdBody;
+}
+
+// 把全部写回求解刚体，但只有速度会变
+B2_FORCE_INLINE void b2ScatterBodies( b2BodyState* B2_RESTRICT states, int* B2_RESTRICT indices,
+									  const b2BodyStateW* B2_RESTRICT simdBody )
+{
+	static_assert( sizeof( b2BodyState ) == 32, "b2BodyState not 32 bytes" );
+	B2_ASSERT( ( (uintptr_t)states & 0x1F ) == 0 );
+	b2FloatW t0 = _mm256_unpacklo_ps( simdBody->v.X, simdBody->v.Y );
+	b2FloatW t1 = _mm256_unpackhi_ps( simdBody->v.X, simdBody->v.Y );
+	b2FloatW t2 = _mm256_unpacklo_ps( simdBody->w, simdBody->flags );
+	b2FloatW t3 = _mm256_unpackhi_ps( simdBody->w, simdBody->flags );
+	b2FloatW t4 = _mm256_unpacklo_ps( simdBody->dp.X, simdBody->dp.Y );
+	b2FloatW t5 = _mm256_unpackhi_ps( simdBody->dp.X, simdBody->dp.Y );
+	b2FloatW t6 = _mm256_unpacklo_ps( simdBody->dq.C, simdBody->dq.S );
+	b2FloatW t7 = _mm256_unpackhi_ps( simdBody->dq.C, simdBody->dq.S );
+	b2FloatW tt0 = _mm256_shuffle_ps( t0, t2, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt1 = _mm256_shuffle_ps( t0, t2, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt2 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt3 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt4 = _mm256_shuffle_ps( t4, t6, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt5 = _mm256_shuffle_ps( t4, t6, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+	b2FloatW tt6 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+	b2FloatW tt7 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+
+	static_assert( b2_dynamicFlag == ( 1 << 9 ), "dynamic flag must be bit 9" );
+	int dynamicMask =
+		_mm256_movemask_ps( _mm256_castsi256_ps( _mm256_slli_epi32( _mm256_castps_si256( simdBody->flags ), 31 - 9 ) ) );
+
+	// 刚体数组中不用哑刚体，否则会导致多线程共享及相应的缓存刷新。
+
+	// 零表示空
+	int i1 = indices[0] - 1;
+	int i2 = indices[1] - 1;
+	int i3 = indices[2] - 1;
+	int i4 = indices[3] - 1;
+	int i5 = indices[4] - 1;
+	int i6 = indices[5] - 1;
+	int i7 = indices[6] - 1;
+	int i8 = indices[7] - 1;
+
+	if ( dynamicMask & 1 )
+	{
+		_mm256_store_ps( (float*)( states + i1 ), _mm256_permute2f128_ps( tt0, tt4, 0x20 ) );
+	}
+
+	if ( dynamicMask & 2 )
+	{
+		_mm256_store_ps( (float*)( states + i2 ), _mm256_permute2f128_ps( tt1, tt5, 0x20 ) );
+	}
+
+	if ( dynamicMask & 4 )
+	{
+		_mm256_store_ps( (float*)( states + i3 ), _mm256_permute2f128_ps( tt2, tt6, 0x20 ) );
+	}
+
+	if ( dynamicMask & 8 )
+	{
+		_mm256_store_ps( (float*)( states + i4 ), _mm256_permute2f128_ps( tt3, tt7, 0x20 ) );
+	}
+
+	if ( dynamicMask & 16 )
+	{
+		_mm256_store_ps( (float*)( states + i5 ), _mm256_permute2f128_ps( tt0, tt4, 0x31 ) );
+	}
+
+	if ( dynamicMask & 32 )
+	{
+		_mm256_store_ps( (float*)( states + i6 ), _mm256_permute2f128_ps( tt1, tt5, 0x31 ) );
+	}
+
+	if ( dynamicMask & 64 )
+	{
+		_mm256_store_ps( (float*)( states + i7 ), _mm256_permute2f128_ps( tt2, tt6, 0x31 ) );
+	}
+
+	if ( dynamicMask & 128 )
+	{
+		_mm256_store_ps( (float*)( states + i8 ), _mm256_permute2f128_ps( tt3, tt7, 0x31 ) );
+	}
+}
+
+#elif defined( B2_SIMD_NEON )
 
 // 这是一次加载和转置
 B2_FORCE_INLINE b2BodyStateW b2GatherBodies( const b2BodyState* B2_RESTRICT states, int* B2_RESTRICT indices )
@@ -907,8 +1197,16 @@ B2_FORCE_INLINE void b2ScatterBodies( b2BodyState* B2_RESTRICT states, int* B2_R
 static b2ContactSim b2_zeroContactSim = {};
 
 // 跨通道收集接触数据的宏。
+#if B2_SIMD_WIDTH == 4
 #define B2_GATHER_LANES( wide, scalar )                                                                                          \
 	wide = b2SetW( contactLanes[0]->scalar, contactLanes[1]->scalar, contactLanes[2]->scalar, contactLanes[3]->scalar )
+#elif B2_SIMD_WIDTH == 8
+#define B2_GATHER_LANES( wide, scalar )                                                                                          \
+	wide = b2SetW( contactLanes[0]->scalar, contactLanes[1]->scalar, contactLanes[2]->scalar, contactLanes[3]->scalar,           \
+				   contactLanes[4]->scalar, contactLanes[5]->scalar, contactLanes[6]->scalar, contactLanes[7]->scalar )
+#else
+#error "Unsupported B2_SIMD_WIDTH"
+#endif
 
 // 转置 gather 所需的布局
 static_assert( offsetof( b2ManifoldPoint, anchorA ) == 0, "manifold point layout" );
@@ -1013,12 +1311,20 @@ void B2_WIDE( b2PrepareContacts_Wide )( b2SolverBlock block, b2StepContext* cont
 			b2Vec2W tangent = b2RightPerpW( cw->normal );
 
 			b2FloatW pointCounts;
+#if B2_SIMD_WIDTH == 4
 			pointCounts = b2SetW( (float)contactLanes[0]->manifold.pointCount, (float)contactLanes[1]->manifold.pointCount,
 								  (float)contactLanes[2]->manifold.pointCount, (float)contactLanes[3]->manifold.pointCount );
+#elif B2_SIMD_WIDTH == 8
+			pointCounts = b2SetW( (float)contactLanes[0]->manifold.pointCount, (float)contactLanes[1]->manifold.pointCount,
+								  (float)contactLanes[2]->manifold.pointCount, (float)contactLanes[3]->manifold.pointCount,
+								  (float)contactLanes[4]->manifold.pointCount, (float)contactLanes[5]->manifold.pointCount,
+								  (float)contactLanes[6]->manifold.pointCount, (float)contactLanes[7]->manifold.pointCount );
+#endif
 			b2FloatW twoPointMask = b2GreaterThanW( pointCounts, oneW );
 
 			{
 				// 优化的转置 gather。类似 b2GatherBodies。
+#if B2_SIMD_WIDTH == 4
 				b2FloatW m1a = b2LoadU( (float*)( contactLanes[0]->manifold.points + 0 ) + 0 );
 				b2FloatW m1b = b2LoadU( (float*)( contactLanes[0]->manifold.points + 0 ) + 4 );
 				b2FloatW m2a = b2LoadU( (float*)( contactLanes[1]->manifold.points + 0 ) + 0 );
@@ -1044,6 +1350,41 @@ void B2_WIDE( b2PrepareContacts_Wide )( b2SolverBlock block, b2StepContext* cont
 				cw->baseSeparation1 = b2UnpackLoW( t1b, t2b );
 				cw->normalImpulse1 = b2UnpackHiW( t1b, t2b );
 				cw->tangentImpulse1 = b2UnpackLoW( t3b, t4b );
+#elif B2_SIMD_WIDTH == 8
+				b2FloatW m1 = b2LoadU( (float*)( contactLanes[0]->manifold.points + 0 ) );
+				b2FloatW m2 = b2LoadU( (float*)( contactLanes[1]->manifold.points + 0 ) );
+				b2FloatW m3 = b2LoadU( (float*)( contactLanes[2]->manifold.points + 0 ) );
+				b2FloatW m4 = b2LoadU( (float*)( contactLanes[3]->manifold.points + 0 ) );
+				b2FloatW m5 = b2LoadU( (float*)( contactLanes[4]->manifold.points + 0 ) );
+				b2FloatW m6 = b2LoadU( (float*)( contactLanes[5]->manifold.points + 0 ) );
+				b2FloatW m7 = b2LoadU( (float*)( contactLanes[6]->manifold.points + 0 ) );
+				b2FloatW m8 = b2LoadU( (float*)( contactLanes[7]->manifold.points + 0 ) );
+
+				b2FloatW t1 = _mm256_unpacklo_ps( m1, m2 );
+				b2FloatW t2 = _mm256_unpackhi_ps( m1, m2 );
+				b2FloatW t3 = _mm256_unpacklo_ps( m3, m4 );
+				b2FloatW t4 = _mm256_unpackhi_ps( m3, m4 );
+				b2FloatW t5 = _mm256_unpacklo_ps( m5, m6 );
+				b2FloatW t6 = _mm256_unpackhi_ps( m5, m6 );
+				b2FloatW t7 = _mm256_unpacklo_ps( m7, m8 );
+				b2FloatW t8 = _mm256_unpackhi_ps( m7, m8 );
+				b2FloatW tt1 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt2 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt3 = _mm256_shuffle_ps( t2, t4, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt4 = _mm256_shuffle_ps( t2, t4, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt5 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt6 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt7 = _mm256_shuffle_ps( t6, t8, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt8 = _mm256_shuffle_ps( t6, t8, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+
+				cw->anchorA1.X = _mm256_permute2f128_ps( tt1, tt5, 0x20 );
+				cw->anchorA1.Y = _mm256_permute2f128_ps( tt2, tt6, 0x20 );
+				cw->anchorB1.X = _mm256_permute2f128_ps( tt3, tt7, 0x20 );
+				cw->anchorB1.Y = _mm256_permute2f128_ps( tt4, tt8, 0x20 );
+				cw->baseSeparation1 = _mm256_permute2f128_ps( tt1, tt5, 0x31 );
+				cw->normalImpulse1 = _mm256_permute2f128_ps( tt2, tt6, 0x31 );
+				cw->tangentImpulse1 = _mm256_permute2f128_ps( tt3, tt7, 0x31 );
+#endif
 
 				// separation1 = cw->baseSeparation1;
 
@@ -1079,6 +1420,7 @@ void B2_WIDE( b2PrepareContacts_Wide )( b2SolverBlock block, b2StepContext* cont
 			}
 
 			{
+#if B2_SIMD_WIDTH == 4
 				b2FloatW m1a = b2LoadU( (float*)( contactLanes[0]->manifold.points + 1 ) + 0 );
 				b2FloatW m1b = b2LoadU( (float*)( contactLanes[0]->manifold.points + 1 ) + 4 );
 				b2FloatW m2a = b2LoadU( (float*)( contactLanes[1]->manifold.points + 1 ) + 0 );
@@ -1104,6 +1446,41 @@ void B2_WIDE( b2PrepareContacts_Wide )( b2SolverBlock block, b2StepContext* cont
 				cw->baseSeparation2 = b2UnpackLoW( t1b, t2b );
 				cw->normalImpulse2 = b2UnpackHiW( t1b, t2b );
 				cw->tangentImpulse2 = b2UnpackLoW( t3b, t4b );
+#elif B2_SIMD_WIDTH == 8
+				b2FloatW m1 = b2LoadU( (float*)( contactLanes[0]->manifold.points + 1 ) );
+				b2FloatW m2 = b2LoadU( (float*)( contactLanes[1]->manifold.points + 1 ) );
+				b2FloatW m3 = b2LoadU( (float*)( contactLanes[2]->manifold.points + 1 ) );
+				b2FloatW m4 = b2LoadU( (float*)( contactLanes[3]->manifold.points + 1 ) );
+				b2FloatW m5 = b2LoadU( (float*)( contactLanes[4]->manifold.points + 1 ) );
+				b2FloatW m6 = b2LoadU( (float*)( contactLanes[5]->manifold.points + 1 ) );
+				b2FloatW m7 = b2LoadU( (float*)( contactLanes[6]->manifold.points + 1 ) );
+				b2FloatW m8 = b2LoadU( (float*)( contactLanes[7]->manifold.points + 1 ) );
+
+				b2FloatW t1 = _mm256_unpacklo_ps( m1, m2 );
+				b2FloatW t2 = _mm256_unpackhi_ps( m1, m2 );
+				b2FloatW t3 = _mm256_unpacklo_ps( m3, m4 );
+				b2FloatW t4 = _mm256_unpackhi_ps( m3, m4 );
+				b2FloatW t5 = _mm256_unpacklo_ps( m5, m6 );
+				b2FloatW t6 = _mm256_unpackhi_ps( m5, m6 );
+				b2FloatW t7 = _mm256_unpacklo_ps( m7, m8 );
+				b2FloatW t8 = _mm256_unpackhi_ps( m7, m8 );
+				b2FloatW tt1 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt2 = _mm256_shuffle_ps( t1, t3, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt3 = _mm256_shuffle_ps( t2, t4, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt4 = _mm256_shuffle_ps( t2, t4, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt5 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt6 = _mm256_shuffle_ps( t5, t7, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+				b2FloatW tt7 = _mm256_shuffle_ps( t6, t8, _MM_SHUFFLE( 1, 0, 1, 0 ) );
+				b2FloatW tt8 = _mm256_shuffle_ps( t6, t8, _MM_SHUFFLE( 3, 2, 3, 2 ) );
+
+				cw->anchorA2.X = _mm256_permute2f128_ps( tt1, tt5, 0x20 );
+				cw->anchorA2.Y = _mm256_permute2f128_ps( tt2, tt6, 0x20 );
+				cw->anchorB2.X = _mm256_permute2f128_ps( tt3, tt7, 0x20 );
+				cw->anchorB2.Y = _mm256_permute2f128_ps( tt4, tt8, 0x20 );
+				cw->baseSeparation2 = _mm256_permute2f128_ps( tt1, tt5, 0x31 );
+				cw->normalImpulse2 = _mm256_permute2f128_ps( tt2, tt6, 0x31 );
+				cw->tangentImpulse2 = _mm256_permute2f128_ps( tt3, tt7, 0x31 );
+#endif
 
 				// separation2 = cw->baseSeparation2;
 

@@ -41,6 +41,7 @@ int ParallelSolverTest( void );
 int ParallelSensorTest( void );
 int SIMDMathTest( void );
 int SIMDContact4Test( void );
+int SIMDContact8Test( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -913,6 +914,8 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"SIMDMathTest")==0) { ran=1; RUN_TEST(SIMDMathTest); }
 
 	if(filter==NULL || strcmp(filter,"SIMDContact4Test")==0) { ran=1; RUN_TEST(SIMDContact4Test); }
+
+	if(filter==NULL || strcmp(filter,"SIMDContact8Test")==0) { ran=1; RUN_TEST(SIMDContact8Test); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{
