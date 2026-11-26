@@ -239,3 +239,33 @@ void b2RecEndRecord( b2Recording* rec );
 void b2StartRecordingIntoBuffer( b2World* world, b2Recording* recording );
 void b2StopRecordingInternal( b2World* world );
 void b2RecAccumulateBounds( b2Recording* rec, b2AABB bounds );
+
+// 查询命中计数回填的补丁辅助函数
+int b2RecReserveU32( b2RecBuffer* buf );
+void b2RecPatchU32( b2RecBuffer* buf, int offset, uint32_t v );
+
+// 在锁下提交已完成的查询记录。本地缓冲区仍由调用者持有。
+void b2RecCommitRecord( b2Recording* rec, uint8_t opcode, const uint8_t* payload, int payloadSize );
+
+// 每次查询的写入上下文：持有用户 fcn+ctx、本地载荷缓冲区和命中计数器
+typedef struct b2RecQueryWriter
+{
+	union
+	{
+		b2OverlapResultCallbackFcn* overlapFcn;
+		b2CastResultCallbackFcn* castFcn;
+		b2PlaneResultCallbackFcn* planeFcn;
+	} userFcn;
+	void* userContext;
+	b2RecBuffer buf; // 每次调用的本地载荷，堆分配
+	int countOffset; // 预留的 u32 命中计数槽偏移
+	uint32_t hitCount;
+} b2RecQueryWriter;
+
+void b2RecQueryBegin( b2RecQueryWriter* w, void* context );
+void b2RecQueryCommit( b2Recording* rec, uint8_t opcode, b2RecQueryWriter* w );
+
+// 录制跳板：替换用户 fcn 指针，以便在分派前捕获命中
+bool b2RecOverlapTrampoline( b2ShapeId id, void* ctx );
+float b2RecCastTrampoline( b2ShapeId id, b2Pos point, b2Vec2 normal, float fraction, void* ctx );
+bool b2RecPlaneTrampoline( b2ShapeId id, const b2PlaneResult* plane, void* ctx );

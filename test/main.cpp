@@ -70,6 +70,10 @@ int RecordingJointCascadeTest( void );
 int RecordingStepTest( void );
 int RecordingStagedStepTest( void );
 int RecordingStepGuardTest( void );
+int RecordingQueryOperationsTest( void );
+int RecordingQueryCallbackTest( void );
+int RecordingQueryConcurrentTest( void );
+int RecordingQueryGuardTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1056,6 +1060,14 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingStagedStepTest")==0) { ran=1; RUN_TEST(RecordingStagedStepTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingStepGuardTest")==0) { ran=1; RUN_TEST(RecordingStepGuardTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingQueryOperationsTest")==0) { ran=1; RUN_TEST(RecordingQueryOperationsTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingQueryCallbackTest")==0) { ran=1; RUN_TEST(RecordingQueryCallbackTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingQueryConcurrentTest")==0) { ran=1; RUN_TEST(RecordingQueryConcurrentTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingQueryGuardTest")==0) { ran=1; RUN_TEST(RecordingQueryGuardTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

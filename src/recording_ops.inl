@@ -154,3 +154,20 @@ B2_REC_OP( 0xD6, WheelJointSetTargetMotorSpeed, RET_NONE, ARG( JOINTID, joint ) 
 B2_REC_OP( 0xD7, WheelJointSetMaxMotorTorque, RET_NONE, ARG( JOINTID, joint ) ARG( F32, torque ) )
 
 B2_REC_OP( 0x80, Step, RET_NONE, ARG( WORLDID, world ) ARG( F32, dt ) ARG( I32, subStepCount ) )
+
+B2_REC_OP( 0xE0, QueryOverlapAABB, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( AABB, aabb ) ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE1, QueryOverlapShape, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( SHAPEPROXY, proxy ) ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE2, QueryCastRay, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( VEC2, translation ) ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE3, QueryCastShape, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( SHAPEPROXY, proxy ) ARG( VEC2, translation )
+			   ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE4, QueryCollideMover, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( CAPSULE, mover ) ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE5, QueryCastRayClosest, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( VEC2, translation ) ARG( QUERYFILTER, filter ) )
+B2_REC_OP( 0xE6, QueryCastMover, RET_NONE,
+		   ARG( WORLDID, world ) ARG( POSITION, origin ) ARG( CAPSULE, mover ) ARG( VEC2, translation )
+			   ARG( QUERYFILTER, filter ) )

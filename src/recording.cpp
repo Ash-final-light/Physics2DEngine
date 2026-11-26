@@ -720,3 +720,82 @@ void b2StopRecordingInternal( b2World* world )
 	b2RecArgs_DestroyWorld a = { wid };
 	b2RecWrite_DestroyWorld( rec, &a );
 }
+
+int b2RecReserveU32( b2RecBuffer* buf )
+{
+	int offset = buf->size;
+	uint8_t zero[4] = { 0, 0, 0, 0 };
+	b2RecBufAppend( buf, zero, 4 );
+	return offset;
+}
+
+void b2RecPatchU32( b2RecBuffer* buf, int offset, uint32_t v )
+{
+	B2_ASSERT( offset >= 0 && offset + 4 <= buf->size );
+	uint8_t* p = buf->data + offset;
+	p[0] = (uint8_t)v;
+	p[1] = (uint8_t)( v >> 8 );
+	p[2] = (uint8_t)( v >> 16 );
+	p[3] = (uint8_t)( v >> 24 );
+}
+
+// 并发查询提交被串行化，使记录不会在共享缓冲区中交错
+void b2RecCommitRecord( b2Recording* rec, uint8_t opcode, const uint8_t* payload, int payloadSize )
+{
+	B2_ASSERT( payloadSize >= 0 && payloadSize < ( 1 << 24 ) );
+	b2LockMutex( rec->lock );
+	b2RecW_U8( &rec->buffer, opcode );
+	uint8_t sz[3] = { (uint8_t)payloadSize, (uint8_t)( payloadSize >> 8 ), (uint8_t)( payloadSize >> 16 ) };
+	b2RecBufAppend( &rec->buffer, sz, 3 );
+	b2RecBufAppend( &rec->buffer, payload, payloadSize );
+	b2UnlockMutex( rec->lock );
+}
+
+void b2RecQueryBegin( b2RecQueryWriter* w, void* context )
+{
+	w->buf = b2RecBuffer{};
+	w->userFcn.overlapFcn = NULL;
+	w->userContext = context;
+	w->hitCount = 0;
+	w->countOffset = 0;
+}
+
+void b2RecQueryCommit( b2Recording* rec, uint8_t opcode, b2RecQueryWriter* w )
+{
+	b2RecCommitRecord( rec, opcode, w->buf.data, w->buf.size );
+	b2RecBufFree( &w->buf );
+}
+
+bool b2RecOverlapTrampoline( b2ShapeId id, void* ctx )
+{
+	b2RecQueryWriter* w = (b2RecQueryWriter*)ctx;
+	bool ret = w->userFcn.overlapFcn( id, w->userContext );
+	b2RecW_SHAPEID( &w->buf, id );
+	b2RecW_BOOL( &w->buf, ret );
+	w->hitCount++;
+	return ret;
+}
+
+float b2RecCastTrampoline( b2ShapeId id, b2Pos point, b2Vec2 normal, float fraction, void* ctx )
+{
+	b2RecQueryWriter* w = (b2RecQueryWriter*)ctx;
+	float ret = w->userFcn.castFcn( id, point, normal, fraction, w->userContext );
+	b2RecW_SHAPEID( &w->buf, id );
+	b2RecW_POSITION( &w->buf, point );
+	b2RecW_VEC2( &w->buf, normal );
+	b2RecW_F32( &w->buf, fraction );
+	b2RecW_F32( &w->buf, ret );
+	w->hitCount++;
+	return ret;
+}
+
+bool b2RecPlaneTrampoline( b2ShapeId id, const b2PlaneResult* plane, void* ctx )
+{
+	b2RecQueryWriter* w = (b2RecQueryWriter*)ctx;
+	bool ret = w->userFcn.planeFcn( id, plane, w->userContext );
+	b2RecW_SHAPEID( &w->buf, id );
+	b2RecW_PLANERESULT( &w->buf, *plane );
+	b2RecW_BOOL( &w->buf, ret );
+	w->hitCount++;
+	return ret;
+}

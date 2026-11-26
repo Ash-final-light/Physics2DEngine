@@ -8,6 +8,8 @@
 
 #include <string.h>
 #include <limits>
+#include <thread>
+#include <atomic>
 #include <vector>
 
 int RecordingBufferTest( void )
@@ -1021,4 +1023,163 @@ int RecordingStepGuardTest( void )
 	b2DestroyRecording( rec );
 	ENSURE( b2GetByteCount() == baseline );
 	return 0;
+}
+
+static b2WorldId MakeRecordingQueryWorld( void )
+{
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 0.75f };
+	for ( int i = 0; i < 2; ++i )
+	{
+		bd.position = { 3.0f * i, 0 };
+		b2CreateCircleShape( b2CreateBody( id, &bd ), &sd, &circle );
+	}
+	return id;
+}
+
+struct RecordingQueryCallbackState { int count; float result; b2WorldId world; bool reenter; };
+static float RecordingCastResult( b2ShapeId, b2Pos, b2Vec2, float, void* ctx )
+{
+	RecordingQueryCallbackState* state = (RecordingQueryCallbackState*)ctx;
+	state->count += 1;
+	return state->result;
+}
+static bool RecordingPlaneResult( b2ShapeId, const b2PlaneResult*, void* ctx )
+{
+	*(int*)ctx += 1;
+	return true;
+}
+static bool RecordingOverlapResult( b2ShapeId, void* ctx )
+{
+	RecordingQueryCallbackState* state = (RecordingQueryCallbackState*)ctx;
+	state->count += 1;
+	if ( state->reenter ) b2World_SetGravity( state->world, b2Vec2_zero );
+	return state->result != 0;
+}
+
+int RecordingQueryOperationsTest( void )
+{
+	int before = b2GetByteCount();
+	b2WorldId world = MakeRecordingQueryWorld();
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2QueryFilter filter = b2DefaultQueryFilter();
+	b2AABB box = { { -2, -2 }, { 5, 2 } };
+	int unrecorded = 0;
+	b2TreeStats baseline = b2World_OverlapAABB( world, b2Vec2_zero, box, filter, CountRecordingShape, &unrecorded );
+	b2World_StartRecording( world, rec );
+	int hits = 0, start = b2Recording_GetSize( rec );
+	b2TreeStats stats;
+	CHECK_RECORD( 0xE0, stats = b2World_OverlapAABB( world, b2Vec2_zero, box, filter, CountRecordingShape, &hits ) );
+	ENSURE( hits == 2 && hits == unrecorded && stats.nodeVisits == baseline.nodeVisits );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	ENSURE( ReadRecordingU32( frame + 48 ) == 2 && RecordingPayloadSize( frame ) == 74 );
+	ENSURE( ReadRecordingU32( frame + 4 ) == b2StoreWorldId( world ) );
+	ENSURE( ReadRecordingU32( frame + 70 ) == (uint32_t)stats.nodeVisits );
+	b2Vec2 center = {};
+	b2ShapeProxy proxy = b2MakeProxy( &center, 1, 5 );
+	hits = 0;
+	CHECK_RECORD( 0xE1, b2World_OverlapShape( world, b2Vec2_zero, &proxy, filter, CountRecordingShape, &hits ) );
+	ENSURE( hits == 2 );
+	RecordingQueryCallbackState cb = { 0, 1, world, false };
+	start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0xE2, b2World_CastRay( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), filter, RecordingCastResult, &cb ) );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( cb.count == 2 && ReadRecordingU32( frame + 40 ) == 2 );
+	ENSURE( RecordingPayloadSize( frame ) == 112 );
+	proxy.radius = 0.25f; cb.count = 0;
+	CHECK_RECORD( 0xE3, b2World_CastShape( world, ( b2Pos{ -2, 0 } ), &proxy, ( b2Vec2{ 7, 0 } ), filter, RecordingCastResult, &cb ) );
+	ENSURE( cb.count == 2 );
+	b2Capsule mover = { { 0, -0.2f }, { 0, 0.2f }, 0.3f };
+	hits = 0;
+	CHECK_RECORD( 0xE4, b2World_CollideMover( world, ( b2Pos{ 0, 0.8f } ), &mover, filter, RecordingPlaneResult, &hits ) );
+	ENSURE( hits == 1 );
+	b2RayResult result;
+	CHECK_RECORD( 0xE5, result = b2World_CastRayClosest( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), filter ) );
+	ENSURE( result.hit && result.fraction > 0 && result.fraction < 1 );
+	float fraction;
+	CHECK_RECORD( 0xE6, fraction = b2World_CastMover( world, ( b2Pos{ -2, 0 } ), &mover, ( b2Vec2{ 7, 0 } ), filter ) );
+	ENSURE( fraction > 0 && fraction < 1 );
+	hits = 0; start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0xE0, b2World_OverlapAABB( world, ( b2Pos{ 100, 100 } ), box, filter, CountRecordingShape, &hits ) );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( hits == 0 && ReadRecordingU32( frame + 48 ) == 0 && RecordingPayloadSize( frame ) == 56 );
+	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
+
+int RecordingQueryCallbackTest( void )
+{
+	int before = b2GetByteCount();
+	b2WorldId world = MakeRecordingQueryWorld();
+	b2Recording* rec = b2CreateRecording( 0 ); b2World_StartRecording( world, rec );
+	RecordingQueryCallbackState cb = { 0, 0, world, false };
+	b2AABB box = { { -2, -2 }, { 5, 2 } };
+	int start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0xE0, b2World_OverlapAABB( world, b2Vec2_zero, box, b2DefaultQueryFilter(), RecordingOverlapResult, &cb ) );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	ENSURE( cb.count == 1 && ReadRecordingU32( frame + 48 ) == 1 && frame[60] == 0 );
+	cb.count = 0; start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0xE2, b2World_CastRay( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), b2DefaultQueryFilter(), RecordingCastResult, &cb ) );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( cb.count == 1 && ReadRecordingU32( frame + 40 ) == 1 && ReadRecordingU32( frame + 72 ) == 0 );
+	cb.count = 0; cb.result = -1; start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0xE2, b2World_CastRay( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), b2DefaultQueryFilter(), RecordingCastResult, &cb ) );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( cb.count == 2 && ReadRecordingU32( frame + 72 ) == 0xBF800000u );
+	cb.count = 0; cb.result = 0; cb.reenter = true; start = b2Recording_GetSize( rec );
+	b2World_OverlapAABB( world, b2Vec2_zero, box, b2DefaultQueryFilter(), RecordingOverlapResult, &cb );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( cb.count == 1 && frame[0] == 0x06 );
+	int next = RecordingPayloadSize( frame ) + 4;
+	ENSURE( frame[next] == 0xE0 && start + next + RecordingPayloadSize( frame + next ) + 4 == b2Recording_GetSize( rec ) );
+	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int RecordingQueryConcurrentTest( void )
+{
+	int before = b2GetByteCount(); b2WorldId world = MakeRecordingQueryWorld();
+	b2Recording* rec = b2CreateRecording( 1 ); b2World_StartRecording( world, rec );
+	int start = b2Recording_GetSize( rec ); std::atomic<bool> good = true;
+	std::vector<std::thread> threads;
+	for ( int i = 0; i < 4; ++i ) threads.emplace_back( [&]() {
+		for ( int j = 0; j < 20; ++j ) {
+			int hits = 0;
+			b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), b2DefaultQueryFilter(), CountRecordingShape, &hits );
+			if ( hits != 2 ) good = false;
+		}
+	} );
+	for ( auto& thread : threads ) thread.join();
+	ENSURE( good.load() ); int count = 0, end = b2Recording_GetSize( rec );
+	while ( start < end ) {
+		const uint8_t* frame = b2Recording_GetData( rec ) + start;
+		ENSURE( end - start >= 4 && frame[0] == 0xE0 && RecordingPayloadSize( frame ) == 74 );
+		ENSURE( ReadRecordingU32( frame + 48 ) == 2 ); start += 78; count += 1;
+	}
+	ENSURE( start == end && count == 80 );
+	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int RecordingQueryGuardTest( void )
+{
+	int before = b2GetByteCount(); b2WorldId world = MakeRecordingQueryWorld();
+	b2Recording* rec = b2CreateRecording( 0 ); b2World_StartRecording( world, rec );
+	int start = b2Recording_GetSize( rec ), hits = 0;
+	b2World_SetCustomFilterCallback( world, RecordingFilter, NULL );
+	ENSURE( b2_worlds[world.index1 - 1].customFilterFcn == NULL );
+	b2_worlds[world.index1 - 1].locked = true;
+	b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), b2DefaultQueryFilter(), CountRecordingShape, &hits );
+	b2RayResult result = b2World_CastRayClosest( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), b2DefaultQueryFilter() );
+	ENSURE( !result.hit && hits == 0 && b2Recording_GetSize( rec ) == start );
+	b2_worlds[world.index1 - 1].locked = false;
+	b2World_StopRecording( world ); start = b2Recording_GetSize( rec );
+	b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), b2DefaultQueryFilter(), CountRecordingShape, &hits );
+	ENSURE( hits == 2 && b2Recording_GetSize( rec ) == start );
+	b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
 }
