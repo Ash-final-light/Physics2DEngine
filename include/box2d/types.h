@@ -409,6 +409,29 @@ typedef struct b2BodyEvents
 	int moveCount;
 } b2BodyEvents;
 B2_API b2BodyEvents b2World_GetBodyEvents(b2WorldId worldId);
+
+/// 关节事件报告醒着且力与/或力矩超过阈值的关节。出于效率原因不返回观测到的力与力矩。
+typedef struct b2JointEvent
+{
+	/// 关节 id
+	b2JointId jointId;
+
+	/// 来自关节的用户数据，为方便起见
+	void* userData;
+} b2JointEvent;
+
+/// 关节事件在世界中缓冲，并在时间步完成后作为事件数组可用。
+/// 注意：若关节被销毁，此数据变得无效
+typedef struct b2JointEvents
+{
+	/// 事件数组
+	b2JointEvent* jointEvents;
+
+	/// 事件数量
+	int count;
+} b2JointEvents;
+B2_API b2JointEvents b2World_GetJointEvents(b2WorldId worldId);
+
 typedef struct b2Profile
 {
 	float step;				   ///<
@@ -897,6 +920,19 @@ B2_API void b2Joint_SetUserData(b2JointId jointId,void* userData);
 B2_API void* b2Joint_GetUserData(b2JointId jointId);
 B2_API void b2Joint_SetCollideConnected(b2JointId jointId,bool shouldCollide);
 B2_API bool b2Joint_GetCollideConnected(b2JointId jointId);
+
+/// 设置关节事件的力阈值（牛顿）
+B2_API void b2Joint_SetForceThreshold(b2JointId jointId,float threshold);
+
+/// 获取关节事件的力阈值（牛顿）
+B2_API float b2Joint_GetForceThreshold(b2JointId jointId);
+
+/// 设置关节事件的力矩阈值（N-m）
+B2_API void b2Joint_SetTorqueThreshold(b2JointId jointId,float threshold);
+
+/// 获取关节事件的力矩阈值（N-m）
+B2_API float b2Joint_GetTorqueThreshold(b2JointId jointId);
+
 B2_API int b2Body_GetJointCount(b2BodyId bodyId);
 B2_API int b2Body_GetJoints(b2BodyId bodyId,b2JointId* jointArray,int capacity);
 
@@ -917,7 +953,11 @@ typedef struct b2JointDef
 	/// 第二个局部关节坐标系
 	b2Transform localFrameB;
 
+	/// 关节事件的力阈值
+	float forceThreshold;
 
+	/// 关节事件的力矩阈值
+	float torqueThreshold;
 
 	/// 约束赫兹（高级功能）
 	float constraintHertz;

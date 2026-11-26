@@ -396,3 +396,36 @@ int JointReactionTest(void)
  ENSURE_SMALL(b2Joint_GetAngularSeparation(rj)-b2Rot_GetAngle(b2Body_GetRotation(b)),0.0001f);ENSURE(b2AbsFloat(b2Joint_GetAngularSeparation(rj)-0.4f)<0.002f);ENSURE(b2Joint_GetLinearSeparation(rj)<0.001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+int JointEventTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={0,-1};b2BodyId b=b2CreateBody(id,&bd);
+ b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();ENSURE(def.base.forceThreshold==FLT_MAX && def.base.torqueThreshold==FLT_MAX);
+ def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=1;def.base.constraintHertz=120;def.base.constraintDampingRatio=4;int marker=42;def.base.userData=&marker;b2JointId j=b2CreateDistanceJoint(id,&def);
+ ENSURE(b2Joint_GetForceThreshold(j)==FLT_MAX && b2Joint_GetTorqueThreshold(j)==FLT_MAX);
+ b2World_Step(id,1.0f/60,4);b2JointEvents events=b2World_GetJointEvents(id);ENSURE(events.count==0);
+ // 非法阈值被拒绝，原值保持
+ b2Joint_SetForceThreshold(j,-1);ENSURE(b2Joint_GetForceThreshold(j)==FLT_MAX);
+ b2Joint_SetForceThreshold(j,NAN);ENSURE(b2Joint_GetForceThreshold(j)==FLT_MAX);
+ b2Joint_SetTorqueThreshold(j,-1);ENSURE(b2Joint_GetTorqueThreshold(j)==FLT_MAX);
+ b2Joint_SetTorqueThreshold(j,NAN);ENSURE(b2Joint_GetTorqueThreshold(j)==FLT_MAX);
+ // 超过力阈值：每步一条事件，事件内容为关节 id 与用户数据
+ b2Joint_SetForceThreshold(j,5);ENSURE(b2Joint_GetForceThreshold(j)==5);
+ b2World_Step(id,1.0f/60,4);events=b2World_GetJointEvents(id);ENSURE(events.count==1);
+ ENSURE(events.jointEvents[0].jointId.index1==j.index1 && events.jointEvents[0].jointId.world0==j.world0 && events.jointEvents[0].jointId.generation==j.generation);ENSURE(events.jointEvents[0].userData==&marker);
+ b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetJointEvents(id).count==1);
+ // 高于阈值不再报告，同时验证上一步事件已清理
+ b2Joint_SetForceThreshold(j,1000);b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetJointEvents(id).count==0);
+ // 零阈值报告所有唤醒关节
+ b2Joint_SetForceThreshold(j,1000);b2Joint_SetTorqueThreshold(j,0);b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetJointEvents(id).count==1);
+ // 多个关节超过阈值时全部报告
+ b2Joint_SetTorqueThreshold(j,FLT_MAX);b2Joint_SetForceThreshold(j,0);
+ def.base.forceThreshold=0;def.base.torqueThreshold=0;b2JointId j2=b2CreateDistanceJoint(id,&def);ENSURE(b2Joint_GetForceThreshold(j2)==0 && b2Joint_GetTorqueThreshold(j2)==0);
+ b2World_Step(id,1.0f/60,4);events=b2World_GetJointEvents(id);ENSURE(events.count==2);
+ ENSURE((events.jointEvents[0].jointId.index1==j.index1 && events.jointEvents[1].jointId.index1==j2.index1) || (events.jointEvents[0].jointId.index1==j2.index1 && events.jointEvents[1].jointId.index1==j.index1));
+ // 销毁关节后不再报告该关节
+ b2DestroyJoint(j2);b2World_Step(id,1.0f/60,4);events=b2World_GetJointEvents(id);ENSURE(events.count==1);ENSURE(events.jointEvents[0].jointId.index1==j.index1);
+ b2Joint_SetForceThreshold(j,FLT_MAX);b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetJointEvents(id).count==0);
+ ENSURE(b2Joint_IsValid(j));ENSURE(!b2Joint_IsValid(j2));
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

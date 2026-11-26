@@ -262,6 +262,10 @@ typedef struct b2JointSim
 	float constraintDampingRatio;
 
 	b2Softness constraintSoftness;
+
+	float forceThreshold;
+	float torqueThreshold;
+
 	union { b2DistanceJoint distanceJoint;b2RevoluteJoint revoluteJoint;b2PrismaticJoint prismaticJoint;b2WheelJoint wheelJoint;b2WeldJoint weldJoint;b2MotorJoint motorJoint;b2MoverJoint moverJoint;b2PogoJoint pogoJoint; };
 
 } b2JointSim;
@@ -273,6 +277,8 @@ void b2UnlinkBodyJoints(b2World* world,b2Body* body);
 void b2RelinkBodyJoints(b2World* world,b2Body* body);
 
 b2JointSim* b2GetJointSimCheckType(b2JointId id,b2JointType type);
+b2Vec2 b2GetJointConstraintForce(b2World* world,b2Joint* joint);
+float b2GetJointConstraintTorque(b2World* world,b2Joint* joint);
 void b2PrepareJoint(b2JointSim* joint,b2StepContext* context);
 void b2WarmStartJoint(b2JointSim* joint,b2StepContext* context);
 void b2SolveJoint(b2JointSim* joint,b2StepContext* context,bool useBias);

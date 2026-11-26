@@ -7,6 +7,8 @@
 #include "shape.h"
 #include "box2d/math_functions.h"
 
+#include <bit>
+
 
 // Continuous collision uses a local frame centered on the fast body's previous center.
 struct b2ContinuousContext
@@ -207,8 +209,47 @@ static void b2SolveConstraints(b2StepContext* context,bool useBias)
  for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
  {
   int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;b2GraphColor* color=context->graph->colors+colorIndex;
-  for(int i=0;i<color->jointSims.count;++i) { b2SolveJoint(color->jointSims.data+i,context,useBias); }
+  for(int i=0;i<color->jointSims.count;++i)
+  {
+   b2JointSim* joint=color->jointSims.data+i;
+   b2SolveJoint(joint,context,useBias);
+
+   // 偏置迭代后按当前反力判定阈值。零阈值表示报告所有唤醒关节。
+   if(useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && b2GetBit(&context->world->jointStateBitSet,joint->jointId)==false)
+   {
+    b2Joint* jointEntity=context->world->joints.data+joint->jointId;
+    float force=b2Length(b2GetJointConstraintForce(context->world,jointEntity));
+    float torque=b2AbsFloat(b2GetJointConstraintTorque(context->world,jointEntity));
+    if(force>=joint->forceThreshold || torque>=joint->torqueThreshold)
+    {
+     // 标记此关节，避免同一时间步内重复报告。
+     b2SetBit(&context->world->jointStateBitSet,joint->jointId);
+    }
+   }
+  }
   b2SolveNormalColor(context,colorIndex,useBias);
+ }
+}
+
+static void b2ReportJointEvents(b2World* world)
+{
+ uint32_t wordCount=world->jointStateBitSet.blockCount;
+ uint64_t* bits=world->jointStateBitSet.bits;
+ for(uint32_t k=0;k<wordCount;++k)
+ {
+  uint64_t word=bits[k];
+  while(word!=0)
+  {
+   uint32_t ctz=std::countr_zero(word);
+   int jointId=(int)(64*k+ctz);
+   b2Joint* joint=world->joints.data+jointId;
+   B2_ASSERT(joint->setIndex==b2_awakeSet);
+   b2JointEvent event={};
+   event.jointId={jointId+1,world->worldId,joint->generation};
+   event.userData=joint->userData;
+   b2Array_Push(world->jointEvents,event);
+   word=word&(word-1);
+  }
  }
 }
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
@@ -220,6 +261,8 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
     b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
     world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
+    // 关节事件位按当前关节数量重置，避免沿用上一步的标记。
+    b2SetBitCountAndClear(&world->jointStateBitSet,b2GetIdCapacity(&world->jointIdPool));
     for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c) { b2GraphColor* color=world->constraintGraph.colors+c;for(int i=0;i<color->jointSims.count;++i) { b2PrepareJoint(color->jointSims.data+i,&context); } }
     b2PrepareContactConstraints(&context);
     world->profile.prepareConstraints=b2GetMillisecondsAndReset(&ticks);
@@ -304,6 +347,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         }
     }
     world->profile.transforms=b2GetMillisecondsAndReset(&ticks);
+    b2ReportJointEvents(world);world->profile.jointEvents=b2GetMillisecondsAndReset(&ticks);
     b2ReportHitEvents(world);world->profile.hitEvents=b2GetMillisecondsAndReset(&ticks);
     for(int i=0;i<bulletCount;++i)
     {

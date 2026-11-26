@@ -241,6 +241,8 @@ static b2JointPair b2CreateJoint( b2World* world, const b2JointDef* def, b2Joint
 		.impulseScale = 0.0f,
 	};
 
+	jointSim->forceThreshold = def->forceThreshold;
+	jointSim->torqueThreshold = def->torqueThreshold;
 
 
 	B2_ASSERT( jointSim->jointId == jointId );
@@ -457,6 +459,8 @@ static b2JointDef b2DefaultJointDef( void )
 	b2JointDef def = {};
 	def.localFrameA.q = b2Rot_identity;
 	def.localFrameB.q = b2Rot_identity;
+	def.forceThreshold = FLT_MAX;
+	def.torqueThreshold = FLT_MAX;
 	def.constraintHertz = 60.0f;
 	def.constraintDampingRatio = 2.0f;
 	def.drawScale = b2GetLengthUnitsPerMeter();
@@ -505,7 +509,7 @@ b2JointSim* b2GetJointSimCheckType(b2JointId id,b2JointType type)
 b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def)
 {
  B2_CHECK_DEF(def);
- if(!b2World_IsValid(worldId) || !b2IsValidFloat(def->length) || def->length<=0 || !b2IsValidTransform(def->base.localFrameA) || !b2IsValidTransform(def->base.localFrameB) || !b2IsValidFloat(def->base.constraintHertz) || def->base.constraintHertz<0 || !b2IsValidFloat(def->base.constraintDampingRatio) || def->base.constraintDampingRatio<0 || !b2IsValidFloat(def->base.drawScale)) { return b2_nullJointId; }
+ if(!b2World_IsValid(worldId) || !b2IsValidFloat(def->length) || def->length<=0 || !b2IsValidTransform(def->base.localFrameA) || !b2IsValidTransform(def->base.localFrameB) || !b2IsValidFloat(def->base.forceThreshold) || def->base.forceThreshold<0 || !b2IsValidFloat(def->base.torqueThreshold) || def->base.torqueThreshold<0 || !b2IsValidFloat(def->base.constraintHertz) || def->base.constraintHertz<0 || !b2IsValidFloat(def->base.constraintDampingRatio) || def->base.constraintDampingRatio<0 || !b2IsValidFloat(def->base.drawScale)) { return b2_nullJointId; }
  if(!b2IsValidFloat(def->hertz) || !b2IsValidFloat(def->dampingRatio) || !b2IsValidFloat(def->lowerSpringForce) || !b2IsValidFloat(def->upperSpringForce)) { return b2_nullJointId; }
  if(!b2IsValidFloat(def->minLength) || !b2IsValidFloat(def->maxLength)) { return b2_nullJointId; }
  if(!b2IsValidFloat(def->maxMotorForce) || !b2IsValidFloat(def->motorSpeed)) { return b2_nullJointId; }
@@ -568,12 +572,54 @@ void b2Joint_GetConstraintTuning( b2JointId jointId, float* hertz, float* dampin
 	*dampingRatio = base->constraintDampingRatio;
 }
 
+void b2Joint_SetForceThreshold( b2JointId jointId, float threshold )
+{
+	if ( b2IsValidFloat( threshold ) == false || threshold < 0.0f || b2Joint_IsValid( jointId ) == false )
+	{
+		return;
+	}
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	base->forceThreshold = threshold;
+}
+
+float b2Joint_GetForceThreshold( b2JointId jointId )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	return base->forceThreshold;
+}
+
+void b2Joint_SetTorqueThreshold( b2JointId jointId, float threshold )
+{
+	if ( b2IsValidFloat( threshold ) == false || threshold < 0.0f || b2Joint_IsValid( jointId ) == false )
+	{
+		return;
+	}
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	base->torqueThreshold = threshold;
+}
+
+float b2Joint_GetTorqueThreshold( b2JointId jointId )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	return base->torqueThreshold;
+}
+
 static b2WorldTransform b2JointBodyTransform( b2World* world, int bodyId )
 {
 	return b2GetBodySim( world, world->bodies.data + bodyId )->transform;
 }
 
-static b2Vec2 b2GetJointConstraintForce( b2World* world, b2Joint* joint )
+b2Vec2 b2GetJointConstraintForce( b2World* world, b2Joint* joint )
 {
 	b2JointSim* base = b2GetJointSim( world, joint );
 	switch ( joint->type )
@@ -625,7 +671,7 @@ static b2Vec2 b2GetJointConstraintForce( b2World* world, b2Joint* joint )
 	}
 }
 
-static float b2GetJointConstraintTorque( b2World* world, b2Joint* joint )
+float b2GetJointConstraintTorque( b2World* world, b2Joint* joint )
 {
 	b2JointSim* base = b2GetJointSim( world, joint );
 	switch ( joint->type )
@@ -907,7 +953,7 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 static b2World* b2GetWorldForJointDef(b2WorldId id,const b2JointDef* def)
 {
- if(!b2World_IsValid(id) || !b2IsValidTransform(def->localFrameA) || !b2IsValidTransform(def->localFrameB) || !b2IsValidFloat(def->constraintHertz) || def->constraintHertz<0 || !b2IsValidFloat(def->constraintDampingRatio) || def->constraintDampingRatio<0 || !b2IsValidFloat(def->drawScale)) { return nullptr; }
+ if(!b2World_IsValid(id) || !b2IsValidTransform(def->localFrameA) || !b2IsValidTransform(def->localFrameB) || !b2IsValidFloat(def->forceThreshold) || def->forceThreshold<0 || !b2IsValidFloat(def->torqueThreshold) || def->torqueThreshold<0 || !b2IsValidFloat(def->constraintHertz) || def->constraintHertz<0 || !b2IsValidFloat(def->constraintDampingRatio) || def->constraintDampingRatio<0 || !b2IsValidFloat(def->drawScale)) { return nullptr; }
  b2World* world=b2_worlds+id.index1-1;
  if(!world->inUse || world->locked || def->bodyIdA.world0!=world->worldId || def->bodyIdB.world0!=world->worldId || def->bodyIdA.index1==def->bodyIdB.index1 || !b2Body_IsValid(def->bodyIdA) || !b2Body_IsValid(def->bodyIdB)) { return nullptr; }
  return world;

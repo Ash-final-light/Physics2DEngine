@@ -86,6 +86,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	b2Array_CreateN(world->bodyMoveEvents,4);
 	b2Array_CreateN(world->contactBeginEvents,4);
 	b2Array_CreateN(world->contactHitEvents,4);
+	b2Array_CreateN(world->jointEvents,4);
+	world->jointStateBitSet=b2CreateBitSet(1024);
 	b2Array_CreateN(world->contactEndEvents[0],4);
 	b2Array_CreateN(world->contactEndEvents[1],4);
 	world->islandIdPool=b2CreateIdPool();
@@ -119,6 +121,8 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2Array_Destroy(world->bodyMoveEvents);
 	b2Array_Destroy(world->contactBeginEvents);
 	b2Array_Destroy(world->contactHitEvents);
+	b2Array_Destroy(world->jointEvents);
+	b2DestroyBitSet(&world->jointStateBitSet);
 	b2Array_Destroy(world->contactEndEvents[0]);
 	b2Array_Destroy(world->contactEndEvents[1]);
 	b2DestroyGraph(&world->constraintGraph);
@@ -210,6 +214,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     b2Array_Clear(world->contactBeginEvents);
     b2Array_Clear(world->sensorBeginEvents);
     b2Array_Clear(world->contactHitEvents);
+    b2Array_Clear(world->jointEvents);
     for(int i=0;i<world->bodies.count;++i) { world->bodies.data[i].bodyMoveIndex=B2_NULL_INDEX; }
     uint64_t stepTicks=b2GetTicks();world->profile=b2Profile{};
     world->locked = true;
@@ -463,6 +468,8 @@ void b2World_DumpMemoryStats(b2WorldId id)
     b2WriteMemoryStat(file,"contact begins",b2Array_ByteCount(world->contactBeginEvents),&total);
     b2WriteMemoryStat(file,"contact hits",b2Array_ByteCount(world->contactHitEvents),&total);
     b2WriteMemoryStat(file,"contact ends",b2Array_ByteCount(world->contactEndEvents[0])+b2Array_ByteCount(world->contactEndEvents[1]),&total);
+    b2WriteMemoryStat(file,"joint events",b2Array_ByteCount(world->jointEvents),&total);
+    b2WriteMemoryStat(file,"joint state bits",b2GetBitSetBytes(&world->jointStateBitSet),&total);
     int sensorBytes=b2Array_ByteCount(world->sensors)+b2Array_ByteCount(world->sensorTaskContexts);
     for(int i=0;i<world->sensors.count;++i)
     { b2Sensor* sensor=world->sensors.data+i;sensorBytes+=b2Array_ByteCount(sensor->hits)+b2Array_ByteCount(sensor->overlaps1)+b2Array_ByteCount(sensor->overlaps2); }
@@ -484,6 +491,12 @@ b2ContactEvents b2World_GetContactEvents(b2WorldId id)
     b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return b2ContactEvents{}; }
     b2DynamicArray<b2ContactEndTouchEvent>* ends=world->contactEndEvents+(1-world->endEventArrayIndex);
     return b2ContactEvents{world->contactBeginEvents.data,ends->data,world->contactHitEvents.data,world->contactBeginEvents.count,ends->count,world->contactHitEvents.count};
+}
+
+b2JointEvents b2World_GetJointEvents(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return b2JointEvents{}; }
+    return b2JointEvents{world->jointEvents.data,world->jointEvents.count};
 }
 
 void b2World_SetHitEventThreshold(b2WorldId id,float value)
