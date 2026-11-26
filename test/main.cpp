@@ -160,6 +160,7 @@ int JointLocalFrameTest( void );
 int JointConstraintTuningTest( void );
 int JointReactionTest( void );
 int JointEventTest( void );
+int JointEventOverflowTest( void );
 int JointDrawTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
@@ -1087,6 +1088,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"JointReactionTest")==0) { ran=1; RUN_TEST(JointReactionTest); }
 
 	if(filter==NULL || strcmp(filter,"JointEventTest")==0) { ran=1; RUN_TEST(JointEventTest); }
+
+	if(filter==NULL || strcmp(filter,"JointEventOverflowTest")==0) { ran=1; RUN_TEST(JointEventOverflowTest); }
 
 	if(filter==NULL || strcmp(filter,"JointDrawTest")==0) { ran=1; RUN_TEST(JointDrawTest); }
 

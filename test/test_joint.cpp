@@ -430,6 +430,53 @@ int JointEventTest(void)
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
 
+int JointEventOverflowTest(void)
+{
+ size_t before=b2GetByteCount();
+ b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+ b2WorldId id=b2CreateWorld(&wd);
+ b2World* world=b2_worlds+id.index1-1;
+ b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);
+ bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);
+ b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;
+ b2Circle circle={{0,0},0.5f};b2CreateCircleShape(b,&sd,&circle);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();
+ def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=2;def.base.forceThreshold=0;
+ b2JointId joints[24];
+ for(int i=0;i<24;++i) { joints[i]=b2CreateDistanceJoint(id,&def);ENSURE(b2Joint_IsValid(joints[i])); }
+ b2World_Step(id,1.0f/60,4);
+ bool overflow[24]={};
+ b2GraphColor* color=world->constraintGraph.colors+B2_OVERFLOW_INDEX;
+ int overflowCount=color->jointSims.count;
+ ENSURE(overflowCount==2);
+ for(int i=0;i<overflowCount;++i)
+ {
+  int jointId=color->jointSims.data[i].jointId;ENSURE(jointId>=0 && jointId<24);overflow[jointId]=true;
+ }
+ b2JointEvents events=b2World_GetJointEvents(id);
+ ENSURE(events.count==24-overflowCount);
+ int last=-1;
+ for(int e=0;e<events.count;++e)
+ {
+  int index1=events.jointEvents[e].jointId.index1;int index=index1-1;
+  ENSURE(index>=0 && index<24 && !overflow[index]);
+  ENSURE(index1>last);last=index1;
+  ENSURE(joints[index].index1==index1 && joints[index].generation==events.jointEvents[e].jointId.generation);
+ }
+ // 下一步清理旧事件，重新报告相同的普通颜色集合
+ b2World_Step(id,1.0f/60,4);
+ events=b2World_GetJointEvents(id);
+ ENSURE(events.count==24-overflowCount);
+ last=-1;
+ for(int e=0;e<events.count;++e)
+ {
+  int index=events.jointEvents[e].jointId.index1-1;
+  ENSURE(index>=0 && index<24 && !overflow[index]);
+  ENSURE(events.jointEvents[e].jointId.index1>last);last=events.jointEvents[e].jointId.index1;
+ }
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
 struct JointDrawStats
 {
  int points,lines,circles,polygons,strings;

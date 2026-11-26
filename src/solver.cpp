@@ -214,8 +214,9 @@ static void b2SolveConstraints(b2StepContext* context,bool useBias)
    b2JointSim* joint=color->jointSims.data+i;
    b2SolveJoint(joint,context,useBias);
 
+   // 溢出颜色只求解约束；事件标记沿用普通颜色路径的语义。
    // 偏置迭代后按当前反力判定阈值。零阈值表示报告所有唤醒关节。
-   if(useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && b2GetBit(&context->world->jointStateBitSet,joint->jointId)==false)
+   if(colorIndex!=B2_OVERFLOW_INDEX && useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && b2GetBit(&context->world->jointStateBitSet,joint->jointId)==false)
    {
     b2Joint* jointEntity=context->world->joints.data+joint->jointId;
     float force=b2Length(b2GetJointConstraintForce(context->world,jointEntity));
