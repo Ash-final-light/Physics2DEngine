@@ -537,6 +537,9 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	if (!(b2IsValidFloat( def->targetAngle ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->hertz ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->lowerAngle ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->upperAngle ))) { return b2_nullJointId; }
+	B2_ASSERT( def->lowerAngle <= def->upperAngle );
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
 
@@ -558,8 +561,13 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	joint->revoluteJoint.hertz = def->hertz;
 	joint->revoluteJoint.dampingRatio = def->dampingRatio;
 
+	float lowerAngle = b2MinFloat( def->lowerAngle, def->upperAngle );
+	float upperAngle = b2MaxFloat( def->lowerAngle, def->upperAngle );
+	joint->revoluteJoint.lowerAngle = b2ClampFloat( lowerAngle, -0.99f * B2_PI, 0.99f * B2_PI );
+	joint->revoluteJoint.upperAngle = b2ClampFloat( upperAngle, -0.99f * B2_PI, 0.99f * B2_PI );
 
 	joint->revoluteJoint.enableSpring = def->enableSpring;
+	joint->revoluteJoint.enableLimit = def->enableLimit;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 

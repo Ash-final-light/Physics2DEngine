@@ -202,3 +202,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 旋转关节 `b2CreateRevoluteJoint` 将两侧局部锚点约束到同一世界位置，同时允许相对旋转；可查询当前相对角度和角速度。
 
 旋转关节弹簧可驱动目标相对角，并通过频率和阻尼调节响应；关闭弹簧后保留基础锚点约束和旋转自由度。
+
+旋转关节支持相对角的上下限与运行时开关，可与角弹簧共同使用。限位角夹紧到正负 `0.99π`。

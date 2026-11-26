@@ -1018,6 +1018,9 @@ typedef struct b2RevoluteJointDef
 	bool enableSpring;
 	float hertz;
 	float dampingRatio;
+	bool enableLimit;
+	float lowerAngle;
+	float upperAngle;
 	int internalValue;
 } b2RevoluteJointDef;
 B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef(void);
@@ -1034,3 +1037,9 @@ B2_API void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float damp
 B2_API float b2RevoluteJoint_GetSpringDampingRatio( b2JointId jointId );
 B2_API void b2RevoluteJoint_SetTargetAngle( b2JointId jointId, float angle );
 B2_API float b2RevoluteJoint_GetTargetAngle( b2JointId jointId );
+
+B2_API void b2RevoluteJoint_EnableLimit( b2JointId jointId, bool enableLimit );
+B2_API bool b2RevoluteJoint_IsLimitEnabled( b2JointId jointId );
+B2_API float b2RevoluteJoint_GetLowerLimit( b2JointId jointId );
+B2_API float b2RevoluteJoint_GetUpperLimit( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper );

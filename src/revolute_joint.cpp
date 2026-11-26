@@ -63,6 +63,8 @@ void b2PrepareRevoluteJoint( b2JointSim* base, b2StepContext* context )
 	{
 		joint->linearImpulse = b2Vec2_zero;
 		joint->springImpulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
 	}
 }
 
@@ -85,7 +87,7 @@ void b2WarmStartRevoluteJoint( b2JointSim* base, b2StepContext* context )
 	b2Vec2 rA = b2RotateVector( stateA->deltaRotation, joint->frameA.p );
 	b2Vec2 rB = b2RotateVector( stateB->deltaRotation, joint->frameB.p );
 
-	float axialImpulse = joint->springImpulse;
+	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
 
 	if ( stateA->flags & b2_dynamicFlag )
 	{
@@ -156,10 +158,70 @@ void b2SolveRevoluteJoint( b2JointSim* base, b2StepContext* context, bool useBia
 		axialImpulse += impulse;
 	}
 
-	// 求解马达约束。
 
 
 
+	if ( joint->enableLimit && fixedRotation == false )
+	{
+		float jointAngle = b2Rot_GetAngle( relQ );
+
+		// 下限
+		{
+			float C = jointAngle - joint->lowerAngle;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+			if ( C > 0.0f )
+			{
+				// 预测性
+				bias = C * context->inv_h;
+			}
+			else if ( useBias )
+			{
+				bias = base->constraintSoftness.biasRate * C;
+				massScale = base->constraintSoftness.massScale;
+				impulseScale = base->constraintSoftness.impulseScale;
+			}
+
+			float Cdot = angularCdot;
+			float oldImpulse = joint->lowerImpulse;
+			float impulse = b2MaxFloat( -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * oldImpulse, -oldImpulse );
+			joint->lowerImpulse = oldImpulse + impulse;
+
+			angularCdot += k * impulse;
+			axialImpulse += impulse;
+		}
+
+		// 上限
+		// 注意：翻转符号，使约束满足时 C 为正。
+		// 这也使限位激活时冲量为正。
+		{
+			float C = joint->upperAngle - jointAngle;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+			if ( C > 0.0f )
+			{
+				// 预测性
+				bias = C * context->inv_h;
+			}
+			else if ( useBias )
+			{
+				bias = base->constraintSoftness.biasRate * C;
+				massScale = base->constraintSoftness.massScale;
+				impulseScale = base->constraintSoftness.impulseScale;
+			}
+
+			// Cdot 符号翻转
+			float Cdot = -angularCdot;
+			float oldImpulse = joint->upperImpulse;
+			float impulse = b2MaxFloat( -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * oldImpulse, -oldImpulse );
+			joint->upperImpulse = oldImpulse + impulse;
+
+			// 施加冲量时符号翻转
+			axialImpulse -= impulse;
+		}
+	}
 
 	// 求解点对点约束
 	{
@@ -304,4 +366,50 @@ float b2RevoluteJoint_GetTargetAngle( b2JointId jointId )
 {
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return joint->revoluteJoint.targetAngle;
+}
+
+void b2RevoluteJoint_EnableLimit( b2JointId jointId, bool enableLimit )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	if ( enableLimit != joint->revoluteJoint.enableLimit )
+	{
+		joint->revoluteJoint.enableLimit = enableLimit;
+		joint->revoluteJoint.lowerImpulse = 0.0f;
+		joint->revoluteJoint.upperImpulse = 0.0f;
+	}
+}
+
+bool b2RevoluteJoint_IsLimitEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.enableLimit;
+}
+
+float b2RevoluteJoint_GetLowerLimit( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.lowerAngle;
+}
+
+float b2RevoluteJoint_GetUpperLimit( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	return joint->revoluteJoint.upperAngle;
+}
+
+void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper )
+{
+	if (!(b2IsValidFloat( lower ))) { return; }
+	if (!(b2IsValidFloat( upper ))) { return; }
+
+	B2_ASSERT( lower <= upper );
+
+	b2World* world = b2_worlds + jointId.world0;
+
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
+	float lowerAngle = b2MinFloat( lower, upper );
+	float upperAngle = b2MaxFloat( lower, upper );
+	joint->revoluteJoint.lowerAngle = b2ClampFloat( lowerAngle, -0.99f * B2_PI, 0.99f * B2_PI );
+	joint->revoluteJoint.upperAngle = b2ClampFloat( upperAngle, -0.99f * B2_PI, 0.99f * B2_PI );
 }

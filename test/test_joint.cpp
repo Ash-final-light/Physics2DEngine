@@ -149,3 +149,17 @@ int RevoluteJointSpringTest(void)
  b2MotionLocks locks={false,false,true};b2Body_SetMotionLocks(b,locks);float angle=b2Rot_GetAngle(b2Body_GetRotation(b));b2RevoluteJoint_SetTargetAngle(j,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Rot_GetAngle(b2Body_GetRotation(b))-angle,0.00001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int RevoluteJointLimitTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.rotation=b2MakeRot(1.2f);b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2RevoluteJointDef def=b2DefaultRevoluteJointDef();ENSURE(!def.enableLimit);def.base.bodyIdA=a;def.base.bodyIdB=b;def.enableLimit=true;def.lowerAngle=-0.5f;def.upperAngle=0.5f;b2JointId j=b2CreateRevoluteJoint(id,&def);ENSURE(b2RevoluteJoint_IsLimitEnabled(j) && b2RevoluteJoint_GetLowerLimit(j)==-0.5f && b2RevoluteJoint_GetUpperLimit(j)==0.5f);
+ for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(j)-0.5f,0.01f);
+ b2Body_SetTransform(b,{0,0},b2MakeRot(-1.2f));b2Body_SetAngularVelocity(b,0);b2World_EnableWarmStarting(id,false);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentAngle(j)+0.5f,0.01f);
+ b2Body_SetTransform(b,{0,0},b2Rot_identity);b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.0001f);ENSURE(b2RevoluteJoint_GetCurrentAngle(j)>0.09f);
+ b2RevoluteJoint_SetLimits(j,-10,10);ENSURE_SMALL(b2RevoluteJoint_GetLowerLimit(j)+0.99f*B2_PI,0.00001f);ENSURE_SMALL(b2RevoluteJoint_GetUpperLimit(j)-0.99f*B2_PI,0.00001f);
+ b2RevoluteJoint_SetLimits(j,-0.2f,0.4f);b2RevoluteJoint_EnableSpring(j,true);b2RevoluteJoint_SetTargetAngle(j,1);b2RevoluteJoint_SetSpringHertz(j,2);b2RevoluteJoint_SetSpringDampingRatio(j,1);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2RevoluteJoint_GetCurrentAngle(j)<=0.42f && b2RevoluteJoint_GetCurrentAngle(j)>=0.39f);
+ b2RevoluteJoint_SetTargetAngle(j,-1);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2RevoluteJoint_GetCurrentAngle(j)>=-0.22f && b2RevoluteJoint_GetCurrentAngle(j)<=-0.19f);
+ b2RevoluteJoint_EnableLimit(j,false);ENSURE(!b2RevoluteJoint_IsLimitEnabled(j));b2RevoluteJoint_EnableSpring(j,false);b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.0001f);ENSURE_SMALL(JointAnchorError(j),0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

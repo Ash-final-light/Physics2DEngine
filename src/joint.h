@@ -85,9 +85,13 @@ typedef struct b2RevoluteJoint
 {
 	b2Vec2 linearImpulse;
 	float springImpulse;
+	float lowerImpulse;
+	float upperImpulse;
 	float hertz;
 	float dampingRatio;
 	float targetAngle;
+	float lowerAngle;
+	float upperAngle;
 	int indexA;
 	int indexB;
 	b2Transform frameA;
@@ -96,6 +100,7 @@ typedef struct b2RevoluteJoint
 	float axialMass;
 	b2Softness springSoftness;
 	bool enableSpring;
+	bool enableLimit;
 } b2RevoluteJoint;
 
 typedef struct b2JointSim
