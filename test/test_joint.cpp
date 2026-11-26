@@ -28,3 +28,24 @@ int JointDefinitionTest(void)
  b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{2,0},0.5f};b2CreateCircleShape(body,&sd,&circle);b2Vec2 point=b2Body_GetLocalPoint(body,frame.p);ENSURE(point.x==3 && point.y==0);
  b2Pos worldPoint=b2Body_GetWorldPoint(body,local.p);ENSURE(worldPoint.x==100 && worldPoint.y==203);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int JointOrganizationTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;
+ b2BodyId a=b2CreateBody(id,&bd),b=b2CreateBody(id,&bd),c=b2CreateBody(id,&bd);b2JointId ab=b2CreateJointRecord(world,a,b),bc=b2CreateJointRecord(world,b,c);
+ b2Joint* ja=b2GetJointFullId(world,ab);b2Joint* jb=b2GetJointFullId(world,bc);ENSURE(ja->setIndex==b2_awakeSet && ja->colorIndex!=jb->colorIndex);
+ ENSURE(b2GetBodyFullId(world,a)->islandId==b2GetBodyFullId(world,c)->islandId);b2JointSim* sim=b2GetJointSim(world,ja);ENSURE(sim->bodyIdA==a.index1-1 && sim->bodyIdB==b.index1-1);
+ b2Body_SetAwake(a,false);ENSURE(!b2Body_IsAwake(a) && !b2Body_IsAwake(b) && !b2Body_IsAwake(c));ENSURE(ja->colorIndex==B2_NULL_INDEX && ja->setIndex>=b2_firstSleepingSet);
+ b2Body_SetAwake(c,true);ENSURE(b2Body_IsAwake(a) && b2Body_IsAwake(b));ENSURE(ja->setIndex==b2_awakeSet && ja->colorIndex!=jb->colorIndex);
+ b2Body_Disable(b);ENSURE(ja->setIndex==b2_disabledSet && jb->setIndex==b2_disabledSet && ja->islandId==B2_NULL_INDEX);b2SplitContactIslands(world);ENSURE(b2GetBodyFullId(world,a)->islandId!=b2GetBodyFullId(world,c)->islandId);
+ b2Body_Enable(b);ENSURE(ja->setIndex==b2_awakeSet && b2GetBodyFullId(world,a)->islandId==b2GetBodyFullId(world,c)->islandId);
+ b2Body_SetType(b,b2_staticBody);b2SplitContactIslands(world);ENSURE(b2GetBodyFullId(world,a)->islandId!=b2GetBodyFullId(world,c)->islandId);ENSURE(ja->setIndex==b2_awakeSet && jb->setIndex==b2_awakeSet);
+ b2Body_SetType(b,b2_dynamicBody);ENSURE(b2GetBodyFullId(world,a)->islandId==b2GetBodyFullId(world,c)->islandId);
+ for(int i=0;i<28;++i) { ENSURE(b2CreateJointRecord(world,a,b).index1>0); }ja=b2GetJointFullId(world,ab);jb=b2GetJointFullId(world,bc);ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);
+ int graphCount=0;for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i) { graphCount+=world->constraintGraph.colors[i].jointSims.count; }ENSURE(graphCount==30);b2DestroyJoint(ab);ENSURE(!b2Joint_IsValid(ab) && b2Joint_IsValid(bc));
+ bd.isAwake=false;bd.position={10,0};b2BodyId d=b2CreateBody(id,&bd);bd.position={20,0};b2BodyId e=b2CreateBody(id,&bd);b2JointId de=b2CreateJointRecord(world,d,e);ENSURE(!b2Body_IsAwake(d) && !b2Body_IsAwake(e));ENSURE(b2GetBodyFullId(world,d)->setIndex==b2GetBodyFullId(world,e)->setIndex);
+ b2Body_SetAwake(d,true);ENSURE(b2Body_IsAwake(e));ENSURE(b2GetJointFullId(world,de)->setIndex==b2_awakeSet);
+ bd.type=b2_staticBody;bd.isAwake=true;b2BodyId s=b2CreateBody(id,&bd);b2JointId ds=b2CreateJointRecord(world,d,s),es=b2CreateJointRecord(world,e,s);ENSURE(b2Joint_IsValid(ds) && b2Joint_IsValid(es));
+ b2DestroyJoint(de);b2SplitContactIslands(world);ENSURE(b2GetBodyFullId(world,d)->islandId!=b2GetBodyFullId(world,e)->islandId);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

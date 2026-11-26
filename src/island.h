@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 typedef struct b2Contact b2Contact;
+typedef struct b2Joint b2Joint;
 typedef struct b2World b2World;
 
 // 缓存在岛中的接触数据，便于连续遍历。
@@ -21,6 +22,9 @@ typedef struct b2ContactLink
 } b2ContactLink;
 
 b2DeclareArray( b2ContactLink );
+
+typedef struct b2JointLink { int jointId;int bodyIdA;int bodyIdB; } b2JointLink;
+b2DeclareArray(b2JointLink);
 
 // Persistent connected components of touching contacts.
 // Static bodies can be contact endpoints but never join or bridge islands.
@@ -47,6 +51,7 @@ typedef struct b2Island
 	// 每条链接保存两个刚体 id，使 b2SplitIsland 的并查集遍历
 	// 无需访问 b2Contact。
 	b2Array( b2ContactLink ) contacts;
+	b2Array(b2JointLink) joints;
 
 } b2Island;
 
@@ -74,3 +79,6 @@ void b2SplitIsland( b2World* world, int baseId );
 void b2SplitContactIslands( b2World* world );
 
 void b2ValidateIsland( b2World* world, int islandId );
+
+void b2LinkJoint(b2World* world,b2Joint* joint);
+void b2UnlinkJoint(b2World* world,b2Joint* joint);

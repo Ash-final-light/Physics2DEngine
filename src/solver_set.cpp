@@ -33,6 +33,7 @@ void b2DestroySolverSet( b2World* world, int index )
     b2Array_Destroy(set->bodySims);
     b2Array_Destroy(set->bodyStates);
     b2Array_Destroy(set->contactSims);
+    b2Array_Destroy(set->jointSims);
     b2Array_Destroy(set->islandSims);
     set->setIndex=B2_NULL_INDEX;
     b2FreeId(&world->solverSetIdPool,index);
@@ -131,7 +132,7 @@ void b2RemoveBodyFromSolverSet( b2World* world, b2Body* body )
     {
         world->bodies.data[set->bodySims.data[index].bodyId].localIndex=index;
     }
-    if(setIndex>=b2_firstSleepingSet && set->bodySims.count==0 && set->contactSims.count==0 && set->islandSims.count==0)
+    if(setIndex>=b2_firstSleepingSet && set->bodySims.count==0 && set->contactSims.count==0 && set->islandSims.count==0 && set->jointSims.count==0)
     {
         b2DestroySolverSet(world,setIndex);
     }
@@ -161,7 +162,7 @@ void b2TransferBody( b2World* world, b2SolverSet* target, b2SolverSet* source, b
     }
     body->setIndex=target->setIndex;
     body->localIndex=newIndex;
-    if(oldSet>=b2_firstSleepingSet && source->bodySims.count==0 && source->contactSims.count==0 && source->islandSims.count==0)
+    if(oldSet>=b2_firstSleepingSet && source->bodySims.count==0 && source->contactSims.count==0 && source->islandSims.count==0 && source->jointSims.count==0)
     {
         b2DestroySolverSet(world,oldSet);
     }
@@ -190,6 +191,13 @@ void b2WakeSolverSet( b2World* world, int setIndex )
         b2Array_Push(awake->bodyStates,state);
     }
     set->bodySims.count=0;
+    for(int i=0;i<set->jointSims.count;++i)
+    {
+        b2JointSim* sim=set->jointSims.data+i;b2Joint* joint=world->joints.data+sim->jointId;
+        b2AddJointToGraph(world,sim,joint);joint->setIndex=b2_awakeSet;
+    }
+    set->jointSims.count=0;
+
     for(int i=0;i<set->islandSims.count;++i)
     {
         b2IslandSim sim=set->islandSims.data[i];
@@ -238,6 +246,7 @@ void b2TrySleepIsland( b2World* world, int islandId )
 	sleepSet->setIndex = sleepSetId;
 	b2Array_CreateN( sleepSet->bodySims, island->bodies.count );
 	b2Array_CreateN( sleepSet->contactSims, island->contacts.count );
+	b2Array_CreateN(sleepSet->jointSims,island->joints.count);
 
 	// 将唤醒刚体移到休眠集合
 	// 这会打乱唤醒集合中的刚体
@@ -390,6 +399,52 @@ void b2TrySleepIsland( b2World* world, int islandId )
 		}
 	}
 
+	// 移动关节
+	// 这会打乱唤醒集合中的关节
+	{
+		for ( int i = 0; i < island->joints.count; ++i )
+		{
+			b2JointLink* link = island->joints.data + i;
+			b2Joint* joint = b2Array_Get( world->joints, link->jointId );
+			B2_ASSERT( joint->setIndex == b2_awakeSet );
+			B2_ASSERT( joint->islandId == islandId );
+			int colorIndex = joint->colorIndex;
+			int localIndex = joint->localIndex;
+
+			B2_ASSERT( 0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT );
+
+			b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+
+			b2JointSim* awakeJointSim = b2Array_Get( color->jointSims, localIndex );
+
+			if ( colorIndex != B2_OVERFLOW_INDEX )
+			{
+				// 可能清除静态刚体的一位，但没有影响
+				b2ClearBit( &color->bodySet, joint->edges[0].bodyId );
+				b2ClearBit( &color->bodySet, joint->edges[1].bodyId );
+			}
+
+			int sleepJointIndex = sleepSet->jointSims.count;
+			b2JointSim* sleepJointSim = b2Array_Emplace( sleepSet->jointSims );
+			memcpy( sleepJointSim, awakeJointSim, sizeof( b2JointSim ) );
+
+			int movedIndex = b2Array_RemoveSwap( color->jointSims, localIndex );
+			if ( movedIndex != B2_NULL_INDEX )
+			{
+				// 修正被移动的元素
+				b2JointSim* movedJointSim = color->jointSims.data + localIndex;
+				int movedId = movedJointSim->jointId;
+				b2Joint* movedJoint = b2Array_Get( world->joints, movedId );
+				B2_ASSERT( movedJoint->localIndex == movedIndex );
+				movedJoint->localIndex = localIndex;
+			}
+
+			joint->setIndex = sleepSetId;
+			joint->colorIndex = B2_NULL_INDEX;
+			joint->localIndex = sleepJointIndex;
+		}
+	}
+
 	// 移动岛结构
 	{
 		B2_ASSERT( island->setIndex == b2_awakeSet );
@@ -414,4 +469,158 @@ void b2TrySleepIsland( b2World* world, int islandId )
 	}
 
 	b2RefreshContactSets( world );
+}
+
+void b2MergeSolverSets( b2World* world, int setId1, int setId2 )
+{
+	B2_ASSERT( setId1 >= b2_firstSleepingSet );
+	B2_ASSERT( setId2 >= b2_firstSleepingSet );
+	b2SolverSet* set1 = b2Array_Get( world->solverSets, setId1 );
+	b2SolverSet* set2 = b2Array_Get( world->solverSets, setId2 );
+
+	// 移动尽量少的刚体
+	if ( set1->bodySims.count < set2->bodySims.count )
+	{
+		b2SolverSet* tempSet = set1;
+		set1 = set2;
+		set2 = tempSet;
+
+		int tempId = setId1;
+		setId1 = setId2;
+		setId2 = tempId;
+	}
+
+	// 转移刚体
+	{
+		b2Body* bodies = world->bodies.data;
+		int bodyCount = set2->bodySims.count;
+		for ( int i = 0; i < bodyCount; ++i )
+		{
+			b2BodySim* simSrc = set2->bodySims.data + i;
+
+			b2Body* body = bodies + simSrc->bodyId;
+			B2_ASSERT( body->setIndex == setId2 );
+			body->setIndex = setId1;
+			body->localIndex = set1->bodySims.count;
+
+			b2BodySim* simDst = b2Array_Emplace( set1->bodySims );
+			memcpy( simDst, simSrc, sizeof( b2BodySim ) );
+		}
+	}
+
+	// 转移接触
+	{
+		int contactCount = set2->contactSims.count;
+		for ( int i = 0; i < contactCount; ++i )
+		{
+			b2ContactSim* contactSrc = set2->contactSims.data + i;
+
+			b2Contact* contact = b2Array_Get( world->contacts, contactSrc->contactId );
+			B2_ASSERT( contact->setIndex == setId2 );
+			contact->setIndex = setId1;
+			contact->localIndex = set1->contactSims.count;
+
+			b2ContactSim* contactDst = b2Array_Emplace( set1->contactSims );
+			memcpy( contactDst, contactSrc, sizeof( b2ContactSim ) );
+		}
+	}
+
+	// 转移关节
+	{
+		int jointCount = set2->jointSims.count;
+		for ( int i = 0; i < jointCount; ++i )
+		{
+			b2JointSim* jointSrc = set2->jointSims.data + i;
+
+			b2Joint* joint = b2Array_Get( world->joints, jointSrc->jointId );
+			B2_ASSERT( joint->setIndex == setId2 );
+			joint->setIndex = setId1;
+			joint->localIndex = set1->jointSims.count;
+
+			b2JointSim* jointDst = b2Array_Emplace( set1->jointSims );
+			memcpy( jointDst, jointSrc, sizeof( b2JointSim ) );
+		}
+	}
+
+	// 转移岛
+	{
+		int islandCount = set2->islandSims.count;
+		for ( int i = 0; i < islandCount; ++i )
+		{
+			b2IslandSim* islandSrc = set2->islandSims.data + i;
+			int islandId = islandSrc->islandId;
+
+			b2Island* island = b2Array_Get( world->islands, islandId );
+			island->setIndex = setId1;
+			island->localIndex = set1->islandSims.count;
+
+			b2IslandSim* islandDst = b2Array_Emplace( set1->islandSims );
+			memcpy( islandDst, islandSrc, sizeof( b2IslandSim ) );
+		}
+	}
+
+	// 销毁被合并的集合
+	b2DestroySolverSet( world, setId2 );
+
+
+}
+
+void b2TransferJoint( b2World* world, b2SolverSet* targetSet, b2SolverSet* sourceSet, b2Joint* joint )
+{
+	if ( targetSet == sourceSet )
+	{
+		return;
+	}
+
+	int localIndex = joint->localIndex;
+	int colorIndex = joint->colorIndex;
+
+	// 取源。
+	b2JointSim* sourceSim;
+	if ( sourceSet->setIndex == b2_awakeSet )
+	{
+		B2_ASSERT( 0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT );
+		b2GraphColor* color = world->constraintGraph.colors + colorIndex;
+
+		sourceSim = b2Array_Get( color->jointSims, localIndex );
+	}
+	else
+	{
+		B2_ASSERT( colorIndex == B2_NULL_INDEX );
+		sourceSim = b2Array_Get( sourceSet->jointSims, localIndex );
+	}
+
+	// 创建目标并拷贝。修正关节。
+	if ( targetSet->setIndex == b2_awakeSet )
+	{
+		b2AddJointToGraph( world, sourceSim, joint );
+		joint->setIndex = b2_awakeSet;
+	}
+	else
+	{
+		joint->setIndex = targetSet->setIndex;
+		joint->localIndex = targetSet->jointSims.count;
+		joint->colorIndex = B2_NULL_INDEX;
+
+		b2JointSim* targetSim = b2Array_Emplace( targetSet->jointSims );
+		memcpy( targetSim, sourceSim, sizeof( b2JointSim ) );
+	}
+
+	// 销毁源。
+	if ( sourceSet->setIndex == b2_awakeSet )
+	{
+		b2RemoveJointFromGraph( world, joint->edges[0].bodyId, joint->edges[1].bodyId, colorIndex, localIndex );
+	}
+	else
+	{
+		int movedIndex = b2Array_RemoveSwap( sourceSet->jointSims, localIndex );
+		if ( movedIndex != B2_NULL_INDEX )
+		{
+			// 修正被交换的元素
+			b2JointSim* movedJointSim = sourceSet->jointSims.data + localIndex;
+			int movedId = movedJointSim->jointId;
+			b2Joint* movedJoint = b2Array_Get( world->joints, movedId );
+			movedJoint->localIndex = localIndex;
+		}
+	}
 }

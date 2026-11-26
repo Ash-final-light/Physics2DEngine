@@ -27,6 +27,7 @@ typedef struct b2Capacity
 	int staticBodyCount;
 	int dynamicBodyCount;
 	int contactCount;
+	int jointCount;
 	int arenaByteCount;
 } b2Capacity;
 
@@ -937,3 +938,5 @@ typedef struct b2DistanceJointDef
  int internalValue;
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
+
+typedef enum b2JointType { b2_distanceJoint } b2JointType;

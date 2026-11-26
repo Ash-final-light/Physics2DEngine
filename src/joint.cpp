@@ -3,6 +3,7 @@
 #include "joint.h"
 #include "body.h"
 #include "world.h"
+#include <cstring>
 
 b2Joint* b2GetJointFullId(b2World* world,b2JointId id)
 {
@@ -14,37 +15,360 @@ bool b2Joint_IsValid(b2JointId id)
 {
  return id.world0<B2_MAX_WORLDS && b2GetJointFullId(b2_worlds+id.world0,id)!=nullptr;
 }
-b2JointId b2CreateJointRecord(b2World* world,b2BodyId idA,b2BodyId idB)
+b2JointSim* b2GetJointSim( b2World* world, b2Joint* joint )
 {
- if(world==nullptr || world->locked || idA.world0!=world->worldId || idB.world0!=world->worldId || idA.index1==idB.index1) { return b2_nullJointId; }
- b2Body* bodies[2]={b2GetBodyFullId(world,idA),b2GetBodyFullId(world,idB)};
- if(bodies[0]==nullptr || bodies[1]==nullptr) { return b2_nullJointId; }
- int jointId=b2AllocId(&world->jointIdPool);
- if(jointId==world->joints.count) { b2Array_Push(world->joints,b2Joint{}); }
- b2Joint* joint=world->joints.data+jointId;uint16_t generation=joint->generation+1;*joint=b2Joint{};joint->jointId=jointId;joint->generation=generation;
- for(int i=0;i<2;++i)
- {
-  b2Body* body=bodies[i];b2JointEdge* edge=joint->edges+i;edge->bodyId=body->id;edge->prevKey=B2_NULL_INDEX;edge->nextKey=body->headJointKey;
-  int key=(jointId<<1)|i;
-  if(body->headJointKey!=B2_NULL_INDEX) { int previous=body->headJointKey;world->joints.data[previous>>1].edges[previous&1].prevKey=key; }
-  body->headJointKey=key;++body->jointCount;
- }
- return b2JointId{jointId+1,world->worldId,generation};
+	if ( joint->setIndex == b2_awakeSet )
+	{
+		B2_ASSERT( 0 <= joint->colorIndex && joint->colorIndex < B2_GRAPH_COLOR_COUNT );
+		b2GraphColor* color = world->constraintGraph.colors + joint->colorIndex;
+		return b2Array_Get( color->jointSims, joint->localIndex );
+	}
+
+	b2SolverSet* set = b2Array_Get( world->solverSets, joint->setIndex );
+	return b2Array_Get( set->jointSims, joint->localIndex );
 }
-void b2DestroyJointInternal(b2World* world,b2Joint* joint)
+
+
+static b2JointDef b2DefaultJointDef(void);
+static void b2DestroyContactsBetweenBodies( b2World* world, b2Body* bodyA, b2Body* bodyB )
 {
- b2Body* bodies[2]={world->bodies.data+joint->edges[0].bodyId,world->bodies.data+joint->edges[1].bodyId};
- for(int i=0;i<2;++i)
- {
-  b2JointEdge edge=joint->edges[i];
-  if(edge.prevKey!=B2_NULL_INDEX) { world->joints.data[edge.prevKey>>1].edges[edge.prevKey&1].nextKey=edge.nextKey; }
-  else { bodies[i]->headJointKey=edge.nextKey; }
-  if(edge.nextKey!=B2_NULL_INDEX) { world->joints.data[edge.nextKey>>1].edges[edge.nextKey&1].prevKey=edge.prevKey; }
-  --bodies[i]->jointCount;
- }
- int index=joint->jointId;joint->jointId=B2_NULL_INDEX;b2FreeId(&world->jointIdPool,index);
- b2WakeBody(world,bodies[0]);b2WakeBody(world,bodies[1]);
+	int contactKey;
+	int otherBodyId;
+
+	// 使用两个接触列表中较小的一个
+	if ( bodyA->contactCount < bodyB->contactCount )
+	{
+		contactKey = bodyA->headContactKey;
+		otherBodyId = bodyB->id;
+	}
+	else
+	{
+		contactKey = bodyB->headContactKey;
+		otherBodyId = bodyA->id;
+	}
+
+	// 销毁接触
+	while ( contactKey != B2_NULL_INDEX )
+	{
+		int contactId = contactKey >> 1;
+		int edgeIndex = contactKey & 1;
+
+		b2Contact* contact = b2Array_Get( world->contacts, contactId );
+		contactKey = contact->edges[edgeIndex].nextKey;
+
+		int otherEdgeIndex = edgeIndex ^ 1;
+		if ( contact->edges[otherEdgeIndex].bodyId == otherBodyId )
+		{
+			// 小心，这会从当前双向链表中移除接触
+			b2DestroyContact( world, contact );
+		}
+	}
+
+
 }
+
+typedef struct b2JointPair
+{
+	b2Joint* joint;
+	b2JointSim* jointSim;
+} b2JointPair;
+
+static b2JointPair b2CreateJoint( b2World* world, const b2JointDef* def, b2JointType type )
+{
+	B2_ASSERT( b2IsValidTransform( def->localFrameA ) );
+	B2_ASSERT( b2IsValidTransform( def->localFrameB ) );
+	B2_ASSERT( world->worldId == def->bodyIdA.world0 );
+	B2_ASSERT( world->worldId == def->bodyIdB.world0 );
+	B2_ASSERT( (def->bodyIdA.index1 == def->bodyIdB.index1) == false );
+
+	b2Body* bodyA = b2GetBodyFullId( world, def->bodyIdA );
+	b2Body* bodyB = b2GetBodyFullId( world, def->bodyIdB );
+
+	// 若关节禁止碰撞，则销毁附着刚体之间的所有接触。
+	// 先做此事，以免后续代码扰动世界数组。
+	if ( def->collideConnected == false )
+	{
+		b2DestroyContactsBetweenBodies( world, bodyA, bodyB );
+	}
+
+	int bodyIdA = bodyA->id;
+	int bodyIdB = bodyB->id;
+	int maxSetIndex = b2MaxInt( bodyA->setIndex, bodyB->setIndex );
+
+	// 创建关节 id 和关节
+	int jointId = b2AllocId( &world->jointIdPool );
+	if ( jointId == world->joints.count )
+	{
+		b2Array_Push( world->joints, b2Joint{} );
+	}
+
+	b2Joint* joint = b2Array_Get( world->joints, jointId );
+	joint->jointId = jointId;
+	joint->userData = def->userData;
+	joint->generation += 1;
+	joint->setIndex = B2_NULL_INDEX;
+	joint->colorIndex = B2_NULL_INDEX;
+	joint->localIndex = B2_NULL_INDEX;
+	joint->islandId = B2_NULL_INDEX;
+	joint->islandIndex = B2_NULL_INDEX;
+	joint->drawScale = def->drawScale;
+	joint->type = type;
+	joint->collideConnected = def->collideConnected;
+
+	// 刚体 A 上的双向链表
+	joint->edges[0].bodyId = bodyIdA;
+	joint->edges[0].prevKey = B2_NULL_INDEX;
+	joint->edges[0].nextKey = bodyA->headJointKey;
+
+	int keyA = ( jointId << 1 ) | 0;
+	if ( bodyA->headJointKey != B2_NULL_INDEX )
+	{
+		b2Joint* jointA = b2Array_Get( world->joints, bodyA->headJointKey >> 1 );
+		b2JointEdge* edgeA = jointA->edges + ( bodyA->headJointKey & 1 );
+		edgeA->prevKey = keyA;
+	}
+	bodyA->headJointKey = keyA;
+	bodyA->jointCount += 1;
+
+	// 刚体 B 上的双向链表
+	joint->edges[1].bodyId = bodyIdB;
+	joint->edges[1].prevKey = B2_NULL_INDEX;
+	joint->edges[1].nextKey = bodyB->headJointKey;
+
+	int keyB = ( jointId << 1 ) | 1;
+	if ( bodyB->headJointKey != B2_NULL_INDEX )
+	{
+		b2Joint* jointB = b2Array_Get( world->joints, bodyB->headJointKey >> 1 );
+		b2JointEdge* edgeB = jointB->edges + ( bodyB->headJointKey & 1 );
+		edgeB->prevKey = keyB;
+	}
+	bodyB->headJointKey = keyB;
+	bodyB->jointCount += 1;
+
+	b2JointSim* jointSim;
+
+	if ( bodyA->setIndex == b2_disabledSet || bodyB->setIndex == b2_disabledSet )
+	{
+		// 若任一侧刚体禁用，则在禁用集合中创建
+		b2SolverSet* set = b2Array_Get( world->solverSets, b2_disabledSet );
+		joint->setIndex = b2_disabledSet;
+		joint->localIndex = set->jointSims.count;
+
+		jointSim = b2Array_Emplace( set->jointSims );
+		memset( jointSim, 0, sizeof( b2JointSim ) );
+
+		jointSim->jointId = jointId;
+		jointSim->bodyIdA = bodyIdA;
+		jointSim->bodyIdB = bodyIdB;
+	}
+	else if ( bodyA->type != b2_dynamicBody && bodyB->type != b2_dynamicBody )
+	{
+		// 关节未附着到动态刚体
+		b2SolverSet* set = b2Array_Get( world->solverSets, b2_staticSet );
+		joint->setIndex = b2_staticSet;
+		joint->localIndex = set->jointSims.count;
+
+		jointSim = b2Array_Emplace( set->jointSims );
+		memset( jointSim, 0, sizeof( b2JointSim ) );
+
+		jointSim->jointId = jointId;
+		jointSim->bodyIdA = bodyIdA;
+		jointSim->bodyIdB = bodyIdB;
+	}
+	else if ( bodyA->setIndex == b2_awakeSet || bodyB->setIndex == b2_awakeSet )
+	{
+		// 若任一侧刚体休眠则唤醒
+		if ( maxSetIndex >= b2_firstSleepingSet )
+		{
+			b2WakeSolverSet( world, maxSetIndex );
+		}
+
+		joint->setIndex = b2_awakeSet;
+
+		jointSim = b2CreateJointInGraph( world, joint );
+		jointSim->jointId = jointId;
+		jointSim->bodyIdA = bodyIdA;
+		jointSim->bodyIdB = bodyIdB;
+	}
+	else
+	{
+		// 关节连接休眠和/或静态刚体
+		B2_ASSERT( bodyA->setIndex >= b2_firstSleepingSet || bodyB->setIndex >= b2_firstSleepingSet );
+		B2_ASSERT( bodyA->setIndex != b2_staticSet || bodyB->setIndex != b2_staticSet );
+
+		// 关节应进入休眠集合（非静态集合）
+		int setIndex = maxSetIndex;
+
+		b2SolverSet* set = b2Array_Get( world->solverSets, setIndex );
+		joint->setIndex = setIndex;
+		joint->localIndex = set->jointSims.count;
+
+		jointSim = b2Array_Emplace( set->jointSims );
+		memset( jointSim, 0, sizeof( b2JointSim ) );
+
+		// 必须设置这些以配合下面的合并
+		jointSim->jointId = jointId;
+		jointSim->bodyIdA = bodyIdA;
+		jointSim->bodyIdB = bodyIdB;
+
+		if ( bodyA->setIndex != bodyB->setIndex && bodyA->setIndex >= b2_firstSleepingSet &&
+			 bodyB->setIndex >= b2_firstSleepingSet )
+		{
+			// 合并休眠集合
+			b2MergeSolverSets( world, bodyA->setIndex, bodyB->setIndex );
+			B2_ASSERT( bodyA->setIndex == bodyB->setIndex );
+
+			// 修正可能无效的集合下标
+			setIndex = bodyA->setIndex;
+
+			b2SolverSet* mergedSet = b2Array_Get( world->solverSets, setIndex );
+
+			// 小心！集合合并使关节仿真指针失效。
+			jointSim = b2Array_Get( mergedSet->jointSims, joint->localIndex );
+		}
+
+		B2_ASSERT( joint->setIndex == setIndex );
+	}
+
+	jointSim->localFrameA = def->localFrameA;
+	jointSim->localFrameB = def->localFrameB;
+	jointSim->type = type;
+	jointSim->constraintHertz = def->constraintHertz;
+	jointSim->constraintDampingRatio = def->constraintDampingRatio;
+	jointSim->constraintSoftness = b2Softness{
+		.biasRate = 0.0f,
+		.massScale = 1.0f,
+		.impulseScale = 0.0f,
+	};
+
+
+
+	B2_ASSERT( jointSim->jointId == jointId );
+	B2_ASSERT( jointSim->bodyIdA == bodyIdA );
+	B2_ASSERT( jointSim->bodyIdB == bodyIdB );
+
+	if ( joint->setIndex > b2_disabledSet )
+	{
+		// 将边加入岛图
+		b2LinkJoint( world, joint );
+	}
+
+
+
+	return b2JointPair{ joint, jointSim };
+}
+
+b2JointId b2CreateJointRecord(b2World* world,b2BodyId a,b2BodyId b)
+{
+ if(world==nullptr || world->locked || a.world0!=world->worldId || b.world0!=world->worldId || a.index1==b.index1 || !b2Body_IsValid(a) || !b2Body_IsValid(b)) { return b2_nullJointId; }
+ b2JointDef def=b2DefaultJointDef();def.bodyIdA=a;def.bodyIdB=b;
+ b2JointPair pair=b2CreateJoint(world,&def,b2_distanceJoint);
+ return b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
+}
+void b2DestroyJointInternal( b2World* world, b2Joint* joint )
+{
+	int jointId = joint->jointId;
+
+	b2JointEdge* edgeA = joint->edges + 0;
+	b2JointEdge* edgeB = joint->edges + 1;
+
+	int idA = edgeA->bodyId;
+	int idB = edgeB->bodyId;
+	b2Body* bodyA = b2Array_Get( world->bodies, idA );
+	b2Body* bodyB = b2Array_Get( world->bodies, idB );
+
+	// 从刚体 A 移除
+	if ( edgeA->prevKey != B2_NULL_INDEX )
+	{
+		b2Joint* prevJoint = b2Array_Get( world->joints, edgeA->prevKey >> 1 );
+		b2JointEdge* prevEdge = prevJoint->edges + ( edgeA->prevKey & 1 );
+		prevEdge->nextKey = edgeA->nextKey;
+	}
+
+	if ( edgeA->nextKey != B2_NULL_INDEX )
+	{
+		b2Joint* nextJoint = b2Array_Get( world->joints, edgeA->nextKey >> 1 );
+		b2JointEdge* nextEdge = nextJoint->edges + ( edgeA->nextKey & 1 );
+		nextEdge->prevKey = edgeA->prevKey;
+	}
+
+	int edgeKeyA = ( jointId << 1 ) | 0;
+	if ( bodyA->headJointKey == edgeKeyA )
+	{
+		bodyA->headJointKey = edgeA->nextKey;
+	}
+
+	bodyA->jointCount -= 1;
+
+	// 从刚体 B 移除
+	if ( edgeB->prevKey != B2_NULL_INDEX )
+	{
+		b2Joint* prevJoint = b2Array_Get( world->joints, edgeB->prevKey >> 1 );
+		b2JointEdge* prevEdge = prevJoint->edges + ( edgeB->prevKey & 1 );
+		prevEdge->nextKey = edgeB->nextKey;
+	}
+
+	if ( edgeB->nextKey != B2_NULL_INDEX )
+	{
+		b2Joint* nextJoint = b2Array_Get( world->joints, edgeB->nextKey >> 1 );
+		b2JointEdge* nextEdge = nextJoint->edges + ( edgeB->nextKey & 1 );
+		nextEdge->prevKey = edgeB->prevKey;
+	}
+
+	int edgeKeyB = ( jointId << 1 ) | 1;
+	if ( bodyB->headJointKey == edgeKeyB )
+	{
+		bodyB->headJointKey = edgeB->nextKey;
+	}
+
+	bodyB->jointCount -= 1;
+
+	if ( joint->islandId != B2_NULL_INDEX )
+	{
+		B2_ASSERT( joint->setIndex > b2_disabledSet );
+		b2UnlinkJoint( world, joint );
+	}
+	else
+	{
+		B2_ASSERT( joint->setIndex <= b2_disabledSet );
+	}
+
+	// 从拥有它的求解器集合中移除关节
+	int setIndex = joint->setIndex;
+	int localIndex = joint->localIndex;
+
+	if ( setIndex == b2_awakeSet )
+	{
+		b2RemoveJointFromGraph( world, joint->edges[0].bodyId, joint->edges[1].bodyId, joint->colorIndex, localIndex );
+	}
+	else
+	{
+		b2SolverSet* set = b2Array_Get( world->solverSets, setIndex );
+		int movedIndex = b2Array_RemoveSwap( set->jointSims, localIndex );
+		if ( movedIndex != B2_NULL_INDEX )
+		{
+			// 修正被移动的关节
+			b2JointSim* movedJointSim = set->jointSims.data + localIndex;
+			int movedId = movedJointSim->jointId;
+			b2Joint* movedJoint = b2Array_Get( world->joints, movedId );
+			B2_ASSERT( movedJoint->localIndex == movedIndex );
+			movedJoint->localIndex = localIndex;
+		}
+	}
+
+	// 释放关节和 id（保留关节代数）
+	joint->setIndex = B2_NULL_INDEX;
+	joint->localIndex = B2_NULL_INDEX;
+	joint->colorIndex = B2_NULL_INDEX;
+	joint->jointId = B2_NULL_INDEX;
+	b2FreeId( &world->jointIdPool, jointId );
+
+	b2WakeBody( world, bodyA );
+	b2WakeBody( world, bodyB );
+
+
+}
+
 void b2DestroyJoint(b2JointId id)
 {
  if(!b2Joint_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;
@@ -82,4 +406,27 @@ b2DistanceJointDef b2DefaultDistanceJointDef( void )
 	def.length = 1.0f;
 	def.internalValue = B2_SECRET_COOKIE;
 	return def;
+}
+
+void b2UnlinkBodyJoints(b2World* world,b2Body* body)
+{
+ for(int key=body->headJointKey;key!=B2_NULL_INDEX;)
+ {
+  b2Joint* joint=world->joints.data+(key>>1);int edge=key&1;key=joint->edges[edge].nextKey;
+  b2WakeBody(world,world->bodies.data+joint->edges[0].bodyId);b2WakeBody(world,world->bodies.data+joint->edges[1].bodyId);
+  b2UnlinkJoint(world,joint);b2TransferJoint(world,world->solverSets.data+b2_disabledSet,world->solverSets.data+joint->setIndex,joint);
+ }
+}
+void b2RelinkBodyJoints(b2World* world,b2Body* body)
+{
+ for(int key=body->headJointKey;key!=B2_NULL_INDEX;)
+ {
+  b2Joint* joint=world->joints.data+(key>>1);int edge=key&1;key=joint->edges[edge].nextKey;
+  b2Body* a=world->bodies.data+joint->edges[0].bodyId;b2Body* b=world->bodies.data+joint->edges[1].bodyId;
+  if(a->setIndex==b2_disabledSet || b->setIndex==b2_disabledSet) { continue; }
+  int target=b2_staticSet;
+  if(a->type==b2_dynamicBody || b->type==b2_dynamicBody) { b2WakeBody(world,a);b2WakeBody(world,b);target=b2_awakeSet; }
+  b2TransferJoint(world,world->solverSets.data+target,world->solverSets.data+joint->setIndex,joint);
+  if(target==b2_awakeSet) { b2LinkJoint(world,joint); }
+ }
 }

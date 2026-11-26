@@ -227,6 +227,7 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
 
 		int totalContactCount = b2GetIdCount( &world->contactIdPool );
 		c->contactCount = b2MaxInt( c->contactCount, totalContactCount );
+        c->jointCount=b2MaxInt(c->jointCount,b2GetIdCount(&world->jointIdPool));
 	}
 
     uint64_t stageTicks=b2GetTicks();
@@ -386,7 +387,7 @@ b2Counters b2World_GetCounters(b2WorldId id)
     counters.recycledContactCount=world->recycledContactCount;
     for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
     {
-        counters.colorCounts[i]=world->constraintGraph.colors[i].contactSims.count;
+        counters.colorCounts[i]=world->constraintGraph.colors[i].contactSims.count+world->constraintGraph.colors[i].jointSims.count;
         counters.awakeContactCount+=world->constraintGraph.colors[i].contactSims.count;
     }
     counters.awakeContactCount+=world->solverSets.data[b2_awakeSet].contactSims.count;
@@ -432,7 +433,7 @@ void b2World_DumpMemoryStats(b2WorldId id)
     b2WriteMemoryStat(file,"chains",b2Array_ByteCount(world->chainShapes),&total);
     int islandBytes=0,chainBytes=0;
     for(int i=0;i<world->islands.count;++i)
-    { islandBytes+=b2Array_ByteCount(world->islands.data[i].bodies)+b2Array_ByteCount(world->islands.data[i].contacts); }
+    { islandBytes+=b2Array_ByteCount(world->islands.data[i].bodies)+b2Array_ByteCount(world->islands.data[i].contacts)+b2Array_ByteCount(world->islands.data[i].joints); }
     for(int i=0;i<world->chainShapes.count;++i)
     { if(world->chainShapes.data[i].id!=B2_NULL_INDEX) { chainBytes+=world->chainShapes.data[i].segmentCount*sizeof(int); } }
     b2WriteMemoryStat(file,"island links",islandBytes,&total);
@@ -442,19 +443,21 @@ void b2World_DumpMemoryStats(b2WorldId id)
     b2WriteMemoryStat(file,"kinematic tree",(int)b2DynamicTree_GetByteCount(world->broadPhase.trees+b2_kinematicBody),&total);
     b2WriteMemoryStat(file,"dynamic tree",(int)b2DynamicTree_GetByteCount(world->broadPhase.trees+b2_dynamicBody),&total);
     b2WriteMemoryStat(file,"pairSet",b2GetHashSetBytes(&world->broadPhase.pairSet),&total);
-    int bodyBytes=0,stateBytes=0,contactBytes=0,islandSimBytes=0;
+    int bodyBytes=0,stateBytes=0,contactBytes=0,jointBytes=0,islandSimBytes=0;
     for(int i=0;i<world->solverSets.count;++i)
     {
         b2SolverSet* set=world->solverSets.data+i;if(set->setIndex==B2_NULL_INDEX) { continue; }
-        bodyBytes+=b2Array_ByteCount(set->bodySims);stateBytes+=b2Array_ByteCount(set->bodyStates);
+        jointBytes+=b2Array_ByteCount(set->jointSims);bodyBytes+=b2Array_ByteCount(set->bodySims);stateBytes+=b2Array_ByteCount(set->bodyStates);
         contactBytes+=b2Array_ByteCount(set->contactSims);islandSimBytes+=b2Array_ByteCount(set->islandSims);
     }
     fprintf(file,"\nsolver sets\n");
     b2WriteMemoryStat(file,"body sim",bodyBytes,&total);b2WriteMemoryStat(file,"body state",stateBytes,&total);
     b2WriteMemoryStat(file,"contact sim",contactBytes,&total);b2WriteMemoryStat(file,"island sim",islandSimBytes,&total);
+    b2WriteMemoryStat(file,"joint sims",jointBytes,&total);
     int bitBytes=0,graphBytes=0;
     for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
-    { bitBytes+=b2GetBitSetBytes(&world->constraintGraph.colors[i].bodySet);graphBytes+=b2Array_ByteCount(world->constraintGraph.colors[i].contactSims); }
+    { bitBytes+=b2GetBitSetBytes(&world->constraintGraph.colors[i].bodySet);graphBytes+=b2Array_ByteCount(world->constraintGraph.colors[i].contactSims)+b2Array_ByteCount(world->constraintGraph.colors[i].jointSims); }
+    b2WriteMemoryStat(file,"joint sims",jointBytes,&total);
     fprintf(file,"\nconstraint graph\n");b2WriteMemoryStat(file,"body bit sets",bitBytes,&total);b2WriteMemoryStat(file,"contact sim",graphBytes,&total);
     fprintf(file,"\n");b2WriteMemoryStat(file,"stack allocator",world->stack.capacity,&total);
     fprintf(file,"\nevents\n");b2WriteMemoryStat(file,"body moves",b2Array_ByteCount(world->bodyMoveEvents),&total);

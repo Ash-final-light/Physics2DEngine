@@ -831,6 +831,7 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
     if(body->type==type) { return; }
     b2WakeBody(world,body);
     b2DestroyBodyContacts(world,body);
+    b2UnlinkBodyJoints(world,body);
     b2RemoveBodyFromIsland(world,body);
     body->type=type;
     if(type==b2_dynamicBody) { body->flags|=b2_dynamicFlag; }
@@ -852,8 +853,8 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
             b2CreateShapeProxy(world,shape,type,b2GetBodySim(b2_worlds+id.world0,body)->transform,true);
         }
     }
+    b2RelinkBodyJoints(world,body);
 }
-
 
 int b2Body_GetContactCapacity( b2BodyId id )
 {
@@ -939,6 +940,7 @@ void b2Body_Disable(b2BodyId id)
     b2DestroyBodyContacts(world,body);
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { b2DestroyShapeProxy(world->shapes.data+shapeId,&world->broadPhase); }
+    b2UnlinkBodyJoints(world,body);
     b2RemoveBodyFromIsland(world,body);
     b2TransferBody(world,world->solverSets.data+b2_disabledSet,world->solverSets.data+body->setIndex,body);
 }
@@ -954,6 +956,7 @@ void b2Body_Enable(b2BodyId id)
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { b2CreateShapeProxy(world,world->shapes.data+shapeId,body->type,transform,true); }
     if(target!=b2_staticSet) { b2CreateIslandForBody(world,target,body); }
+    b2RelinkBodyJoints(world,body);
 }
 
 bool b2Body_IsEnabled(b2BodyId id)

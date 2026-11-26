@@ -81,6 +81,7 @@ void b2DestroyGraph( b2ConstraintGraph* graph )
 
 		b2DestroyBitSet( &color->bodySet );
 		b2Array_Destroy( color->contactSims );
+		b2Array_Destroy(color->jointSims);
 	}
 }
 
@@ -245,4 +246,115 @@ b2HexColor b2GetGraphColor( int index )
 {
 	B2_ASSERT( 0 <= index && index < B2_GRAPH_COLOR_COUNT );
 	return b2_graphColors[index];
+}
+
+static int b2AssignJointColor( b2ConstraintGraph* graph, int bodyIdA, int bodyIdB, b2BodyType typeA, b2BodyType typeB )
+{
+	B2_ASSERT( typeA == b2_dynamicBody || typeB == b2_dynamicBody );
+
+#if B2_FORCE_OVERFLOW == 0
+	if ( typeA == b2_dynamicBody && typeB == b2_dynamicBody )
+	{
+		// 动态约束颜色不能侵占为静态约束保留的颜色
+		for ( int i = 0; i < B2_DYNAMIC_COLOR_COUNT; ++i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdA ) || b2GetBit( &color->bodySet, bodyIdB ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdA );
+			b2SetBitGrow( &color->bodySet, bodyIdB );
+			return i;
+		}
+	}
+	else if ( typeA == b2_dynamicBody )
+	{
+		// 静态约束颜色从末尾构建，以获得高于动态-动态约束的优先级
+		for ( int i = B2_OVERFLOW_INDEX - 1; i >= 1; --i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdA ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdA );
+			return i;
+		}
+	}
+	else if ( typeB == b2_dynamicBody )
+	{
+		// 静态约束颜色从末尾构建，以获得高于动态-动态约束的优先级
+		for ( int i = B2_OVERFLOW_INDEX - 1; i >= 1; --i )
+		{
+			b2GraphColor* color = graph->colors + i;
+			if ( b2GetBit( &color->bodySet, bodyIdB ) )
+			{
+				continue;
+			}
+
+			b2SetBitGrow( &color->bodySet, bodyIdB );
+			return i;
+		}
+	}
+#else
+	(void)graph;(void)bodyIdA;(void)bodyIdB;
+#endif
+
+	return B2_OVERFLOW_INDEX;
+}
+
+b2JointSim* b2CreateJointInGraph( b2World* world, b2Joint* joint )
+{
+	b2ConstraintGraph* graph = &world->constraintGraph;
+
+	int bodyIdA = joint->edges[0].bodyId;
+	int bodyIdB = joint->edges[1].bodyId;
+	b2Body* bodyA = b2Array_Get( world->bodies, bodyIdA );
+	b2Body* bodyB = b2Array_Get( world->bodies, bodyIdB );
+
+	int colorIndex = b2AssignJointColor( graph, bodyIdA, bodyIdB, bodyA->type, bodyB->type );
+
+	b2JointSim* jointSim = b2Array_Emplace( graph->colors[colorIndex].jointSims );
+	memset( jointSim, 0, sizeof( b2JointSim ) );
+
+	joint->colorIndex = colorIndex;
+	joint->localIndex = graph->colors[colorIndex].jointSims.count - 1;
+	return jointSim;
+}
+
+void b2AddJointToGraph( b2World* world, b2JointSim* jointSim, b2Joint* joint )
+{
+	b2JointSim* jointDst = b2CreateJointInGraph( world, joint );
+	memcpy( jointDst, jointSim, sizeof( b2JointSim ) );
+}
+
+void b2RemoveJointFromGraph( b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex )
+{
+	b2ConstraintGraph* graph = &world->constraintGraph;
+
+	B2_ASSERT( 0 <= colorIndex && colorIndex < B2_GRAPH_COLOR_COUNT );
+	b2GraphColor* color = graph->colors + colorIndex;
+
+	if ( colorIndex != B2_OVERFLOW_INDEX )
+	{
+		// 可能清除静态刚体，无影响
+		b2ClearBit( &color->bodySet, bodyIdA );
+		b2ClearBit( &color->bodySet, bodyIdB );
+	}
+
+	int movedIndex = b2Array_RemoveSwap( color->jointSims, localIndex );
+	if ( movedIndex != B2_NULL_INDEX )
+	{
+		// 修正被移动的关节
+		b2JointSim* movedJointSim = color->jointSims.data + localIndex;
+		int movedId = movedJointSim->jointId;
+		b2Joint* movedJoint = b2Array_Get( world->joints, movedId );
+		B2_ASSERT( movedJoint->setIndex == b2_awakeSet );
+		B2_ASSERT( movedJoint->colorIndex == colorIndex );
+		B2_ASSERT( movedJoint->localIndex == movedIndex );
+		movedJoint->localIndex = localIndex;
+	}
 }

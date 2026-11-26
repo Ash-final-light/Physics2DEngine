@@ -5,6 +5,7 @@
 
 #include "bitset.h"
 #include "contact.h"
+#include "joint.h"
 #include "container.h"
 #include "box2d/constants.h"
 
@@ -35,6 +36,7 @@ typedef struct b2GraphColor
 
 	// 缓存友好的数组
 	b2DynamicArray<b2ContactSim> contactSims;
+	b2DynamicArray<b2JointSim> jointSims;
 
 	// Temporary scalar constraints, including the overflow color.
 	struct b2ContactConstraint* overflowConstraints;
@@ -51,3 +53,7 @@ void b2DestroyGraph( b2ConstraintGraph* graph );
 
 void b2AddContactToGraph( b2World* world, b2ContactSim* contactSim, b2Contact* contact );
 void b2RemoveContactFromGraph( b2World* world, int bodyIdA, int bodyIdB, int colorIndex, int localIndex );
+
+b2JointSim* b2CreateJointInGraph(b2World* world,b2Joint* joint);
+void b2AddJointToGraph(b2World* world,b2JointSim* sim,b2Joint* joint);
+void b2RemoveJointFromGraph(b2World* world,int bodyIdA,int bodyIdB,int colorIndex,int localIndex);

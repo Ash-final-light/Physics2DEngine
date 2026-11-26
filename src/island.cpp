@@ -6,6 +6,7 @@
 #include "body.h"
 #include "contact.h"
 #include "core.h"
+#include "joint.h"
 #include "world.h"
 #include "solver_set.h"
 
@@ -35,6 +36,7 @@ b2Island* b2CreateIsland( b2World* world, int setIndex )
 	island->islandId = islandId;
 	b2Array_Create( island->bodies );
 	b2Array_Create( island->contacts );
+	b2Array_Create( island->joints );
 	island->constraintRemoveCount = 0;
 
 	b2IslandSim* islandSim = b2Array_Emplace( set->islandSims );
@@ -62,6 +64,7 @@ void b2DestroyIsland( b2World* world, int islandId )
 	// 释放岛和 id（保留岛代数）
 	b2Array_Destroy( island->bodies );
 	b2Array_Destroy( island->contacts );
+	b2Array_Destroy( island->joints );
 	island->constraintRemoveCount = 0;
 	island->localIndex = B2_NULL_INDEX;
 	island->islandId = B2_NULL_INDEX;
@@ -136,6 +139,21 @@ static int b2MergeIslands( b2World* world, int islandIdA, int islandIdB )
 			contact->islandId = bigIslandId;
 			contact->islandIndex = bigIsland->contacts.count;
 			b2Array_Push( bigIsland->contacts, *link );
+		}
+	}
+
+	// 将关节从较小岛迁到较大岛
+	if ( smallIsland->joints.count > 0 )
+	{
+		b2Array_Grow( bigIsland->joints, bigIsland->joints.count + smallIsland->joints.count );
+
+		for ( int i = 0; i < smallIsland->joints.count; ++i )
+		{
+			b2JointLink* link = smallIsland->joints.data + i;
+			b2Joint* joint = b2Array_Get( world->joints, link->jointId );
+			joint->islandId = bigIslandId;
+			joint->islandIndex = bigIsland->joints.count;
+			b2Array_Push( bigIsland->joints, *link );
 		}
 	}
 
@@ -239,6 +257,85 @@ void b2UnlinkContact( b2World* world, b2Contact* contact )
 	b2ValidateIsland( world, islandId );
 }
 
+static void b2AddJointToIsland( b2World* world, int islandId, b2Joint* joint )
+{
+	B2_ASSERT( joint->islandId == B2_NULL_INDEX );
+	B2_ASSERT( joint->islandIndex == B2_NULL_INDEX );
+
+	b2Island* island = b2Array_Get( world->islands, islandId );
+
+	joint->islandId = islandId;
+	joint->islandIndex = island->joints.count;
+
+	b2JointLink link;
+	link.jointId = joint->jointId;
+	link.bodyIdA = joint->edges[0].bodyId;
+	link.bodyIdB = joint->edges[1].bodyId;
+	b2Array_Push( island->joints, link );
+
+	b2ValidateIsland( world, islandId );
+}
+
+void b2LinkJoint( b2World* world, b2Joint* joint )
+{
+	b2Body* bodyA = b2Array_Get( world->bodies, joint->edges[0].bodyId );
+	b2Body* bodyB = b2Array_Get( world->bodies, joint->edges[1].bodyId );
+
+	B2_ASSERT( bodyA->type == b2_dynamicBody || bodyB->type == b2_dynamicBody );
+
+	if ( bodyA->setIndex == b2_awakeSet && bodyB->setIndex >= b2_firstSleepingSet )
+	{
+		b2WakeSolverSet( world, bodyB->setIndex );
+	}
+	else if ( bodyB->setIndex == b2_awakeSet && bodyA->setIndex >= b2_firstSleepingSet )
+	{
+		b2WakeSolverSet( world, bodyA->setIndex );
+	}
+
+	int islandIdA = bodyA->islandId;
+	int islandIdB = bodyB->islandId;
+
+	B2_ASSERT( islandIdA != B2_NULL_INDEX || islandIdB != B2_NULL_INDEX );
+
+	// 合并岛。会销毁其中一个岛。
+	int finalIslandId = b2MergeIslands( world, islandIdA, islandIdB );
+
+	// 将关节加入幸存的岛
+	b2AddJointToIsland( world, finalIslandId, joint );
+}
+
+void b2UnlinkJoint( b2World* world, b2Joint* joint )
+{
+	if ( joint->islandId == B2_NULL_INDEX )
+	{
+		return;
+	}
+
+	// 从岛中移除
+	int islandId = joint->islandId;
+	b2Island* island = b2Array_Get( world->islands, islandId );
+
+	int removeIndex = joint->islandIndex;
+	B2_ASSERT( 0 <= removeIndex && removeIndex < island->joints.count );
+	B2_ASSERT( island->joints.data[removeIndex].jointId == joint->jointId );
+
+	int movedIndex = b2Array_RemoveSwap( island->joints, removeIndex );
+	if ( movedIndex != B2_NULL_INDEX )
+	{
+		// 修正被交换到 removeIndex 的关节的 islandIndex
+		b2JointLink* movedLink = island->joints.data + removeIndex;
+		b2Joint* movedJoint = b2Array_Get( world->joints, movedLink->jointId );
+		B2_ASSERT( movedJoint->islandIndex == movedIndex );
+		movedJoint->islandIndex = removeIndex;
+	}
+
+	joint->islandId = B2_NULL_INDEX;
+	joint->islandIndex = B2_NULL_INDEX;
+	island->constraintRemoveCount += 1;
+
+	b2ValidateIsland( world, islandId );
+}
+
 // 查找节点的父节点。使用路径减半以加速后续查询。
 static inline int b2IslandFindParent( int* parents, int node )
 {
@@ -254,8 +351,8 @@ static inline int b2IslandFindParent( int* parents, int node )
 }
 
 // 连接包含 node1 和 node2 的连通分量。
-// 用秩保持树平衡。跟踪每个分量的接触计数。
-static inline void b2IslandUnion( int* parents, int* ranks, int node1, int node2, int* contactCounts )
+// 用秩保持树平衡。跟踪每个分量的接触和关节计数。
+static inline void b2IslandUnion( int* parents, int* ranks, int node1, int node2, int* contactCounts, int* jointCounts )
 {
 	int root1 = b2IslandFindParent( parents, node1 );
 	int root2 = b2IslandFindParent( parents, node2 );
@@ -265,17 +362,20 @@ static inline void b2IslandUnion( int* parents, int* ranks, int node1, int node2
 		{
 			parents[root1] = root2;
 			contactCounts[root2] += contactCounts[root1];
+			jointCounts[root2] += jointCounts[root1];
 		}
 		else if ( ranks[root1] > ranks[root2] )
 		{
 			parents[root2] = root1;
 			contactCounts[root1] += contactCounts[root2];
+			jointCounts[root1] += jointCounts[root2];
 		}
 		else
 		{
 			parents[root2] = root1;
 			ranks[root1] += 1;
 			contactCounts[root1] += contactCounts[root2];
+			jointCounts[root1] += jointCounts[root2];
 		}
 	}
 }
@@ -300,18 +400,24 @@ void b2SplitIsland( b2World* world, int baseId )
 	b2ContactLink* baseContacts = baseIsland->contacts.data;
 	int baseContactCapacity = baseIsland->contacts.capacity;
 
+	int baseJointCount = baseIsland->joints.count;
+	b2JointLink* baseJoints = baseIsland->joints.data;
+	int baseJointCapacity = baseIsland->joints.capacity;
+
 	b2Stack* alloc = &world->stack;
 
 	// 无需加锁，因为此任务运行时保证分配器不被占用。
-	// 先分配 contactCounts，再分配 ranks，以便 ranks 可先释放（LIFO 竞技场）。
+	// 先分配 contactCounts 和 jointCounts，再分配 ranks，以便 ranks 可先释放（LIFO 竞技场）。
 	int* parents = static_cast<int *>( b2StackAlloc( alloc, baseBodyCount * sizeof( int ), "parents" ) );
 	int* contactCounts = static_cast<int *>( b2StackAlloc( alloc, baseBodyCount * sizeof( int ), "contact counts" ) );
+	int* jointCounts = static_cast<int *>( b2StackAlloc( alloc, baseBodyCount * sizeof( int ), "joint counts" ) );
 	int* ranks = static_cast<int *>( b2StackAlloc( alloc, baseBodyCount * sizeof( int ), "ranks" ) );
 	for ( int i = 0; i < baseBodyCount; ++i )
 	{
 		parents[i] = i;
 		ranks[i] = 0;
 		contactCounts[i] = 0;
+		jointCounts[i] = 0;
 	}
 
 	b2Body* bodies = world->bodies.data;
@@ -333,7 +439,7 @@ void b2SplitIsland( b2World* world, int baseId )
 		{
 			B2_VALIDATE( 0 <= islandIndexA && islandIndexA < baseBodyCount );
 			B2_VALIDATE( 0 <= islandIndexB && islandIndexB < baseBodyCount );
-			b2IslandUnion( parents, ranks, islandIndexA, islandIndexB, contactCounts );
+			b2IslandUnion( parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts );
 			int root = b2IslandFindParent( parents, islandIndexA );
 			contactCounts[root] += 1;
 		}
@@ -342,6 +448,35 @@ void b2SplitIsland( b2World* world, int baseId )
 			int islandIndex = islandIndexA != B2_NULL_INDEX ? islandIndexA : islandIndexB;
 			int root = b2IslandFindParent( parents, islandIndex );
 			contactCounts[root] += 1;
+		}
+	}
+
+	// 对关节做并操作，跟踪每个分量的关节计数
+	for ( int i = 0; i < baseJointCount; ++i )
+	{
+		int bodyIdA = baseJoints[i].bodyIdA;
+		int bodyIdB = baseJoints[i].bodyIdB;
+		B2_VALIDATE( 0 <= bodyIdA && bodyIdA < world->bodies.count );
+		B2_VALIDATE( 0 <= bodyIdB && bodyIdB < world->bodies.count );
+		b2Body* bodyA = bodies + bodyIdA;
+		b2Body* bodyB = bodies + bodyIdB;
+		int islandIndexA = bodyA->islandIndex;
+		int islandIndexB = bodyB->islandIndex;
+
+		// 只连接非静态刚体
+		if ( islandIndexA != B2_NULL_INDEX && islandIndexB != B2_NULL_INDEX )
+		{
+			B2_VALIDATE( 0 <= islandIndexA && islandIndexA < baseBodyCount );
+			B2_VALIDATE( 0 <= islandIndexB && islandIndexB < baseBodyCount );
+			b2IslandUnion( parents, ranks, islandIndexA, islandIndexB, contactCounts, jointCounts );
+			int root = b2IslandFindParent( parents, islandIndexA );
+			jointCounts[root] += 1;
+		}
+		else
+		{
+			int islandIndex = islandIndexA != B2_NULL_INDEX ? islandIndexA : islandIndexB;
+			int root = b2IslandFindParent( parents, islandIndex );
+			jointCounts[root] += 1;
 		}
 	}
 
@@ -364,12 +499,13 @@ void b2SplitIsland( b2World* world, int baseId )
 	if ( componentCount == 1 )
 	{
 		baseIsland->constraintRemoveCount = 0;
+		b2StackFree( alloc, jointCounts );
 		b2StackFree( alloc, contactCounts );
 		b2StackFree( alloc, parents );
 		return;
 	}
 
-	// 从基岛拆下刚体/接触数组，以免 b2DestroyIsland 释放它们
+	// 从基岛拆下刚体/接触/关节数组，以免 b2DestroyIsland 释放它们
 	baseIsland->bodies.data = NULL;
 	baseIsland->bodies.count = 0;
 	baseIsland->bodies.capacity = 0;
@@ -377,6 +513,10 @@ void b2SplitIsland( b2World* world, int baseId )
 	baseIsland->contacts.data = NULL;
 	baseIsland->contacts.count = 0;
 	baseIsland->contacts.capacity = 0;
+
+	baseIsland->joints.data = NULL;
+	baseIsland->joints.count = 0;
+	baseIsland->joints.capacity = 0;
 
 	// 置空，防止后续代码误用。
 	baseIsland = NULL;
@@ -390,6 +530,7 @@ void b2SplitIsland( b2World* world, int baseId )
 
 	int* componentBodyCounts = static_cast<int *>( b2StackAlloc( alloc, componentCount * sizeof( int ), "component body counts" ) );
 	int* componentContactCounts = static_cast<int *>( b2StackAlloc( alloc, componentCount * sizeof( int ), "component contact counts" ) );
+	int* componentJointCounts = static_cast<int *>( b2StackAlloc( alloc, componentCount * sizeof( int ), "component joint counts" ) );
 	int islandCount = 0;
 
 	// 为每个刚体找根刚体，按需创建岛。
@@ -402,6 +543,7 @@ void b2SplitIsland( b2World* world, int baseId )
 			rootMap[rootIndex] = islandCount;
 			componentBodyCounts[islandCount] = 0;
 			componentContactCounts[islandCount] = contactCounts[rootIndex];
+			componentJointCounts[islandCount] = jointCounts[rootIndex];
 			islandCount += 1;
 		}
 
@@ -413,7 +555,7 @@ void b2SplitIsland( b2World* world, int baseId )
 	// 新岛下标到岛 id 的映射
 	int* islandIds = static_cast<int *>( b2StackAlloc( alloc, islandCount * sizeof( int ), "island ids" ) );
 
-	// 创建新岛并预留刚体/接触数组
+	// 创建新岛并预留刚体/接触/关节数组
 	for ( int i = 0; i < islandCount; ++i )
 	{
 		// 警告：这会使 baseIsland 指针失效
@@ -423,6 +565,7 @@ void b2SplitIsland( b2World* world, int baseId )
 		// 预留数组，避免反复扩容和 memcpy。
 		b2Array_Reserve( newIsland->bodies, componentBodyCounts[i] );
 		b2Array_Reserve( newIsland->contacts, componentContactCounts[i] );
+		b2Array_Reserve( newIsland->joints, componentJointCounts[i] );
 	}
 
 	// 将刚体分配到新岛
@@ -463,22 +606,50 @@ void b2SplitIsland( b2World* world, int baseId )
 		b2Array_Push( targetIsland->contacts, *link );
 	}
 
+	// 将关节分配到其刚体所在的岛
+	for ( int i = 0; i < baseJointCount; ++i )
+	{
+		b2JointLink* link = baseJoints + i;
+		b2Joint* joint = b2Array_Get( world->joints, link->jointId );
+
+		// 静态刚体没有岛 id。
+		b2Body* bodyA = b2Array_Get( world->bodies, link->bodyIdA );
+		b2Body* bodyB = b2Array_Get( world->bodies, link->bodyIdB );
+		int targetIslandId = bodyA->islandId != B2_NULL_INDEX ? bodyA->islandId : bodyB->islandId;
+
+		b2Island* targetIsland = b2Array_Get( world->islands, targetIslandId );
+		joint->islandId = targetIslandId;
+		joint->islandIndex = targetIsland->joints.count;
+
+		// 确保数组容量正确
+		B2_VALIDATE( targetIsland->joints.count < targetIsland->joints.capacity );
+		b2Array_Push( targetIsland->joints, *link );
+	}
+
 	// 销毁基岛
 	b2DestroyIsland( world, baseId );
 
 	// 手动释放拆下的数组
 	b2Free( baseBodyIds, baseBodyCapacity * sizeof( int ) );
 	b2Free( baseContacts, baseContactCapacity * sizeof( b2ContactLink ) );
+	b2Free( baseJoints, baseJointCapacity * sizeof( b2JointLink ) );
 
 	// 按 LIFO 顺序释放竞技场项
 	b2StackFree( alloc, islandIds );
+	b2StackFree( alloc, componentJointCounts );
 	b2StackFree( alloc, componentContactCounts );
 	b2StackFree( alloc, componentBodyCounts );
 	b2StackFree( alloc, rootMap );
+	b2StackFree( alloc, jointCounts );
 	b2StackFree( alloc, contactCounts );
 	b2StackFree( alloc, parents );
 }
 
+// 因部分接触和/或关节已移除而拆分岛。
+// 在约束求解期间、岛未被触碰时调用。使用并查集且访问大量内存，可能较慢。
+// 注意：连接到静态刚体的接触/关节必须属于某个岛，但不影响岛连通性
+// 注意：静态刚体从不在岛内
+// 注意：此任务无锁访问部分分配器，假定没有其他任务在操作这些数据结构。
 void b2SplitContactIslands( b2World* world )
 {
     // Capture existing IDs because splitting can grow/reuse the island array.
@@ -534,6 +705,19 @@ void b2ValidateIsland( b2World* world, int islandId )
 		}
 	}
 
+	if ( island->joints.count > 0 )
+	{
+		B2_ASSERT( island->joints.count <= b2GetIdCount( &world->jointIdPool ) );
+
+		for ( int i = 0; i < island->joints.count; ++i )
+		{
+			b2JointLink* link = island->joints.data + i;
+			b2Joint* joint = b2Array_Get( world->joints, link->jointId );
+			B2_ASSERT( joint->setIndex == island->setIndex );
+			B2_ASSERT( joint->islandId == islandId );
+			B2_ASSERT( joint->islandIndex == i );
+		}
+	}
 }
 
 #else
