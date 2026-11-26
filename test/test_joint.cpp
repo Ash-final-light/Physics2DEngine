@@ -355,3 +355,16 @@ int JointCollideConnectedTest(void)
  b2World_Step(id,1.0f/60,4);ENSURE(b2World_GetCounters(id).contactCount==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int JointLocalFrameTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={1,0};b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();def.base.bodyIdA=a;def.base.bodyIdB=b;def.length=1;b2JointId j=b2CreateDistanceJoint(id,&def);
+ ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(j)-1,0.0001f);
+ b2Transform frame=b2Transform_identity;frame.p={0.5f,0};b2Joint_SetLocalFrameA(j,frame);ENSURE_SMALL(b2Joint_GetLocalFrameA(j).p.x-0.5f,0.0001f);ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(j)-0.5f,0.0001f);
+ frame.p.x=NAN;b2Joint_SetLocalFrameA(j,frame);ENSURE_SMALL(b2Joint_GetLocalFrameA(j).p.x-0.5f,0.0001f);
+ frame=b2Transform_identity;frame.p={0,0.25f};b2Joint_SetLocalFrameB(j,frame);ENSURE_SMALL(b2Joint_GetLocalFrameB(j).p.y-0.25f,0.0001f);ENSURE(b2DistanceJoint_GetCurrentLength(j)>0.55f);
+ frame=b2Transform_identity;b2Joint_SetLocalFrameB(j,frame);ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(j)-0.5f,0.0001f);
+ for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2Body_GetPosition(b).x>1.2f);ENSURE(b2DistanceJoint_GetCurrentLength(j)>0.7f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

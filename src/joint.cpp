@@ -524,6 +524,28 @@ b2JointType b2Joint_GetType(b2JointId id) { return b2GetJointFullId(b2_worlds+id
 b2Transform b2Joint_GetLocalFrameA(b2JointId id) { return b2GetJointSim(b2_worlds+id.world0,b2GetJointFullId(b2_worlds+id.world0,id))->localFrameA; }
 b2Transform b2Joint_GetLocalFrameB(b2JointId id) { return b2GetJointSim(b2_worlds+id.world0,b2GetJointFullId(b2_worlds+id.world0,id))->localFrameB; }
 
+void b2Joint_SetLocalFrameA( b2JointId jointId, b2Transform localFrame )
+{
+	if ( b2IsValidTransform( localFrame ) == false || b2Joint_IsValid( jointId ) == false )
+	{
+		return;
+	}
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2GetJointSim( world, joint )->localFrameA = localFrame;
+}
+
+void b2Joint_SetLocalFrameB( b2JointId jointId, b2Transform localFrame )
+{
+	if ( b2IsValidTransform( localFrame ) == false || b2Joint_IsValid( jointId ) == false )
+	{
+		return;
+	}
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2GetJointSim( world, joint )->localFrameB = localFrame;
+}
+
 void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 {
 	// 按时间步钳制关节 hertz 以减少抖动。
