@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "body.h"
 #include "world.h"
 #include <cstring>
@@ -376,7 +377,7 @@ void b2DestroyJointInternal( b2World* world, b2Joint* joint )
 void b2DestroyJoint(b2JointId id)
 {
  if(!b2Joint_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;
- if(!world->locked) { b2DestroyJointInternal(world,b2GetJointFullId(world,id)); }
+ if(!world->locked) { B2_REC( world, DestroyJoint, id ); b2DestroyJointInternal(world,b2GetJointFullId(world,id)); }
 }
 b2WorldId b2Joint_GetWorld(b2JointId id)
 {
@@ -404,7 +405,8 @@ void b2Joint_SetCollideConnected( b2JointId jointId, bool shouldCollide )
 		return;
 	}
 
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetCollideConnected, jointId, shouldCollide );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	if ( joint == nullptr || joint->collideConnected == shouldCollide )
 	{
 		return;
@@ -523,7 +525,9 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def)
  pair.jointSim->distanceJoint.enableSpring=def->enableSpring;pair.jointSim->distanceJoint.hertz=def->hertz;pair.jointSim->distanceJoint.dampingRatio=def->dampingRatio;
  pair.jointSim->distanceJoint.lowerSpringForce=b2MinFloat(def->lowerSpringForce,def->upperSpringForce);pair.jointSim->distanceJoint.upperSpringForce=b2MaxFloat(def->lowerSpringForce,def->upperSpringForce);
 
- return b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
+ b2JointId result = b2JointId{pair.joint->jointId+1,world->worldId,pair.joint->generation};
+ B2_REC_CREATE( world, CreateDistanceJoint, result, worldId, *def );
+ return result;
 }
 b2JointType b2Joint_GetType(b2JointId id) { return b2GetJointFullId(b2_worlds+id.world0,id)->type; }
 b2Transform b2Joint_GetLocalFrameA(b2JointId id) { return b2GetJointSim(b2_worlds+id.world0,b2GetJointFullId(b2_worlds+id.world0,id))->localFrameA; }
@@ -536,7 +540,8 @@ void b2Joint_SetLocalFrameA( b2JointId jointId, b2Transform localFrame )
 		return;
 	}
 	b2World* world = b2_worlds + jointId.world0;
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetLocalFrameA, jointId, localFrame );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	b2GetJointSim( world, joint )->localFrameA = localFrame;
 }
 
@@ -547,7 +552,8 @@ void b2Joint_SetLocalFrameB( b2JointId jointId, b2Transform localFrame )
 		return;
 	}
 	b2World* world = b2_worlds + jointId.world0;
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetLocalFrameB, jointId, localFrame );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	b2GetJointSim( world, joint )->localFrameB = localFrame;
 }
 
@@ -558,7 +564,8 @@ void b2Joint_SetConstraintTuning( b2JointId jointId, float hertz, float dampingR
 		return;
 	}
 	b2World* world = b2_worlds + jointId.world0;
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetConstraintTuning, jointId, hertz, dampingRatio );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	b2JointSim* base = b2GetJointSim( world, joint );
 	base->constraintHertz = hertz;
 	base->constraintDampingRatio = dampingRatio;
@@ -581,7 +588,8 @@ void b2Joint_SetForceThreshold( b2JointId jointId, float threshold )
 	}
 
 	b2World* world = b2_worlds + jointId.world0;
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetForceThreshold, jointId, threshold );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	b2JointSim* base = b2GetJointSim( world, joint );
 	base->forceThreshold = threshold;
 }
@@ -602,7 +610,8 @@ void b2Joint_SetTorqueThreshold( b2JointId jointId, float threshold )
 	}
 
 	b2World* world = b2_worlds + jointId.world0;
-	b2Joint* joint = b2GetJointFullId( world, jointId );
+	B2_REC( world, JointSetTorqueThreshold, jointId, threshold );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
 	b2JointSim* base = b2GetJointSim( world, joint );
 	base->torqueThreshold = threshold;
 }
@@ -1091,6 +1100,7 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
 
+	B2_REC_CREATE( world, CreateRevoluteJoint, jointId, worldId, *def );
 	return jointId;
 }
 
@@ -1145,6 +1155,7 @@ b2JointId b2CreatePrismaticJoint( b2WorldId worldId, const b2PrismaticJointDef* 
 	};
 
 
+	B2_REC_CREATE( world, CreatePrismaticJoint, jointId, worldId, *def );
 	return jointId;
 }
 
@@ -1201,6 +1212,7 @@ b2JointId b2CreateWheelJoint( b2WorldId worldId, const b2WheelJointDef* def )
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
 
+	B2_REC_CREATE( world, CreateWheelJoint, jointId, worldId, *def );
 	return jointId;
 }
 
@@ -1244,6 +1256,7 @@ b2JointId b2CreateWeldJoint( b2WorldId worldId, const b2WeldJointDef* def )
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
 
+	B2_REC_CREATE( world, CreateWeldJoint, jointId, worldId, *def );
 	return jointId;
 }
 
@@ -1295,6 +1308,7 @@ b2JointId b2CreateMotorJoint( b2WorldId worldId, const b2MotorJointDef* def )
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
 
+	B2_REC_CREATE( world, CreateMotorJoint, jointId, worldId, *def );
 	return jointId;
 }
 
@@ -1329,7 +1343,9 @@ b2JointId b2CreateMoverJoint( b2WorldId worldId, const b2MoverJointDef* def )
 	joint->moverJoint = b2MoverJoint{};
 	joint->moverJoint.linearVelocity = def->linearVelocity;
 	joint->moverJoint.maxVelocityForce = def->maxVelocityForce;
-	return b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
+	b2JointId result = b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
+ B2_REC_CREATE( world, CreateMoverJoint, result, worldId, *def );
+ return result;
 }
 
 b2PogoJointDef b2DefaultPogoJointDef( void )
@@ -1369,7 +1385,9 @@ b2JointId b2CreatePogoJoint( b2WorldId worldId, const b2PogoJointDef* def )
 	joint->pogoJoint.normal = def->normal;
 	joint->pogoJoint.impulse = def->impulse;
 	joint->pogoJoint.velocity = def->velocity;
-	return b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
+	b2JointId result = b2JointId{ joint->jointId + 1, world->worldId, pair.joint->generation };
+ B2_REC_CREATE( world, CreatePogoJoint, result, worldId, *def );
+ return result;
 }
 
 b2FilterJointDef b2DefaultFilterJointDef( void )
@@ -1390,7 +1408,9 @@ b2JointId b2CreateFilterJoint( b2WorldId worldId, const b2FilterJointDef* def )
 	}
 
 	b2JointPair pair = b2CreateJoint( world, &def->base, b2_filterJoint );
-	return b2JointId{ pair.jointSim->jointId + 1, world->worldId, pair.joint->generation };
+	b2JointId result = b2JointId{ pair.jointSim->jointId + 1, world->worldId, pair.joint->generation };
+ B2_REC_CREATE( world, CreateFilterJoint, result, worldId, *def );
+ return result;
 }
 
 void b2DrawJoint( b2DebugDraw* draw, b2World* world, b2Joint* joint )
@@ -1486,4 +1506,17 @@ void b2DrawJoint( b2DebugDraw* draw, b2World* world, b2Joint* joint )
 		snprintf( buffer, 64, "f = [%g, %g], t = %g", force.x, force.y, torque );
 		draw->DrawStringFcn( p, buffer, b2_colorAzure, draw->context );
 	}
+}
+
+void b2Joint_WakeBodies( b2JointId jointId )
+{
+    if ( !b2Joint_IsValid( jointId ) ) { return; }
+    b2World* world = b2_worlds + jointId.world0;
+    if ( world->locked ) { return; }
+    B2_REC( world, JointWakeBodies, jointId );
+    b2Joint* joint = b2GetJointFullId( world, jointId );
+    b2Body* bodyA = world->bodies.data + joint->edges[0].bodyId;
+    b2Body* bodyB = world->bodies.data + joint->edges[1].bodyId;
+    b2WakeBody( world, bodyA );
+    b2WakeBody( world, bodyB );
 }

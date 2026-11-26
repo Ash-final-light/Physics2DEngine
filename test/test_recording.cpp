@@ -657,3 +657,215 @@ int RecordingChainSegmentTest( void )
 	ENSURE( b2GetByteCount() == baseline );
 	return 0;
 }
+
+static b2JointId CreateRecordingJoint( int type, b2WorldId world, b2BodyId a, b2BodyId b )
+{
+	// Every definition carries body handles through its common base.
+#define CREATE_RECORDING_JOINT( Type ) \
+	do { \
+		b2##Type##JointDef def = b2Default##Type##JointDef(); \
+		def.base.bodyIdA = a; def.base.bodyIdB = b; \
+		return b2Create##Type##Joint( world, &def ); \
+	} while ( 0 )
+	switch ( type )
+	{
+		case 0: CREATE_RECORDING_JOINT( Distance );
+		case 1: CREATE_RECORDING_JOINT( Filter );
+		case 2: CREATE_RECORDING_JOINT( Motor );
+		case 3: CREATE_RECORDING_JOINT( Mover );
+		case 4: CREATE_RECORDING_JOINT( Pogo );
+		case 5: CREATE_RECORDING_JOINT( Prismatic );
+		case 6: CREATE_RECORDING_JOINT( Revolute );
+		case 7: CREATE_RECORDING_JOINT( Weld );
+		case 8: CREATE_RECORDING_JOINT( Wheel );
+		default: return b2_nullJointId;
+	}
+#undef CREATE_RECORDING_JOINT
+}
+
+static b2WorldId CreateRecordingJointScene( b2BodyId* a, b2BodyId* b )
+{
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef();
+	*a = b2CreateBody( world, &bd );
+	bd.type = b2_dynamicBody;
+	bd.position = { 0, 2 };
+	*b = b2CreateBody( world, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 0.5f };
+	b2CreateCircleShape( *b, &sd, &circle );
+	return world;
+}
+
+int RecordingJointCreationTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2BodyId a, b;
+	b2WorldId world = CreateRecordingJointScene( &a, &b );
+	b2Recording* rec = b2CreateRecording( 1 );
+	b2World_StartRecording( world, rec );
+	uint8_t opcodes[] = { 0x98, 0xA3, 0xA4, 0xAF, 0xB2, 0xB6, 0xC0, 0xCA, 0xCF };
+	b2JointId joints[9];
+	for ( int i = 0; i < 9; ++i )
+	{
+		int start = b2Recording_GetSize( rec );
+		CHECK_RECORD( opcodes[i], joints[i] = CreateRecordingJoint( i, world, a, b ) );
+		ENSURE( b2Joint_IsValid( joints[i] ) );
+		const uint8_t* frame = b2Recording_GetData( rec ) + start;
+		int payload = RecordingPayloadSize( frame );
+		ENSURE( ReadRecordingU32( frame + 4 ) == b2StoreWorldId( world ) );
+		for ( int j = 8; j < 16; ++j ) ENSURE( frame[j] == 0 );
+		uint64_t bodyA = b2StoreBodyId( a ), bodyB = b2StoreBodyId( b );
+		ENSURE( ReadRecordingU32( frame + 16 ) == (uint32_t)bodyA );
+		ENSURE( ReadRecordingU32( frame + 20 ) == (uint32_t)( bodyA >> 32 ) );
+		ENSURE( ReadRecordingU32( frame + 24 ) == (uint32_t)bodyB );
+		ENSURE( ReadRecordingU32( frame + 28 ) == (uint32_t)( bodyB >> 32 ) );
+		uint64_t stored = b2StoreJointId( joints[i] );
+		ENSURE( ReadRecordingU32( frame + payload - 4 ) == (uint32_t)stored );
+		ENSURE( ReadRecordingU32( frame + payload ) == (uint32_t)( stored >> 32 ) );
+	}
+	for ( b2JointId joint : joints ) { CHECK_RECORD( 0x90, b2DestroyJoint( joint ) ); }
+	b2World_StopRecording( world );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingJointCommonTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2BodyId a, b;
+	b2WorldId world = CreateRecordingJointScene( &a, &b );
+	b2JointId joint = CreateRecordingJoint( 0, world, a, b );
+	b2Body_SetAwake( b, false );
+	ENSURE( !b2Body_IsAwake( b ) );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec );
+	b2Transform frame = { { 1, 0 }, b2Rot_identity };
+	CHECK_RECORD( 0x91, b2Joint_SetLocalFrameA( joint, frame ) );
+	frame.p = { 0, 1 };
+	CHECK_RECORD( 0x92, b2Joint_SetLocalFrameB( joint, frame ) );
+	CHECK_RECORD( 0x93, b2Joint_SetCollideConnected( joint, true ) );
+	CHECK_RECORD( 0x94, b2Joint_WakeBodies( joint ) );
+	ENSURE( b2Body_IsAwake( b ) );
+	CHECK_RECORD( 0x95, b2Joint_SetConstraintTuning( joint, 30, 0.8f ) );
+	int start = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0x96, b2Joint_SetForceThreshold( joint, 2.0f ) );
+	const uint8_t* bytes = b2Recording_GetData( rec ) + start;
+	ENSURE( RecordingPayloadSize( bytes ) == 12 && ReadRecordingU32( bytes + 12 ) == 0x40000000u );
+	CHECK_RECORD( 0x97, b2Joint_SetTorqueThreshold( joint, 3.0f ) );
+	int size = b2Recording_GetSize( rec );
+	b2Joint_WakeBodies( b2_nullJointId );
+	b2World* internalWorld = b2_worlds + world.index1 - 1;
+	internalWorld->locked = true;
+	b2Joint_WakeBodies( joint );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	internalWorld->locked = false;
+	b2World_StopRecording( world );
+	size = b2Recording_GetSize( rec );
+	b2Joint_SetForceThreshold( joint, 4.0f );
+	ENSURE( b2Recording_GetSize( rec ) == size );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingJointTypeOperationsTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2BodyId a, b;
+	b2WorldId world = CreateRecordingJointScene( &a, &b );
+	b2JointId joints[9];
+	for ( int i = 0; i < 9; ++i ) joints[i] = CreateRecordingJoint( i, world, a, b );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec );
+	b2JointId d = joints[0];
+	CHECK_RECORD( 0x99, b2DistanceJoint_SetRestLength( d, 2 ) );
+	CHECK_RECORD( 0x9A, b2DistanceJoint_EnableSpring( d, true ) );
+	CHECK_RECORD( 0x9B, b2DistanceJoint_SetSpringForceRange( d, -10, 20 ) );
+	CHECK_RECORD( 0x9C, b2DistanceJoint_SetSpringHertz( d, 4 ) );
+	CHECK_RECORD( 0x9D, b2DistanceJoint_SetSpringDampingRatio( d, 0.6f ) );
+	CHECK_RECORD( 0x9E, b2DistanceJoint_EnableLimit( d, true ) );
+	CHECK_RECORD( 0x9F, b2DistanceJoint_SetLimits( d, 1, 3 ) );
+	CHECK_RECORD( 0xA0, b2DistanceJoint_EnableMotor( d, true ) );
+	CHECK_RECORD( 0xA1, b2DistanceJoint_SetTargetMotorSpeed( d, 0.5f ) );
+	CHECK_RECORD( 0xA2, b2DistanceJoint_SetMaxMotorForce( d, 10 ) );
+	b2JointId m = joints[2];
+	CHECK_RECORD( 0xA5, b2MotorJoint_SetLinearVelocity( m, ( b2Vec2{ 1, 2 } ) ) );
+	CHECK_RECORD( 0xA6, b2MotorJoint_SetAngularVelocity( m, 0.5f ) );
+	CHECK_RECORD( 0xA7, b2MotorJoint_SetMaxVelocityForce( m, 10 ) );
+	CHECK_RECORD( 0xA8, b2MotorJoint_SetMaxVelocityTorque( m, 10 ) );
+	CHECK_RECORD( 0xA9, b2MotorJoint_SetLinearHertz( m, 4 ) );
+	CHECK_RECORD( 0xAA, b2MotorJoint_SetLinearDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xAB, b2MotorJoint_SetAngularHertz( m, 4 ) );
+	CHECK_RECORD( 0xAC, b2MotorJoint_SetAngularDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xAD, b2MotorJoint_SetMaxSpringForce( m, 10 ) );
+	CHECK_RECORD( 0xAE, b2MotorJoint_SetMaxSpringTorque( m, 10 ) );
+	m = joints[3];
+	CHECK_RECORD( 0xB0, b2MoverJoint_SetLinearVelocity( m, ( b2Vec2{ 1, 2 } ) ) );
+	CHECK_RECORD( 0xB1, b2MoverJoint_SetMaxVelocityForce( m, ( b2Vec2{ 10, 20 } ) ) );
+	m = joints[4];
+	CHECK_RECORD( 0xB3, b2PogoJoint_SetRestLength( m, 2 ) );
+	CHECK_RECORD( 0xB4, b2PogoJoint_SetSpringHertz( m, 4 ) );
+	CHECK_RECORD( 0xB5, b2PogoJoint_SetSpringDampingRatio( m, 0.6f ) );
+	m = joints[5];
+	CHECK_RECORD( 0xB7, b2PrismaticJoint_EnableSpring( m, true ) );
+	CHECK_RECORD( 0xB8, b2PrismaticJoint_SetSpringHertz( m, 4 ) );
+	CHECK_RECORD( 0xB9, b2PrismaticJoint_SetSpringDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xBA, b2PrismaticJoint_SetTargetTranslation( m, 1 ) );
+	CHECK_RECORD( 0xBB, b2PrismaticJoint_EnableLimit( m, true ) );
+	CHECK_RECORD( 0xBC, b2PrismaticJoint_SetLimits( m, -1, 2 ) );
+	CHECK_RECORD( 0xBD, b2PrismaticJoint_EnableMotor( m, true ) );
+	CHECK_RECORD( 0xBE, b2PrismaticJoint_SetTargetMotorSpeed( m, 0.5f ) );
+	CHECK_RECORD( 0xBF, b2PrismaticJoint_SetMaxMotorForce( m, 10 ) );
+	m = joints[6];
+	CHECK_RECORD( 0xC1, b2RevoluteJoint_EnableSpring( m, true ) );
+	CHECK_RECORD( 0xC2, b2RevoluteJoint_SetSpringHertz( m, 4 ) );
+	CHECK_RECORD( 0xC3, b2RevoluteJoint_SetSpringDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xC4, b2RevoluteJoint_SetTargetAngle( m, 0.2f ) );
+	CHECK_RECORD( 0xC5, b2RevoluteJoint_EnableLimit( m, true ) );
+	CHECK_RECORD( 0xC6, b2RevoluteJoint_SetLimits( m, -1, 1 ) );
+	CHECK_RECORD( 0xC7, b2RevoluteJoint_EnableMotor( m, true ) );
+	CHECK_RECORD( 0xC8, b2RevoluteJoint_SetTargetMotorSpeed( m, 0.5f ) );
+	CHECK_RECORD( 0xC9, b2RevoluteJoint_SetMaxMotorTorque( m, 10 ) );
+	m = joints[7];
+	CHECK_RECORD( 0xCB, b2WeldJoint_SetLinearHertz( m, 4 ) );
+	CHECK_RECORD( 0xCC, b2WeldJoint_SetLinearDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xCD, b2WeldJoint_SetAngularHertz( m, 4 ) );
+	CHECK_RECORD( 0xCE, b2WeldJoint_SetAngularDampingRatio( m, 0.6f ) );
+	m = joints[8];
+	CHECK_RECORD( 0xD0, b2WheelJoint_EnableSpring( m, true ) );
+	CHECK_RECORD( 0xD1, b2WheelJoint_SetSpringHertz( m, 4 ) );
+	CHECK_RECORD( 0xD2, b2WheelJoint_SetSpringDampingRatio( m, 0.6f ) );
+	CHECK_RECORD( 0xD3, b2WheelJoint_EnableLimit( m, true ) );
+	CHECK_RECORD( 0xD4, b2WheelJoint_SetLimits( m, -1, 2 ) );
+	CHECK_RECORD( 0xD5, b2WheelJoint_EnableMotor( m, true ) );
+	CHECK_RECORD( 0xD6, b2WheelJoint_SetTargetMotorSpeed( m, 0.5f ) );
+	CHECK_RECORD( 0xD7, b2WheelJoint_SetMaxMotorTorque( m, 10 ) );
+	b2World_StopRecording( world );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingJointCascadeTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2BodyId a, b;
+	b2WorldId world = CreateRecordingJointScene( &a, &b );
+	b2JointId joints[9];
+	for ( int i = 0; i < 9; ++i ) joints[i] = CreateRecordingJoint( i, world, a, b );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec );
+	CHECK_RECORD( 0x11, b2DestroyBody( b ) );
+	for ( b2JointId joint : joints ) ENSURE( !b2Joint_IsValid( joint ) );
+	b2World_StopRecording( world );
+	b2DestroyWorld( world );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}

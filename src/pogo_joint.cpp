@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 
 #include "box2d/math_functions.h"
@@ -13,6 +14,10 @@ void b2PogoJoint_SetRestLength( b2JointId jointId, float length )
 	if ( b2IsValidFloat( length ) == false )
 	{
 		return;
+	}
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PogoJointSetRestLength, jointId, length );
 	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_pogoJoint );
 	if ( joint == nullptr )
@@ -33,6 +38,10 @@ void b2PogoJoint_SetSpringHertz( b2JointId jointId, float hertz )
 	{
 		return;
 	}
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PogoJointSetSpringHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_pogoJoint );
 	if ( joint == nullptr )
 	{
@@ -51,6 +60,10 @@ void b2PogoJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
 	if ( b2IsValidFloat( dampingRatio ) == false )
 	{
 		return;
+	}
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PogoJointSetSpringDampingRatio, jointId, dampingRatio );
 	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_pogoJoint );
 	if ( joint == nullptr )

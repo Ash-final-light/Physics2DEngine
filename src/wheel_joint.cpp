@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 
 void b2PrepareWheelJoint( b2JointSim* base, b2StepContext* context )
@@ -334,6 +335,10 @@ void b2SolveWheelJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 void b2WheelJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointEnableSpring, jointId, enableSpring );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 
 	if ( enableSpring != joint->wheelJoint.enableSpring )
@@ -354,6 +359,10 @@ void b2WheelJoint_SetSpringHertz( b2JointId jointId, float hertz )
 	if (!(b2IsValidFloat( hertz ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointSetSpringHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	joint->wheelJoint.hertz = hertz;
 }
@@ -369,6 +378,10 @@ void b2WheelJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
 	if (!(b2IsValidFloat( dampingRatio ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointSetSpringDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	joint->wheelJoint.dampingRatio = dampingRatio;
 }
@@ -382,6 +395,10 @@ float b2WheelJoint_GetSpringDampingRatio( b2JointId jointId )
 void b2WheelJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointEnableLimit, jointId, enableLimit );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	if ( joint->wheelJoint.enableLimit != enableLimit )
 	{
@@ -405,6 +422,10 @@ void b2WheelJoint_SetLimits( b2JointId jointId, float lower, float upper )
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( lower <= upper );
 
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointSetLimits, jointId, lower, upper );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	joint->wheelJoint.lowerTranslation = b2MinFloat( lower, upper );
 	joint->wheelJoint.upperTranslation = b2MaxFloat( lower, upper );
@@ -425,6 +446,10 @@ float b2WheelJoint_GetUpperLimit( b2JointId jointId )
 void b2WheelJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointEnableMotor, jointId, enableMotor );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	if ( joint->wheelJoint.enableMotor != enableMotor )
 	{
@@ -444,6 +469,10 @@ void b2WheelJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
 	if (!(b2IsValidFloat( motorSpeed ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointSetTargetMotorSpeed, jointId, motorSpeed );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	joint->wheelJoint.motorSpeed = motorSpeed;
 }
@@ -466,6 +495,10 @@ void b2WheelJoint_SetMaxMotorTorque( b2JointId jointId, float torque )
 	if (!(b2IsValidFloat( torque ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WheelJointSetMaxMotorTorque, jointId, torque );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	joint->wheelJoint.maxMotorTorque = torque;
 }

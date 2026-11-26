@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "body.h"
 #include "world.h"
 
@@ -10,6 +11,10 @@ void b2DistanceJoint_SetRestLength( b2JointId jointId, float length )
 
 	b2World* world = b2_worlds + jointId.world0;
 
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetRestLength, jointId, length );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 
@@ -347,6 +352,10 @@ void b2SolveDistanceJoint( b2JointSim* base, b2StepContext* context, bool useBia
 void b2DistanceJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointEnableSpring, jointId, enableSpring );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.enableSpring = enableSpring;
 }
@@ -364,6 +373,10 @@ void b2DistanceJoint_SetSpringForceRange( b2JointId jointId, float lowerForce, f
 
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( lowerForce <= upperForce );
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetSpringForceRange, jointId, lowerForce, upperForce );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.lowerSpringForce = b2MinFloat( lowerForce, upperForce );
 	base->distanceJoint.upperSpringForce = b2MaxFloat( lowerForce, upperForce );
@@ -381,6 +394,10 @@ void b2DistanceJoint_SetSpringHertz( b2JointId jointId, float hertz )
 	if (!(b2IsValidFloat( hertz ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetSpringHertz, jointId, hertz );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.hertz = hertz;
 }
@@ -390,6 +407,10 @@ void b2DistanceJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRati
 	if (!(b2IsValidFloat( dampingRatio ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetSpringDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	base->distanceJoint.dampingRatio = dampingRatio;
 }
@@ -424,6 +445,10 @@ float b2DistanceJoint_GetSpringForce( b2JointId jointId )
 void b2DistanceJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointEnableLimit, jointId, enableLimit );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 	joint->enableLimit = enableLimit;
@@ -441,6 +466,10 @@ void b2DistanceJoint_SetLimits( b2JointId jointId, float minLength, float maxLen
 	if (!(b2IsValidFloat( maxLength ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetLimits, jointId, minLength, maxLength );
+	}
 	b2JointSim* base = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	b2DistanceJoint* joint = &base->distanceJoint;
 
@@ -467,6 +496,10 @@ float b2DistanceJoint_GetUpperLimit( b2JointId jointId )
 void b2DistanceJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointEnableMotor, jointId, enableMotor );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	if ( enableMotor != joint->distanceJoint.enableMotor )
 	{
@@ -486,6 +519,10 @@ void b2DistanceJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
 	if (!(b2IsValidFloat( motorSpeed ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetTargetMotorSpeed, jointId, motorSpeed );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	joint->distanceJoint.motorSpeed = motorSpeed;
 }
@@ -508,6 +545,10 @@ void b2DistanceJoint_SetMaxMotorForce( b2JointId jointId, float force )
 	if (!(b2IsValidFloat( force ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), DistanceJointSetMaxMotorForce, jointId, force );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	joint->distanceJoint.maxMotorForce = force;
 }

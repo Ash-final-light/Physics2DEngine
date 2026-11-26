@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 #include <stdio.h>
 
@@ -321,6 +322,10 @@ float b2RevoluteJoint_GetCurrentSpeed( b2JointId jointId )
 void b2RevoluteJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointEnableSpring, jointId, enableSpring );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	if ( enableSpring != joint->revoluteJoint.enableSpring )
 	{
@@ -340,6 +345,10 @@ void b2RevoluteJoint_SetSpringHertz( b2JointId jointId, float hertz )
 	if (!(b2IsValidFloat( hertz ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetSpringHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.hertz = hertz;
 }
@@ -355,6 +364,10 @@ void b2RevoluteJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRati
 	if (!(b2IsValidFloat( dampingRatio ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetSpringDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.dampingRatio = dampingRatio;
 }
@@ -370,6 +383,10 @@ void b2RevoluteJoint_SetTargetAngle( b2JointId jointId, float angle )
 	if (!(b2IsValidFloat( angle ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetTargetAngle, jointId, angle );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.targetAngle = angle;
 }
@@ -383,6 +400,10 @@ float b2RevoluteJoint_GetTargetAngle( b2JointId jointId )
 void b2RevoluteJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointEnableLimit, jointId, enableLimit );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	if ( enableLimit != joint->revoluteJoint.enableLimit )
 	{
@@ -419,6 +440,10 @@ void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper )
 
 	b2World* world = b2_worlds + jointId.world0;
 
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetLimits, jointId, lower, upper );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	float lowerAngle = b2MinFloat( lower, upper );
 	float upperAngle = b2MaxFloat( lower, upper );
@@ -429,6 +454,10 @@ void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper )
 void b2RevoluteJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointEnableMotor, jointId, enableMotor );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	if ( enableMotor != joint->revoluteJoint.enableMotor )
 	{
@@ -448,6 +477,10 @@ void b2RevoluteJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
 	if (!(b2IsValidFloat( motorSpeed ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetTargetMotorSpeed, jointId, motorSpeed );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.motorSpeed = motorSpeed;
 }
@@ -463,6 +496,10 @@ void b2RevoluteJoint_SetMaxMotorTorque( b2JointId jointId, float torque )
 	if (!(b2IsValidFloat( torque ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), RevoluteJointSetMaxMotorTorque, jointId, torque );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	joint->revoluteJoint.maxMotorTorque = torque;
 }

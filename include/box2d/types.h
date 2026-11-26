@@ -1486,3 +1486,6 @@ B2_API void b2World_StopRecording( b2WorldId worldId );
 B2_API b2ShapeId b2CreateChainSegmentShape( b2BodyId bodyId, const b2ShapeDef* def, const b2ChainSegment* chainSegment );
 /// 设置独立链段几何；父链拥有的链段不能单独修改。
 B2_API void b2Shape_SetChainSegment( b2ShapeId shapeId, const b2ChainSegment* chainSegment );
+
+/// 唤醒关节连接的两个刚体；锁定的世界不受影响。
+B2_API void b2Joint_WakeBodies( b2JointId jointId );

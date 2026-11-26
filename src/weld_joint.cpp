@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 
 void b2PrepareWeldJoint( b2JointSim* base, b2StepContext* context )
@@ -225,6 +226,10 @@ void b2WeldJoint_SetLinearHertz( b2JointId jointId, float hertz )
 
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( b2IsValidFloat( hertz ) && hertz >= 0.0f );
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WeldJointSetLinearHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_weldJoint );
 	joint->weldJoint.linearHertz = hertz;
 }
@@ -241,6 +246,10 @@ void b2WeldJoint_SetAngularHertz( b2JointId jointId, float hertz )
 
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( b2IsValidFloat( hertz ) && hertz >= 0.0f );
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WeldJointSetAngularHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_weldJoint );
 	joint->weldJoint.angularHertz = hertz;
 }
@@ -257,6 +266,10 @@ void b2WeldJoint_SetLinearDampingRatio( b2JointId jointId, float dampingRatio )
 
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f );
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WeldJointSetLinearDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_weldJoint );
 	joint->weldJoint.linearDampingRatio = dampingRatio;
 }
@@ -273,6 +286,10 @@ void b2WeldJoint_SetAngularDampingRatio( b2JointId jointId, float dampingRatio )
 
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( b2IsValidFloat( dampingRatio ) && dampingRatio >= 0.0f );
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), WeldJointSetAngularDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_weldJoint );
 	joint->weldJoint.angularDampingRatio = dampingRatio;
 }

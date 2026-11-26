@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2023 Erin Catto
 // SPDX-License-Identifier: MIT
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 
 void b2PreparePrismaticJoint( b2JointSim* base, b2StepContext* context )
@@ -435,6 +436,10 @@ float b2PrismaticJoint_GetCurrentSpeed( b2JointId jointId )
 void b2PrismaticJoint_EnableSpring( b2JointId jointId, bool enableSpring )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointEnableSpring, jointId, enableSpring );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	if ( enableSpring != joint->prismaticJoint.enableSpring )
 	{
@@ -454,6 +459,10 @@ void b2PrismaticJoint_SetSpringHertz( b2JointId jointId, float hertz )
 	if (!(b2IsValidFloat( hertz ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetSpringHertz, jointId, hertz );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.hertz = hertz;
 }
@@ -469,6 +478,10 @@ void b2PrismaticJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRat
 	if (!(b2IsValidFloat( dampingRatio ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetSpringDampingRatio, jointId, dampingRatio );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.dampingRatio = dampingRatio;
 }
@@ -484,6 +497,10 @@ void b2PrismaticJoint_SetTargetTranslation( b2JointId jointId, float translation
 	if (!(b2IsValidFloat( translation ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetTargetTranslation, jointId, translation );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.targetTranslation = translation;
 }
@@ -497,6 +514,10 @@ float b2PrismaticJoint_GetTargetTranslation( b2JointId jointId )
 void b2PrismaticJoint_EnableLimit( b2JointId jointId, bool enableLimit )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointEnableLimit, jointId, enableLimit );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	if ( enableLimit != joint->prismaticJoint.enableLimit )
 	{
@@ -520,6 +541,10 @@ void b2PrismaticJoint_SetLimits( b2JointId jointId, float lower, float upper )
 	b2World* world = b2_worlds + jointId.world0;
 	B2_ASSERT( lower <= upper );
 
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetLimits, jointId, lower, upper );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.lowerTranslation = b2MinFloat( lower, upper );
 	joint->prismaticJoint.upperTranslation = b2MaxFloat( lower, upper );
@@ -540,6 +565,10 @@ float b2PrismaticJoint_GetUpperLimit( b2JointId jointId )
 void b2PrismaticJoint_EnableMotor( b2JointId jointId, bool enableMotor )
 {
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointEnableMotor, jointId, enableMotor );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	if ( enableMotor != joint->prismaticJoint.enableMotor )
 	{
@@ -559,6 +588,10 @@ void b2PrismaticJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed )
 	if (!(b2IsValidFloat( motorSpeed ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetTargetMotorSpeed, jointId, motorSpeed );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.motorSpeed = motorSpeed;
 }
@@ -581,6 +614,10 @@ void b2PrismaticJoint_SetMaxMotorForce( b2JointId jointId, float force )
 	if (!(b2IsValidFloat( force ))) { return; }
 
 	b2World* world = b2_worlds + jointId.world0;
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), PrismaticJointSetMaxMotorForce, jointId, force );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	joint->prismaticJoint.maxMotorForce = force;
 }

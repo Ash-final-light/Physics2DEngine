@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "joint.h"
+#include "recording.h"
 #include "world.h"
 
 #include "box2d/math_functions.h"
@@ -101,6 +102,10 @@ void b2MoverJoint_SetLinearVelocity( b2JointId jointId, b2Vec2 velocity )
 	{
 		return;
 	}
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), MoverJointSetLinearVelocity, jointId, velocity );
+	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_moverJoint );
 	if ( joint == nullptr )
 	{
@@ -120,6 +125,10 @@ void b2MoverJoint_SetMaxVelocityForce( b2JointId jointId, b2Vec2 maxForce )
 	if ( b2IsValidVec2( maxForce ) == false )
 	{
 		return;
+	}
+	if ( b2Joint_IsValid( jointId ) )
+	{
+		B2_REC( ( b2_worlds + jointId.world0 ), MoverJointSetMaxVelocityForce, jointId, maxForce );
 	}
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_moverJoint );
 	if ( joint == nullptr )
