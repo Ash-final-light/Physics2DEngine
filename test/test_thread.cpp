@@ -488,3 +488,55 @@ int ExternalTaskTest( void )
 	b2DestroyWorld( worldId );
 	return 0;
 }
+
+int WorkerCountTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2WorldDef def = b2DefaultWorldDef();
+	def.workerCount = 1;
+	b2WorldId id = b2CreateWorld( &def );
+	ENSURE( b2World_IsValid( id ) && b2World_GetWorkerCount( id ) == 1 );
+
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.type = b2_dynamicBody;
+	bd.position = { 0, 2 };
+	bd.linearVelocity = { 0, 0 };
+	b2BodyId body = b2CreateBody( id, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	sd.density = 1.0f;
+	b2Circle circle = { { 0, 0 }, 0.5f };
+	b2CreateCircleShape( body, &sd, &circle );
+
+	b2World_Step( id, 1.0f / 60.0f, 4 );
+	ENSURE( b2Body_GetPosition( body ).y < 2.0f );
+
+	b2World_SetWorkerCount( id, 4 );
+	ENSURE( b2World_GetWorkerCount( id ) == 4 );
+	b2World* world = b2_worlds + id.index1 - 1;
+	ENSURE( world->scheduler != NULL );
+	b2Scheduler* scheduler = world->scheduler;
+	b2World_Step( id, 1.0f / 60.0f, 4 );
+	ENSURE( world->scheduler == scheduler );
+	b2World_SetWorkerCount( id, 4 );
+	ENSURE( world->scheduler == scheduler );
+
+	b2World_SetWorkerCount( id, 0 );
+	ENSURE( b2World_GetWorkerCount( id ) == 1 && world->scheduler == NULL );
+	b2World_Step( id, 1.0f / 60.0f, 4 );
+	ENSURE( b2Body_GetPosition( body ).y < 2.0f );
+
+	b2World_SetWorkerCount( id, -5 );
+	ENSURE( b2World_GetWorkerCount( id ) == 1 );
+	b2World_SetWorkerCount( id, B2_MAX_WORKERS + 10 );
+	ENSURE( b2World_GetWorkerCount( id ) == B2_MAX_WORKERS && world->scheduler != NULL );
+	b2World_Step( id, 1.0f / 60.0f, 4 );
+	ENSURE( world->scheduler != NULL );
+
+	b2WorldId invalid = b2WorldId{};
+	b2World_SetWorkerCount( invalid, 2 );
+	ENSURE( b2World_GetWorkerCount( invalid ) == 0 );
+
+	b2DestroyWorld( id );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

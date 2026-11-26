@@ -18,6 +18,8 @@
 #include "box2d/constants.h"
 #include "box2d/types.h"
 
+struct b2Scheduler;
+
 struct b2World
 {
 	uint16_t worldId;
@@ -79,6 +81,8 @@ struct b2World
 	b2EnqueueTaskCallbackFcn* enqueueTaskFcn;
 	b2FinishTaskCallbackFcn* finishTaskFcn;
 	void* userTaskContext;
+	struct b2Scheduler* scheduler;
+	bool useScheduler;
 	void* userData;
 	b2Stack stack;
 	b2IdPool bodyIdPool;

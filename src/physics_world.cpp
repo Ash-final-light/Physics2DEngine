@@ -6,6 +6,7 @@
 #include "core.h"
 #include "aabb.h"
 #include "solver.h"
+#include "scheduler.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -80,7 +81,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	world->enableWarmStarting=true;
 	world->enableSleep = def->enableSleep;
 	world->enableContinuous = def->enableContinuous;
-	world->workerCount = 1;
+	world->scheduler = NULL;
+	world->useScheduler = false;
 	if ( def->workerCount > 0 && def->enqueueTask != NULL )
 	{
 		world->workerCount = b2MinInt( def->workerCount, B2_MAX_WORKERS );
@@ -90,9 +92,17 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	}
 	else
 	{
+		world->workerCount = b2ClampInt( def->workerCount, 1, B2_MAX_WORKERS );
 		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
 		world->finishTaskFcn = b2DefaultFinishTaskFcn;
 		world->userTaskContext = NULL;
+		if ( world->workerCount > 1 )
+		{
+			world->useScheduler = true;
+			world->enqueueTaskFcn = b2SchedulerEnqueueTask;
+			world->finishTaskFcn = b2SchedulerFinishTask;
+			world->scheduler = b2CreateScheduler( world->workerCount );
+		}
 	}
 	world->userData = def->userData;
 	world->bodyIdPool = b2CreateIdPool();
@@ -175,6 +185,11 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2Array_Destroy( world->fatAABBs );
 	b2DestroyIdPool( &world->shapeIdPool );
 	b2DestroyIdPool( &world->bodyIdPool );
+	if ( world->scheduler != NULL )
+	{
+		b2DestroyScheduler( world->scheduler );
+		world->scheduler = NULL;
+	}
 	uint16_t generation = world->generation;
 	*world = b2World{};
 	world->generation = generation + 1;
@@ -202,6 +217,54 @@ static b2World* b2GetWorldFromId( b2WorldId id )
 		return NULL;
 	}
 	return b2_worlds + ( id.index1 - 1 );
+}
+
+void b2World_SetWorkerCount( b2WorldId worldId, int count )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	if ( world == NULL || world->locked )
+	{
+		return;
+	}
+
+	int clampedCount = b2ClampInt( count, 1, B2_MAX_WORKERS );
+	if ( clampedCount == world->workerCount )
+	{
+		return;
+	}
+
+	if ( clampedCount == 1 && world->useScheduler )
+	{
+		world->useScheduler = false;
+		world->enqueueTaskFcn = b2DefaultAddTaskFcn;
+		world->finishTaskFcn = b2DefaultFinishTaskFcn;
+		world->userTaskContext = NULL;
+	}
+	else if ( clampedCount > 1 && world->enqueueTaskFcn == b2DefaultAddTaskFcn )
+	{
+		world->useScheduler = true;
+		world->enqueueTaskFcn = b2SchedulerEnqueueTask;
+		world->finishTaskFcn = b2SchedulerFinishTask;
+		world->userTaskContext = NULL;
+	}
+
+	// 线程数变化后旧调度器的线程与资源全部迁移。
+	if ( world->scheduler != NULL )
+	{
+		b2DestroyScheduler( world->scheduler );
+		world->scheduler = NULL;
+	}
+	if ( world->useScheduler && clampedCount > 1 )
+	{
+		world->scheduler = b2CreateScheduler( clampedCount );
+	}
+	world->workerCount = clampedCount;
+}
+
+int b2World_GetWorkerCount( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	return world != NULL ? world->workerCount : 0;
 }
 
 void b2World_SetUserData( b2WorldId worldId, void* userData )
@@ -235,6 +298,10 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     if ( world->inUse == false || world->locked )
     {
         return;
+    }
+    if ( world->useScheduler && world->scheduler == NULL && world->workerCount > 1 )
+    {
+        world->scheduler = b2CreateScheduler( world->workerCount );
     }
     world->inv_dt=1.0f/timeStep;world->inv_h=subStepCount/timeStep;
     b2Array_Clear(world->bodyMoveEvents);

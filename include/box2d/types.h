@@ -90,6 +90,10 @@ typedef struct b2WorldDef
 	int internalValue;
 } b2WorldDef;
 
+/// 设置工作线程数，范围 [1, B2_MAX_WORKERS]。
+B2_API void b2World_SetWorkerCount( b2WorldId worldId, int count );
+B2_API int b2World_GetWorkerCount( b2WorldId worldId );
+
 B2_API b2WorldDef b2DefaultWorldDef( void );
 B2_API b2WorldId b2CreateWorld( const b2WorldDef* def );
 B2_API void b2DestroyWorld( b2WorldId worldId );
