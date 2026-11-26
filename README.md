@@ -174,3 +174,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2SolvePlanes` 按碰撞平面迭代约束目标位移，记录各平面的推移，并支持有限推移上限产生软碰撞。
 
 `b2ClipVector` 使用平面求解器记录的有效推移裁剪角色速度；离开表面的速度和禁止裁剪的软碰撞平面保持其原有作用。
+
+`b2World_CastMover` 扫掠相对查询原点的胶囊，返回可移动分数。它使用角色贴面推进语义，并忽略初始重叠形状。

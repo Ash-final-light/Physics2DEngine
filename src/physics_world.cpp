@@ -1038,3 +1038,97 @@ void b2World_Explode( b2WorldId worldId, const b2ExplosionDef* explosionDef )
 	b2DynamicTree_OverlapAABB( world->broadPhase.trees + b2_dynamicBody, aabb, maskBits, ExplosionCallback,
 							   &explosionContext );
 }
+
+typedef struct WorldMoverCastContext
+{
+	b2World* world;
+	b2QueryFilter filter;
+	float fraction;
+	b2Pos origin;
+	// 相对原点的输入
+	b2ShapeCastInput input;
+} WorldMoverCastContext;
+
+static float MoverCastCallback( const b2BoxCastInput* input, int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+	WorldMoverCastContext* worldContext = static_cast<WorldMoverCastContext *>( context );
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return worldContext->fraction;
+	}
+
+	// 从相对原点的输入重建，只从树取推进分数
+	b2ShapeCastInput localInput = worldContext->input;
+	localInput.maxFraction = input->maxFraction;
+
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2WorldTransform bodyTransform = b2GetBodySim(world,body)->transform;
+	b2Transform transform = b2ToRelativeTransform( bodyTransform, worldContext->origin );
+
+	b2CastOutput output = b2ShapeCastShape( &localInput, shape, transform );
+	if ( output.fraction == 0.0f )
+	{
+		// 忽略重叠形状
+		return worldContext->fraction;
+	}
+
+	worldContext->fraction = output.fraction;
+	return output.fraction;
+}
+
+float b2World_CastMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mover, b2Vec2 translation,
+						 b2QueryFilter filter )
+{
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidVec2( translation ) );
+	B2_ASSERT( mover->radius > 2.0f * B2_LINEAR_SLOP );
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked )
+	{
+		return 1.0f;
+	}
+
+	WorldMoverCastContext worldContext = {};
+	worldContext.world = world;
+	worldContext.filter = filter;
+	worldContext.fraction = 1.0f;
+	worldContext.origin = origin;
+	worldContext.input.proxy.points[0] = mover->center1;
+	worldContext.input.proxy.points[1] = mover->center2;
+	worldContext.input.proxy.count = 2;
+	worldContext.input.proxy.radius = mover->radius;
+	worldContext.input.translation = translation;
+	worldContext.input.maxFraction = 1.0f;
+	worldContext.input.canEncroach = true;
+
+	// 在相对原点空间中包围胶囊，再提升到保守的世界 float 盒
+	b2Vec2 centers[2] = { mover->center1, mover->center2 };
+	b2AABB box = b2OffsetAABB( b2MakeAABB( centers, 2, mover->radius ), origin );
+	b2BoxCastInput treeInput = { box, translation, 1.0f };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2DynamicTree_CastBox( world->broadPhase.trees + i, &treeInput, filter.maskBits, MoverCastCallback,
+							   &worldContext );
+
+		if ( worldContext.fraction == 0.0f )
+		{
+			break;
+		}
+
+		treeInput.maxFraction = worldContext.fraction;
+	}
+
+
+
+	return worldContext.fraction;
+}

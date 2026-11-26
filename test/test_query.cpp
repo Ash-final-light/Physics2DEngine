@@ -185,3 +185,16 @@ int ShapeWindTest(void)
  bd.type=b2_staticBody;bd.position={30,0};body=b2CreateBody(id,&bd);shape=b2CreateCircleShape(body,&sd,&c);b2Shape_ApplyWind(shape,{10,0},0,0,true);ENSURE(b2GetBodySim(world,b2GetBodyFullId(world,body))->force.x==0);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldMoverCastTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);b2ShapeDef sd=b2DefaultShapeDef();b2Polygon wall=b2MakeBox(0.1f,2);
+ for(int i=0;i<3;++i) { b2BodyDef bd=b2DefaultBodyDef();bd.type=(b2BodyType)i;bd.position={1003.0f+2*i,2000};b2BodyId body=b2CreateBody(id,&bd);sd.filter.categoryBits=uint64_t(1)<<i;b2CreatePolygonShape(body,&sd,&wall); }
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={1000,2000};b2BodyId body=b2CreateBody(id,&bd);b2Circle c={{0,0},0.1f};sd.filter.categoryBits=8;b2CreateCircleShape(body,&sd,&c);
+ b2Capsule mover={{0,-0.5f},{0,0.5f},0.5f};b2QueryFilter filter=b2DefaultQueryFilter();float f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);ENSURE_SMALL(f-0.24f,0.002f);
+ filter.maskBits=2;f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);ENSURE_SMALL(f-0.44f,0.002f);
+ filter.maskBits=4;f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);ENSURE_SMALL(f-0.64f,0.002f);
+ filter.maskBits=UINT64_MAX;f=b2World_CastMover(id,{1000,2000},&mover,{-10,0},filter);ENSURE(f==1);
+ b2World* world=b2_worlds+id.index1-1;world->locked=true;f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);world->locked=false;ENSURE(f==1);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
