@@ -108,7 +108,14 @@ struct b2StepContext
     bool pairsUpdated;
     uint64_t pairTicks;
     uint64_t collideTicks;
+    uint64_t solveTicks;
+    uint64_t constraintTicks;
+    int solverStage,solverColor,solverStep,solverTaskType,activeColorIndex;
+    uint64_t solverTaskTicks;
+    bool solverTimingActive;
     int collideContactCount;
     b2ContactCollideSpan collideSpans[B2_GRAPH_COLOR_COUNT+2];
 };
-void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount );
+void b2BeginSolve(b2World* world,b2StepContext* context);
+bool b2ContinueSolve(b2StepContext* context);
+void b2EndSolve(b2StepContext* context);

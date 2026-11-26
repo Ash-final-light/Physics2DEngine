@@ -25,6 +25,7 @@ struct b2TaskContext
     b2DynamicArray<uint64_t> pairKeys;
     b2BitSet contactStateBitSet;
     int recycledContactCount;
+    b2BitSet jointStateBitSet;
 };
 
 struct b2World
@@ -45,7 +46,7 @@ struct b2World
 	b2BitSet debugJointSet;
 
 	// 本步已报告的关节力/力矩事件位，步进开始时清零。
-	// 多工作线程时改为每个任务上下文各一份。
+	// 各任务上下文先收集，求解完成后合并到此位集。
 	b2BitSet jointStateBitSet;
 	b2DynamicArray<b2JointEvent> jointEvents;
 	b2DynamicArray<b2BodyMoveEvent> bodyMoveEvents;

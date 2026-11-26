@@ -38,9 +38,9 @@ static void b2DefaultFinishTaskFcn( void* userTask, void* userContext )
 static void b2ResizeTaskContexts( b2World* world, int count )
 {
  int oldCount=world->taskContexts.count;
- for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet); }
+ for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet); }
  b2Array_Resize(world->taskContexts,count);
- for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys);world->taskContexts.data[i].contactStateBitSet=b2CreateBitSet(1024); }
+ for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys);world->taskContexts.data[i].contactStateBitSet=b2CreateBitSet(1024);world->taskContexts.data[i].jointStateBitSet=b2CreateBitSet(1024); }
 }
 
 b2WorldId b2CreateWorld( const b2WorldDef* def )
@@ -186,7 +186,7 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroySolverSets( world );
 	b2DestroyIdPool( &world->contactIdPool );
-	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet); }
+	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet); }
 	b2Array_Destroy(world->taskContexts);
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );
@@ -371,7 +371,10 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
    case 4:
     b2EndCollide(context);world->profile.collide=b2GetMilliseconds(context->collideTicks);
     { uint64_t ticks=b2GetTicks();b2SplitContactIslands(world);world->profile.splitIslands=b2GetMilliseconds(ticks); }
-    context->phase=0;break;
+    context->phase=5;context->solveTicks=b2GetTicks();b2BeginSolve(world,context);break;
+   case 5:
+    if(b2ContinueSolve(context)==false) { b2EndSolve(context);context->phase=0; }
+    break;
    default:return b2TaskBatch{};
   }
   if(context->batchTaskCount>0)
@@ -383,8 +386,7 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
  }
 
 	uint64_t stageTicks = b2GetTicks();
-	b2SolveFreeBodies( world, context->timeStep, context->subStepCount );
-	world->profile.solve = b2GetMillisecondsAndReset( &stageTicks );
+	world->profile.solve = b2GetMilliseconds(context->solveTicks);
 	world->maxCapacity.arenaByteCount = b2MaxInt( world->maxCapacity.arenaByteCount, b2GetMaxStackAllocation( &world->stack ) );
 	uint64_t sensorTicks = b2GetTicks();
 	b2BeginSensors( world );
@@ -446,6 +448,8 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
  b2TaskBatch batch=b2StartStep(world,timeStep,subStepCount);
  while(batch.count>0)
  {
+  // 上一批已全部接合，可复用调度器槽位，避免大量颜色/子步耗尽固定队列。
+  if(world->useScheduler) { b2ResetScheduler(world->scheduler); }
   b2RunTaskBatch(world->enqueueTaskFcn,world->finishTaskFcn,world->userTaskContext,batch);
   batch=b2ContinueStepInternal(world);
  }

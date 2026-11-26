@@ -200,6 +200,67 @@ int ParallelContactTest(void)
     ENSURE(b2GetByteCount()==before);return 0;
 }
 
+static int AddSolverJoints(b2WorldId id)
+{
+    b2World* w=b2_worlds+id.index1-1;
+    auto body=[&](int i) { return b2BodyId{i+1,w->worldId,w->bodies.data[i].generation}; };
+    b2DistanceJointDef d=b2DefaultDistanceJointDef();d.base.forceThreshold=0;
+    d.base.bodyIdA=body(0);d.base.bodyIdB=body(2);d.length=1.2f;
+    for(int i=0;i<26;++i) { ENSURE(b2Joint_IsValid(b2CreateDistanceJoint(id,&d))); }
+    for(int i=5;i<180;i+=3)
+    {
+        d.base.bodyIdA=body(i-2);d.base.bodyIdB=body(i);ENSURE(b2Joint_IsValid(b2CreateDistanceJoint(id,&d)));
+    }
+    return 0;
+}
+
+int ParallelSolverTest(void)
+{
+    size_t before=b2GetByteCount();PairThreadHost host;
+    b2WorldId serial=MakePairWorld(nullptr),threaded=MakePairWorld(&host),reverse=MakePairWorld(nullptr);
+    b2World_SetWorkerCount(reverse,4);
+    for(auto id:{serial,threaded,reverse}) { ENSURE(AddSolverJoints(id)==0); }
+    bool sawParallelSolverBatch=false,sawOverflow=false;
+    for(int step=0;step<30;++step)
+    {
+        int subSteps=step==10?32:4;
+        b2World_Step(serial,1.0f/60,subSteps);b2World_Step(threaded,1.0f/60,subSteps);
+        b2TaskBatch batch=b2World_BeginStep(reverse,1.0f/60,subSteps);
+        while(batch.count>0)
+        {
+            if(batch.tasks[0].type==b2_taskSolver && batch.count>1) { sawParallelSolverBatch=true; }
+            std::vector<std::thread> workers;
+            for(int i=batch.count-1;i>=0;--i)
+            {
+                b2Task task=batch.tasks[i];workers.emplace_back([task] { task.fcn(task.context); });
+            }
+            for(auto& worker:workers) { worker.join(); }
+            batch=b2World_ContinueStep(reverse);
+        }
+        ENSURE(CompareContactWorlds(serial,threaded)==0);ENSURE(CompareContactWorlds(serial,reverse)==0);
+        b2World* a=b2_worlds+serial.index1-1;
+        sawOverflow|=a->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0;
+        for(auto id:{threaded,reverse})
+        {
+            b2World* b=b2_worlds+id.index1-1;
+            ENSURE(a->jointEvents.count==b->jointEvents.count);
+            for(int i=0;i<a->jointEvents.count;++i) { ENSURE(a->jointEvents.data[i].jointId.index1==b->jointEvents.data[i].jointId.index1); }
+            ENSURE(a->bodyMoveEvents.count==b->bodyMoveEvents.count);
+            for(int i=0;i<a->bodyMoveEvents.count;++i)
+            {
+                ENSURE(a->bodyMoveEvents.data[i].transform.p.x==b->bodyMoveEvents.data[i].transform.p.x);
+                ENSURE(a->bodyMoveEvents.data[i].transform.p.y==b->bodyMoveEvents.data[i].transform.p.y);
+                ENSURE(a->bodyMoveEvents.data[i].transform.q.c==b->bodyMoveEvents.data[i].transform.q.c);
+                ENSURE(a->bodyMoveEvents.data[i].transform.q.s==b->bodyMoveEvents.data[i].transform.q.s);
+            }
+        }
+        if(step==14) { b2World_SetWorkerCount(threaded,2);b2World_SetWorkerCount(reverse,2); }
+    }
+    ENSURE(sawParallelSolverBatch);ENSURE(sawOverflow);ENSURE(host.enqueued>0);
+    for(auto id:{serial,threaded,reverse}) { b2DestroyWorld(id); }
+    ENSURE(b2GetByteCount()==before);return 0;
+}
+
 int BroadPhaseTreeTypesTest( void )
 {
     size_t before = b2GetByteCount();

@@ -195,42 +195,6 @@ static void b2ReportHitEvents(b2World* world)
     }
 }
 
-static void b2WarmStartConstraints(b2StepContext* context)
-{
- for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
- {
-  int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;b2GraphColor* color=context->graph->colors+colorIndex;
-  for(int i=0;i<color->jointSims.count;++i) { b2WarmStartJoint(color->jointSims.data+i,context); }
-  b2WarmStartContactColor(context,colorIndex);
- }
-}
-static void b2SolveConstraints(b2StepContext* context,bool useBias)
-{
- for(int order=0;order<B2_GRAPH_COLOR_COUNT;++order)
- {
-  int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;b2GraphColor* color=context->graph->colors+colorIndex;
-  for(int i=0;i<color->jointSims.count;++i)
-  {
-   b2JointSim* joint=color->jointSims.data+i;
-   b2SolveJoint(joint,context,useBias);
-
-   // 溢出颜色只求解约束；事件标记沿用普通颜色路径的语义。
-   // 偏置迭代后按当前反力判定阈值。零阈值表示报告所有唤醒关节。
-   if(colorIndex!=B2_OVERFLOW_INDEX && useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && b2GetBit(&context->world->jointStateBitSet,joint->jointId)==false)
-   {
-    float force,torque;
-    b2GetJointReaction(joint,context->inv_h,&force,&torque);
-    if(force>=joint->forceThreshold || torque>=joint->torqueThreshold)
-    {
-     // 标记此关节，避免同一时间步内重复报告。
-     b2SetBit(&context->world->jointStateBitSet,joint->jointId);
-    }
-   }
-  }
-  b2SolveNormalColor(context,colorIndex,useBias);
- }
-}
-
 static void b2ReportJointEvents(b2World* world)
 {
  uint32_t wordCount=world->jointStateBitSet.blockCount;
@@ -252,32 +216,22 @@ static void b2ReportJointEvents(b2World* world)
   }
  }
 }
-void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
+
+static void b2SolverRangeTask(int startIndex,int endIndex,int workerIndex,void* taskContext)
 {
-    uint64_t ticks=b2GetTicks();
-    float h=timeStep/(float)subStepCount;
-    b2SolverSet* set=world->solverSets.data+b2_awakeSet;
-    B2_ASSERT(set->bodySims.count==set->bodyStates.count);
-    b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
-    b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
-    world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
-    // 关节事件位按当前关节数量重置，避免沿用上一步的标记。
-    b2SetBitCountAndClear(&world->jointStateBitSet,b2GetIdCapacity(&world->jointIdPool));
-    for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c) { b2GraphColor* color=world->constraintGraph.colors+c;for(int i=0;i<color->jointSims.count;++i) { b2PrepareJoint(color->jointSims.data+i,&context); } }
-    b2PrepareContactConstraints(&context);
-    world->profile.prepareConstraints=b2GetMillisecondsAndReset(&ticks);
-    uint64_t constraintTicks=b2GetTicks();
-    for(int step=0;step<subStepCount;++step)
-    {
-        for(int i=0;i<set->bodySims.count;++i)
-        { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,h); }
-        world->profile.integrateVelocities+=b2GetMillisecondsAndReset(&ticks);
-        b2WarmStartConstraints(&context);
-        world->profile.warmStart+=b2GetMillisecondsAndReset(&ticks);
-        b2SolveConstraints(&context,true);
-        world->profile.solveImpulses+=b2GetMillisecondsAndReset(&ticks);
-        for(int i=0;i<set->bodySims.count;++i)
-        {
+ b2StepContext* context=static_cast<b2StepContext*>(taskContext);
+ b2World* world=context->world;
+ b2SolverSet* set=world->solverSets.data+b2_awakeSet;
+ if(context->solverTaskType==0)
+ {
+  for(int i=startIndex;i<endIndex;++i) { b2IntegrateBodyVelocity(world,set->bodySims.data+i,set->bodyStates.data+i,context->h); }
+  return;
+ }
+ if(context->solverTaskType==3)
+ {
+  float h=context->h,timeStep=context->timeStep;
+  for(int i=startIndex;i<endIndex;++i)
+  {
             b2BodyState* state=set->bodyStates.data+i;
             // Motion locks act as the final constraint before position integration.
             state->linearVelocity.x=(state->flags&b2_lockLinearX)?0.0f:state->linearVelocity.x;
@@ -297,17 +251,110 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
             }
             state->deltaPosition=b2MulAdd(state->deltaPosition,h,state->linearVelocity);
             state->deltaRotation=b2IntegrateRotation(state->deltaRotation,h*state->angularVelocity);
-        }
-        world->profile.integratePositions+=b2GetMillisecondsAndReset(&ticks);
-        b2SolveConstraints(&context,false);
-        world->profile.relaxImpulses+=b2GetMillisecondsAndReset(&ticks);
-    }
-    world->profile.constraints=b2GetMilliseconds(constraintTicks);
-    if(context.anyRestitution && world->restitutionIterations>0)
-    { b2ApplyContactRestitution(&context);world->profile.restitution=b2GetMillisecondsAndReset(&ticks); }
-    b2StoreContactImpulses(&context);
-    b2ReleaseContactConstraints(&context);
-    world->profile.storeImpulses=b2GetMillisecondsAndReset(&ticks);
+
+  }
+  return;
+ }
+ int colorIndex=context->activeColorIndex;
+ b2GraphColor* color=context->graph->colors+colorIndex;
+ int jointCount=color->jointSims.count;
+ bool warm=context->solverTaskType==1,useBias=context->solverTaskType==2;
+ b2BitSet* bits=&world->taskContexts.data[workerIndex].jointStateBitSet;
+ for(int i=startIndex;i<b2MinInt(endIndex,jointCount);++i)
+ {
+  b2JointSim* joint=color->jointSims.data+i;
+  if(warm) { b2WarmStartJoint(joint,context);continue; }
+  b2SolveJoint(joint,context,useBias);
+  if(colorIndex!=B2_OVERFLOW_INDEX && useBias && (joint->forceThreshold<FLT_MAX || joint->torqueThreshold<FLT_MAX) && !b2GetBit(bits,joint->jointId))
+  {
+   float force,torque;b2GetJointReaction(joint,context->inv_h,&force,&torque);
+   if(force>=joint->forceThreshold || torque>=joint->torqueThreshold) { b2SetBit(bits,joint->jointId); }
+  }
+ }
+ int contactStart=b2MaxInt(0,startIndex-jointCount),contactEnd=b2MaxInt(0,endIndex-jointCount);
+ if(warm) { b2WarmStartContactRange(context,colorIndex,contactStart,contactEnd); }
+ else { b2SolveNormalRange(context,colorIndex,useBias,contactStart,contactEnd); }
+}
+
+void b2BeginSolve(b2World* world,b2StepContext* context)
+{
+ uint64_t ticks=b2GetTicks();
+ b2SolverSet* set=world->solverSets.data+b2_awakeSet;
+ B2_ASSERT(set->bodySims.count==set->bodyStates.count);
+ context->graph=&world->constraintGraph;context->states=set->bodyStates.data;
+ context->h=context->timeStep/(float)context->subStepCount;context->inv_h=1.0f/context->h;
+ context->solverStage=0;context->solverColor=0;context->solverStep=0;
+ context->solverTimingActive=false;
+ b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
+ b2SetBitCountAndClear(&world->jointStateBitSet,b2GetIdCapacity(&world->jointIdPool));
+ for(int i=0;i<world->workerCount;++i) { b2SetBitCountAndClear(&world->taskContexts.data[i].jointStateBitSet,b2GetIdCapacity(&world->jointIdPool)); }
+ world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
+ for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c)
+ {
+  b2GraphColor* color=context->graph->colors+c;
+  for(int i=0;i<color->jointSims.count;++i) { b2PrepareJoint(color->jointSims.data+i,context); }
+ }
+ b2PrepareContactConstraints(context);world->profile.prepareConstraints=b2GetMillisecondsAndReset(&ticks);
+ context->constraintTicks=b2GetTicks();
+}
+
+bool b2ContinueSolve(b2StepContext* context)
+{
+ b2World* world=context->world;
+ if(context->solverTimingActive)
+ {
+  float elapsed=b2GetMilliseconds(context->solverTaskTicks);
+  switch(context->solverTaskType)
+  {
+   case 0:world->profile.integrateVelocities+=elapsed;break;
+   case 1:world->profile.warmStart+=elapsed;break;
+   case 2:world->profile.solveImpulses+=elapsed;break;
+   case 3:world->profile.integratePositions+=elapsed;break;
+   case 4:world->profile.relaxImpulses+=elapsed;break;
+  }
+  context->solverTimingActive=false;
+ }
+ for(;;)
+ {
+  b2ResetTaskBatch(context);
+  int stage=context->solverStage;context->solverTaskType=stage;context->solverTaskTicks=b2GetTicks();
+  if(stage==0 || stage==3)
+  {
+   context->solverStage+=1;context->solverColor=0;
+   b2StageParallelFor(world,b2_taskSolver,b2SolverRangeTask,world->solverSets.data[b2_awakeSet].bodySims.count,32,context);
+  }
+  else if(stage==1 || stage==2 || stage==4)
+  {
+   if(context->solverColor==B2_GRAPH_COLOR_COUNT) { context->solverStage+=1;context->solverColor=0;continue; }
+   int order=context->solverColor++;
+   int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;context->activeColorIndex=colorIndex;
+   b2GraphColor* color=context->graph->colors+colorIndex;
+   int count=color->jointSims.count+color->contactSims.count;
+   if(colorIndex==B2_OVERFLOW_INDEX)
+   {
+    if(count>0) { b2SolverRangeTask(0,count,0,context); }
+   }
+   else { b2StageParallelFor(world,b2_taskSolver,b2SolverRangeTask,count,32,context); }
+  }
+  else
+  {
+   context->solverStep+=1;
+   if(context->solverStep==context->subStepCount) { return false; }
+   context->solverStage=0;continue;
+  }
+  if(context->batchTaskCount>0) { context->solverTimingActive=true;return true; }
+ }
+}
+
+void b2EndSolve(b2StepContext* context)
+{
+ b2World* world=context->world;float timeStep=context->timeStep;
+ b2SolverSet* set=world->solverSets.data+b2_awakeSet;
+ uint64_t ticks=b2GetTicks();world->profile.constraints=b2GetMilliseconds(context->constraintTicks);
+ if(context->anyRestitution && world->restitutionIterations>0)
+ { b2ApplyContactRestitution(context);world->profile.restitution=b2GetMillisecondsAndReset(&ticks); }
+ b2StoreContactImpulses(context);b2ReleaseContactConstraints(context);
+ world->profile.storeImpulses=b2GetMillisecondsAndReset(&ticks);
     int bulletCount=0;int* bulletIndices=NULL;
     if(world->enableContinuous && set->bodySims.count>0)
     { bulletIndices=static_cast<int*>(b2StackAlloc(&world->stack,set->bodySims.count*sizeof(int),"bullets")); }
@@ -347,6 +394,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         }
     }
     world->profile.transforms=b2GetMillisecondsAndReset(&ticks);
+    for(int i=0;i<world->workerCount;++i) { b2InPlaceUnion(&world->jointStateBitSet,&world->taskContexts.data[i].jointStateBitSet); }
     b2ReportJointEvents(world);world->profile.jointEvents=b2GetMillisecondsAndReset(&ticks);
     b2ReportHitEvents(world);world->profile.hitEvents=b2GetMillisecondsAndReset(&ticks);
     for(int i=0;i<bulletCount;++i)

@@ -92,12 +92,12 @@ void b2ReleaseContactConstraints(b2StepContext* context)
     }
 }
 
-void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
+void b2SolveNormalRange(b2StepContext* context,int colorIndex,bool useBias,int startIndex,int endIndex)
 {
     b2GraphColor* color=context->graph->colors+colorIndex;
     b2BodyState* states=context->states;
     b2BodyState dummyState=b2_identityBodyState;
-    for(int i=0;i<color->contactSims.count;++i)
+    for(int i=startIndex;i<endIndex;++i)
     {
         b2ContactConstraint* constraint=color->overflowConstraints+i;
         float mA=constraint->invMassA,iA=constraint->invIA,mB=constraint->invMassB,iB=constraint->invIB;
@@ -180,6 +180,9 @@ void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
     }
 }
 
+void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias)
+{ b2SolveNormalRange(context,colorIndex,useBias,0,context->graph->colors[colorIndex].contactSims.count); }
+
 void b2SolveNormalContacts(b2StepContext* context)
 {
     // Overflow constraints run first, as in the reference stage driver.
@@ -214,11 +217,11 @@ void b2PushNormalContacts(b2StepContext* context)
     for(int i=0;i<B2_OVERFLOW_INDEX;++i) { b2SolveNormalColor(context,i,true); }
 }
 
-void b2WarmStartContactColor(b2StepContext* context,int c)
+void b2WarmStartContactRange(b2StepContext* context,int c,int startIndex,int endIndex)
 {
     b2BodyState dummyState=b2_identityBodyState;
     b2GraphColor* color=context->graph->colors+c;
-    for(int i=0;i<color->contactSims.count;++i)
+    for(int i=startIndex;i<endIndex;++i)
     {
         b2ContactConstraint* constraint=color->overflowConstraints+i;
         int indexA=constraint->indexA-1,indexB=constraint->indexB-1;
@@ -239,6 +242,9 @@ void b2WarmStartContactColor(b2StepContext* context,int c)
         if(stateB->flags&b2_dynamicFlag) { stateB->linearVelocity=vB;stateB->angularVelocity=wB; }
     }
 }
+
+void b2WarmStartContactColor(b2StepContext* context,int c)
+{ b2WarmStartContactRange(context,c,0,context->graph->colors[c].contactSims.count); }
 
 void b2WarmStartContacts(b2StepContext* context)
 {

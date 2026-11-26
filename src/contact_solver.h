@@ -45,3 +45,6 @@ void b2StoreContactImpulses(b2StepContext* context);
 
 void b2WarmStartContactColor(b2StepContext* context,int colorIndex);
 void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias);
+
+void b2SolveNormalRange(b2StepContext* context,int colorIndex,bool useBias,int startIndex,int endIndex);
+void b2WarmStartContactRange(b2StepContext* context,int colorIndex,int startIndex,int endIndex);
