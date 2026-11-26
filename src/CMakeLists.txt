@@ -42,6 +42,7 @@ add_library(box2d
 	simd.cpp
 	state_hash.cpp
 	snapshot.cpp
+	recording.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

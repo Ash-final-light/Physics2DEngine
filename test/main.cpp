@@ -47,6 +47,10 @@ int WorldSnapshotRestoreTest( void );
 int WorldSnapshotRestoreInvalidTest( void );
 int WorldSnapshotFormatValidationTest( void );
 int WorldSnapshotTruncatedInputTest( void );
+int RecordingBufferTest( void );
+int RecordingPrimitiveEncodingTest( void );
+int RecordingStringEncodingTest( void );
+int RecordingDefinitionEncodingTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -987,6 +991,14 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"WorldSnapshotFormatValidationTest")==0) { ran=1; RUN_TEST(WorldSnapshotFormatValidationTest); }
 
 	if(filter==NULL || strcmp(filter,"WorldSnapshotTruncatedInputTest")==0) { ran=1; RUN_TEST(WorldSnapshotTruncatedInputTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingBufferTest")==0) { ran=1; RUN_TEST(RecordingBufferTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingPrimitiveEncodingTest")==0) { ran=1; RUN_TEST(RecordingPrimitiveEncodingTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingStringEncodingTest")==0) { ran=1; RUN_TEST(RecordingStringEncodingTest); }
+
+	if(filter==NULL || strcmp(filter,"RecordingDefinitionEncodingTest")==0) { ran=1; RUN_TEST(RecordingDefinitionEncodingTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

@@ -32,60 +32,6 @@
 #define B2_SNAP_FLAG_VALIDATION 0x1u
 #define B2_SNAP_FLAG_DOUBLE_PRECISION 0x2u
 
-struct b2SnapBuffer
-{
-	uint8_t* data;
-	int capacity;
-	int size;
-	bool countOnly;
-};
-
-static void b2SnapBufAppend( b2SnapBuffer* buf, const void* data, int size )
-{
-	if ( size <= 0 )
-	{
-		return;
-	}
-
-	if ( buf->countOnly )
-	{
-		buf->size += size;
-		return;
-	}
-
-	if ( buf->size + size > buf->capacity )
-	{
-		int newCap = buf->capacity * 2;
-		if ( newCap < buf->size + size + 64 )
-		{
-			newCap = buf->size + size + 64;
-		}
-		if ( buf->data == NULL )
-		{
-			buf->data = static_cast<uint8_t*>( b2Alloc( newCap ) );
-		}
-		else
-		{
-			buf->data = static_cast<uint8_t*>( b2GrowAlloc( buf->data, buf->capacity, newCap ) );
-		}
-		buf->capacity = newCap;
-	}
-
-	memcpy( buf->data + buf->size, data, (size_t)size );
-	buf->size += size;
-}
-
-static void b2SnapBufFree( b2SnapBuffer* buf )
-{
-	if ( buf->data != NULL )
-	{
-		b2Free( buf->data, buf->capacity );
-		buf->data = NULL;
-		buf->capacity = 0;
-		buf->size = 0;
-	}
-}
-
 // 布局哈希覆盖所有以原始字节写入的结构和关键常量。
 static uint32_t b2ComputeLayoutHash( void )
 {
@@ -137,20 +83,20 @@ static_assert( sizeof( b2Sensor ) == 56, "b2Sensor layout changed; resync snapsh
 static_assert( sizeof( b2Island ) == 64, "b2Island layout changed; resync snapshot island serialization" );
 #endif
 
-static void b2SnapW_I32( b2SnapBuffer* buf, int v )
+static void b2SnapW_I32( b2RecBuffer* buf, int v )
 {
 	int32_t w = (int32_t)v;
-	b2SnapBufAppend( buf, &w, 4 );
+	b2RecBufAppend( buf, &w, 4 );
 }
 
-static void b2SnapW_U32( b2SnapBuffer* buf, uint32_t v )
+static void b2SnapW_U32( b2RecBuffer* buf, uint32_t v )
 {
-	b2SnapBufAppend( buf, &v, 4 );
+	b2RecBufAppend( buf, &v, 4 );
 }
 
-static void b2SnapW_Bytes( b2SnapBuffer* buf, const void* src, int n )
+static void b2SnapW_Bytes( b2RecBuffer* buf, const void* src, int n )
 {
-	b2SnapBufAppend( buf, src, n );
+	b2RecBufAppend( buf, src, n );
 }
 
 #define b2SerPodArray( buf, arr )                                                                  \
@@ -177,13 +123,13 @@ static void b2SnapW_Bytes( b2SnapBuffer* buf, const void* src, int n )
 	}                                                                                              \
 	while ( 0 )
 
-static void b2SerIdPool( b2SnapBuffer* buf, const b2IdPool* pool )
+static void b2SerIdPool( b2RecBuffer* buf, const b2IdPool* pool )
 {
 	b2SnapW_I32( buf, pool->nextIndex );
 	b2SerPodArray( buf, pool->freeArray );
 }
 
-static void b2SerBitSet( b2SnapBuffer* buf, const b2BitSet* bs )
+static void b2SerBitSet( b2RecBuffer* buf, const b2BitSet* bs )
 {
 	b2SnapW_U32( buf, bs->blockCount );
 	if ( bs->blockCount > 0 )
@@ -192,7 +138,7 @@ static void b2SerBitSet( b2SnapBuffer* buf, const b2BitSet* bs )
 	}
 }
 
-static void b2SerHashSet( b2SnapBuffer* buf, const b2HashSet* hs )
+static void b2SerHashSet( b2RecBuffer* buf, const b2HashSet* hs )
 {
 	b2SnapW_U32( buf, hs->capacity );
 	b2SnapW_U32( buf, hs->count );
@@ -202,7 +148,7 @@ static void b2SerHashSet( b2SnapBuffer* buf, const b2HashSet* hs )
 	}
 }
 
-static void b2SerTree( b2SnapBuffer* buf, const b2DynamicTree* tree )
+static void b2SerTree( b2RecBuffer* buf, const b2DynamicTree* tree )
 {
 	b2SnapW_I32( buf, tree->nodeEnd );
 	b2SnapW_I32( buf, tree->nodeCapacity );
@@ -217,7 +163,7 @@ static void b2SerTree( b2SnapBuffer* buf, const b2DynamicTree* tree )
 	b2SnapW_Bytes( buf, tree->proxies, tree->proxyCapacity * (int)sizeof( b2TreeProxy ) );
 }
 
-static void b2SerSolverSet( b2SnapBuffer* buf, const b2SolverSet* set )
+static void b2SerSolverSet( b2RecBuffer* buf, const b2SolverSet* set )
 {
 	b2SnapW_I32( buf, set->setIndex );
 	b2SerPodArray( buf, set->bodySims );
@@ -227,7 +173,7 @@ static void b2SerSolverSet( b2SnapBuffer* buf, const b2SolverSet* set )
 	b2SerPodArray( buf, set->islandSims );
 }
 
-static void b2SerGraphColor( b2SnapBuffer* buf, const b2GraphColor* color, bool isOverflow )
+static void b2SerGraphColor( b2RecBuffer* buf, const b2GraphColor* color, bool isOverflow )
 {
 	if ( !isOverflow )
 	{
@@ -237,7 +183,7 @@ static void b2SerGraphColor( b2SnapBuffer* buf, const b2GraphColor* color, bool 
 	b2SerPodArray( buf, color->jointSims );
 }
 
-static void b2SerWorldConfig( b2SnapBuffer* buf, const b2World* world )
+static void b2SerWorldConfig( b2RecBuffer* buf, const b2World* world )
 {
 	b2SnapW_Bytes( buf, &world->gravity, sizeof( b2Vec2 ) );
 	b2SnapW_Bytes( buf, &world->hitEventThreshold, sizeof( float ) );
@@ -260,10 +206,10 @@ static void b2SerWorldConfig( b2SnapBuffer* buf, const b2World* world )
 	flags |= world->enableWarmStarting ? 0x02u : 0u;
 	flags |= world->enableContinuous ? 0x08u : 0u;
 	flags |= world->enableRestitutionPropagation ? 0x10u : 0u;
-	b2SnapBufAppend( buf, &flags, 1 );
+	b2RecBufAppend( buf, &flags, 1 );
 }
 
-void b2SerializeWorld( b2World* world, b2SnapBuffer* buf )
+void b2SerializeWorld( b2World* world, b2RecBuffer* buf )
 {
 	b2SnapHeader hdr;
 	hdr.magic = B2_SNAP_MAGIC;
@@ -895,13 +841,13 @@ int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity )
 
 	if ( image == NULL )
 	{
-		b2SnapBuffer counter = {};
+		b2RecBuffer counter = {};
 		counter.countOnly = true;
 		b2SerializeWorld( world, &counter );
 		return counter.size;
 	}
 
-	b2SnapBuffer buf = {};
+	b2RecBuffer buf = {};
 	b2SerializeWorld( world, &buf );
 	int size = buf.size;
 
@@ -910,6 +856,6 @@ int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity )
 		memcpy( image, buf.data, size );
 	}
 
-	b2SnapBufFree( &buf );
+	b2RecBufFree( &buf );
 	return size;
 }

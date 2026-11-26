@@ -58,3 +58,34 @@ typedef struct b2JointId
  uint16_t generation;
 } b2JointId;
 static const b2JointId b2_nullJointId = {};
+
+#ifdef __cplusplus
+#define B2_ID_INLINE inline
+#else
+#define B2_ID_INLINE static inline
+#endif
+
+B2_ID_INLINE uint32_t b2StoreWorldId( b2WorldId id )
+{
+	return ( (uint32_t)id.index1 << 16 ) | (uint32_t)id.generation;
+}
+
+B2_ID_INLINE uint64_t b2StoreBodyId( b2BodyId id )
+{
+	return ( (uint64_t)id.index1 << 32 ) | ( (uint64_t)id.world0 ) << 16 | (uint64_t)id.generation;
+}
+
+B2_ID_INLINE uint64_t b2StoreShapeId( b2ShapeId id )
+{
+	return ( (uint64_t)id.index1 << 32 ) | ( (uint64_t)id.world0 ) << 16 | (uint64_t)id.generation;
+}
+
+B2_ID_INLINE uint64_t b2StoreChainId( b2ChainId id )
+{
+	return ( (uint64_t)id.index1 << 32 ) | ( (uint64_t)id.world0 ) << 16 | (uint64_t)id.generation;
+}
+
+B2_ID_INLINE uint64_t b2StoreJointId( b2JointId id )
+{
+	return ( (uint64_t)id.index1 << 32 ) | ( (uint64_t)id.world0 ) << 16 | (uint64_t)id.generation;
+}
