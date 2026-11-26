@@ -112,11 +112,17 @@ typedef struct b2RevoluteJoint
 typedef struct b2PrismaticJoint
 {
 	b2Vec2 impulse;
+	float springImpulse;
+	float hertz;
+	float dampingRatio;
+	float targetTranslation;
 	int indexA;
 	int indexB;
 	b2Transform frameA;
 	b2Transform frameB;
 	b2Vec2 deltaCenter;
+	b2Softness springSoftness;
+	bool enableSpring;
 } b2PrismaticJoint;
 
 typedef struct b2JointSim

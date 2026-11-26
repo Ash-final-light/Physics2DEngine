@@ -49,10 +49,12 @@ void b2PreparePrismaticJoint( b2JointSim* base, b2StepContext* context )
 	// 计算初始质心差。增量位置更新都相对此值。
 	joint->deltaCenter = b2SubPos( bodySimB->center, bodySimA->center );
 
+	joint->springSoftness = b2MakeSoft( joint->hertz, joint->dampingRatio, context->h );
 
 	if ( context->world->enableWarmStarting == false )
 	{
 		joint->impulse = b2Vec2_zero;
+		joint->springImpulse = 0.0f;
 	}
 }
 
@@ -84,7 +86,7 @@ void b2WarmStartPrismaticJoint( b2JointSim* base, b2StepContext* context )
 	// 冲量施加在刚体 B 的锚点上
 	float a1 = b2Cross( b2Add( rA, d ), axisA );
 	float a2 = b2Cross( rB, axisA );
-	float axialImpulse = 0.0f;
+	float axialImpulse = joint->springImpulse;
 
 	// 垂直约束
 	b2Vec2 perpA = b2LeftPerp( axisA );
@@ -155,8 +157,28 @@ void b2SolvePrismaticJoint( b2JointSim* base, b2StepContext* context, bool useBi
 
 	b2Softness softness = base->constraintSoftness;
 
+	// 弹簧约束
+	if ( joint->enableSpring )
+	{
+		// 这是真实弹簧，即使在松弛阶段也应施加
+		float C = translation - joint->targetTranslation;
+		float bias = joint->springSoftness.biasRate * C;
+		float massScale = joint->springSoftness.massScale;
+		float impulseScale = joint->springSoftness.impulseScale;
 
+		float Cdot = b2Dot( axisA, b2Sub( vB, vA ) ) + a2 * wB - a1 * wA;
+		float deltaImpulse = -massScale * axialMass * ( Cdot + bias ) - impulseScale * joint->springImpulse;
+		joint->springImpulse += deltaImpulse;
 
+		b2Vec2 P = b2MulSV( deltaImpulse, axisA );
+		float LA = deltaImpulse * a1;
+		float LB = deltaImpulse * a2;
+
+		vA = b2MulSub( vA, mA, P );
+		wA -= iA * LA;
+		vB = b2MulAdd( vB, mB, P );
+		wB += iB * LB;
+	}
 
 
 
@@ -290,4 +312,66 @@ float b2PrismaticJoint_GetCurrentSpeed( b2JointId jointId )
 	b2Vec2 vRel = b2Sub( b2Add( vB, b2CrossSV( wB, rB ) ), b2Add( vA, b2CrossSV( wA, rA ) ) );
 	float speed = b2Dot( d, b2CrossSV( wA, axisA ) ) + b2Dot( axisA, vRel );
 	return speed;
+}
+
+void b2PrismaticJoint_EnableSpring( b2JointId jointId, bool enableSpring )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	if ( enableSpring != joint->prismaticJoint.enableSpring )
+	{
+		joint->prismaticJoint.enableSpring = enableSpring;
+		joint->prismaticJoint.springImpulse = 0.0f;
+	}
+}
+
+bool b2PrismaticJoint_IsSpringEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.enableSpring;
+}
+
+void b2PrismaticJoint_SetSpringHertz( b2JointId jointId, float hertz )
+{
+	if (!(b2IsValidFloat( hertz ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	joint->prismaticJoint.hertz = hertz;
+}
+
+float b2PrismaticJoint_GetSpringHertz( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.hertz;
+}
+
+void b2PrismaticJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio )
+{
+	if (!(b2IsValidFloat( dampingRatio ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	joint->prismaticJoint.dampingRatio = dampingRatio;
+}
+
+float b2PrismaticJoint_GetSpringDampingRatio( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.dampingRatio;
+}
+
+void b2PrismaticJoint_SetTargetTranslation( b2JointId jointId, float translation )
+{
+	if (!(b2IsValidFloat( translation ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	joint->prismaticJoint.targetTranslation = translation;
+}
+
+float b2PrismaticJoint_GetTargetTranslation( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
+	return joint->prismaticJoint.targetTranslation;
 }

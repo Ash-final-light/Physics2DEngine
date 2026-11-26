@@ -1081,6 +1081,10 @@ B2_API float b2RevoluteJoint_GetCurrentMotorTorque( b2JointId jointId );
 typedef struct b2PrismaticJointDef
 {
 	b2JointDef base;
+	bool enableSpring;
+	float hertz;
+	float dampingRatio;
+	float targetTranslation;
 	int internalValue;
 } b2PrismaticJointDef;
 B2_API b2PrismaticJointDef b2DefaultPrismaticJointDef(void);
@@ -1088,3 +1092,12 @@ B2_API b2JointId b2CreatePrismaticJoint(b2WorldId worldId,const b2PrismaticJoint
 
 B2_API float b2PrismaticJoint_GetCurrentTranslation( b2JointId jointId );
 B2_API float b2PrismaticJoint_GetCurrentSpeed( b2JointId jointId );
+
+B2_API void b2PrismaticJoint_EnableSpring( b2JointId jointId, bool enableSpring );
+B2_API bool b2PrismaticJoint_IsSpringEnabled( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetSpringHertz( b2JointId jointId, float hertz );
+B2_API float b2PrismaticJoint_GetSpringHertz( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2PrismaticJoint_GetSpringDampingRatio( b2JointId jointId );
+B2_API void b2PrismaticJoint_SetTargetTranslation( b2JointId jointId, float translation );
+B2_API float b2PrismaticJoint_GetTargetTranslation( b2JointId jointId );

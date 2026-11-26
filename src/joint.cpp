@@ -602,6 +602,9 @@ b2PrismaticJointDef b2DefaultPrismaticJointDef( void )
 b2JointId b2CreatePrismaticJoint( b2WorldId worldId, const b2PrismaticJointDef* def )
 {
 	B2_CHECK_DEF( def );
+	if (!(b2IsValidFloat( def->hertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->targetTranslation ))) { return b2_nullJointId; }
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
 
@@ -617,6 +620,10 @@ b2JointId b2CreatePrismaticJoint( b2WorldId worldId, const b2PrismaticJointDef* 
 	b2JointSim* joint = pair.jointSim;
 
 	joint->prismaticJoint = b2PrismaticJoint{};
+	joint->prismaticJoint.hertz = def->hertz;
+	joint->prismaticJoint.dampingRatio = def->dampingRatio;
+	joint->prismaticJoint.targetTranslation = def->targetTranslation;
+	joint->prismaticJoint.enableSpring = def->enableSpring;
 
 	b2JointId jointId = {
 		.index1 = joint->jointId + 1,
