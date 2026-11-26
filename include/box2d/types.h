@@ -231,6 +231,30 @@ B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
 B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
+typedef struct b2Counters
+{
+	size_t byteCount;	  ///<
+	int bodyCount;		  ///<
+	int shapeCount;		  ///<
+	int contactCount;	  ///<
+	int jointCount;		  ///<
+	int islandCount;	  ///<
+	int stackUsed;		  ///<
+	int staticTreeHeight; ///<
+	int treeHeight;		  ///<
+	int taskCount;		  ///<
+	int enqueueCount;	  ///<
+	int colorCounts[24];  ///<
+
+	/// 碰撞阶段触及的接触数量（图接触 + 醒着集合中的非触摸接触）。
+	int awakeContactCount;
+
+	/// 最近一步中回收的接触数量。
+	int recycledContactCount;
+
+} b2Counters;
+B2_API b2Counters b2World_GetCounters(b2WorldId worldId);
+B2_API b2Capacity b2World_GetMaxCapacity(b2WorldId worldId);
 B2_API void b2World_Step( b2WorldId worldId, float timeStep, int subStepCount );
 B2_API void b2World_EnableWarmStarting(b2WorldId worldId,bool flag);
 B2_API bool b2World_IsWarmStartingEnabled(b2WorldId worldId);

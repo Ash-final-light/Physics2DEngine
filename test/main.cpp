@@ -88,6 +88,7 @@ int DynamicTreeStatsTest( void );
 int WorldCreateTest( void );
 int WorldIdTest( void );
 int WorldUserDataTest( void );
+int WorldCountersTest( void );
 int BodyCreateTest( void );
 int BodyIdTest( void );
 int BodyNameTest( void );
@@ -934,6 +935,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"BodySafetyAndSpeedTest")==0) { ran=1; RUN_TEST(BodySafetyAndSpeedTest); }
 	if(filter==NULL || strcmp(filter,"WorldGravityControlTest")==0) { ran=1; RUN_TEST(WorldGravityControlTest); }
 	if(filter==NULL || strcmp(filter,"WorldSolverSwitchTest")==0) { ran=1; RUN_TEST(WorldSolverSwitchTest); }
+	if(filter==NULL || strcmp(filter,"WorldCountersTest")==0) { ran=1; RUN_TEST(WorldCountersTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

@@ -269,3 +269,29 @@ int BodyBoundsTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+int WorldCountersTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2Counters counts=b2World_GetCounters(id);
+    ENSURE(counts.bodyCount==0 && counts.shapeCount==0 && counts.contactCount==0 && counts.jointCount==0 && counts.islandCount==0);
+    b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};
+    b2BodyId a=b2CreateBody(id,&bd);b2CreateCircleShape(a,&sd,&c);bd.position={20,0};b2BodyId b=b2CreateBody(id,&bd);b2CreateCircleShape(b,&sd,&c);
+    bd.type=b2_kinematicBody;bd.position={40,0};b2BodyId k=b2CreateBody(id,&bd);b2CreateCircleShape(k,&sd,&c);
+    bd.type=b2_dynamicBody;bd.isEnabled=false;bd.position={60,0};b2BodyId disabled=b2CreateBody(id,&bd);b2CreateCircleShape(disabled,&sd,&c);
+    bd.type=b2_staticBody;bd.isEnabled=true;bd.position={0,-2};b2BodyId ground=b2CreateBody(id,&bd);b2CreateCircleShape(ground,&sd,&c);
+    b2World_Step(id,0.001f,1);b2World_Step(id,0.001f,1);counts=b2World_GetCounters(id);
+    ENSURE(counts.bodyCount==5 && counts.shapeCount==5 && counts.contactCount==1 && counts.islandCount==3);
+    ENSURE(counts.awakeContactCount==1 && counts.recycledContactCount==1 && counts.taskCount==0 && counts.enqueueCount==0);
+    ENSURE(counts.byteCount==b2GetByteCount() && counts.stackUsed>0);
+    int colors=0;for(int i=0;i<24;++i) { colors+=counts.colorCounts[i]; }ENSURE(colors==1);
+    b2Capacity capacity=b2World_GetMaxCapacity(id);
+    ENSURE(capacity.staticBodyCount==1 && capacity.dynamicBodyCount==4 && capacity.staticShapeCount==1 && capacity.dynamicShapeCount==2);
+    ENSURE(capacity.contactCount==1 && capacity.arenaByteCount==counts.stackUsed);
+    b2Body_SetAwake(a,false);counts=b2World_GetCounters(id);colors=0;for(int i=0;i<24;++i) { colors+=counts.colorCounts[i]; }
+    ENSURE(counts.contactCount==1 && counts.awakeContactCount==0 && colors==0);
+    b2DestroyBody(b);b2World_Step(id,0.001f,1);counts=b2World_GetCounters(id);ENSURE(counts.bodyCount==4 && counts.shapeCount==4);
+    capacity=b2World_GetMaxCapacity(id);ENSURE(capacity.dynamicBodyCount==4 && capacity.dynamicShapeCount==2 && capacity.contactCount==1);
+    b2DestroyBody(ground);counts=b2World_GetCounters(id);ENSURE(counts.bodyCount==3 && counts.shapeCount==3 && counts.contactCount==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

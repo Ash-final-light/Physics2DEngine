@@ -412,6 +412,7 @@ if ( ( hadTimeOfImpact == false || wasTouching ) && recycleDistance > 0.0f &&
 
 void b2UpdateContacts( b2World* world )
 {
+    world->recycledContactCount=0;
     for ( int i = 0; i < world->contacts.count; ++i )
     {
         b2Contact* contact = world->contacts.data+i;
@@ -428,7 +429,7 @@ void b2UpdateContacts( b2World* world )
         b2BodySim* simA=b2GetBodySim(world,bodyA);b2BodySim* simB=b2GetBodySim(world,bodyB);
         current->invMassA=simA->invMass;current->invIA=simA->invInertia;
         current->invMassB=simB->invMass;current->invIB=simB->invInertia;
-        if(b2TryRecycleContact(world,current,simA,simB,wasTouching)) { continue; }
+        if(b2TryRecycleContact(world,current,simA,simB,wasTouching)) { ++world->recycledContactCount;continue; }
         current->cachedRotationA=simA->transform.q;current->cachedRotationB=simB->transform.q;
         current->cachedRelativePose=b2InvMulTransforms(simA->transform,simB->transform);
         current->simFlags|=b2_simRelativeTransformValid;

@@ -23,6 +23,8 @@ struct b2World
 	bool inUse;
 	bool locked;
 	b2Vec2 gravity;
+	b2Capacity maxCapacity;
+	int recycledContactCount;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;
 	b2IdPool islandIdPool;

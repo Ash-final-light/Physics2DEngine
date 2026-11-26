@@ -180,10 +180,27 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
         return;
     }
     world->locked = true;
+	{
+		b2Capacity* c = &world->maxCapacity;
+		c->staticShapeCount = b2MaxInt( c->staticShapeCount, world->broadPhase.trees[b2_staticBody].proxyCount );
+		c->dynamicShapeCount = b2MaxInt( c->dynamicShapeCount, world->broadPhase.trees[b2_dynamicBody].proxyCount );
+
+		int staticBodyCount = world->solverSets.data[b2_staticSet].bodySims.count;
+		c->staticBodyCount = b2MaxInt( c->staticBodyCount, staticBodyCount );
+
+		// 这包括运动学刚体
+		int totalBodyCount = b2GetIdCount( &world->bodyIdPool );
+		c->dynamicBodyCount = b2MaxInt( c->dynamicBodyCount, totalBodyCount - staticBodyCount );
+
+		int totalContactCount = b2GetIdCount( &world->contactIdPool );
+		c->contactCount = b2MaxInt( c->contactCount, totalContactCount );
+	}
+
     b2UpdateBroadPhaseContacts( world );
     b2UpdateContacts( world );
     b2SplitContactIslands( world );
     b2SolveFreeBodies( world, timeStep, subStepCount );
+    world->maxCapacity.arenaByteCount=b2MaxInt(world->maxCapacity.arenaByteCount,b2GetMaxStackAllocation(&world->stack));
     world->locked = false;
 }
 
@@ -316,4 +333,27 @@ void b2World_EnableContinuous(b2WorldId id,bool flag)
 bool b2World_IsContinuousEnabled(b2WorldId id)
 {
     b2World* world=b2GetWorldFromId(id);return world!=NULL && world->enableContinuous;
+}
+
+b2Counters b2World_GetCounters(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);b2Counters counters={};if(world==NULL) { return counters; }
+    counters.bodyCount=b2GetIdCount(&world->bodyIdPool);counters.shapeCount=b2GetIdCount(&world->shapeIdPool);
+    counters.contactCount=b2GetIdCount(&world->contactIdPool);counters.islandCount=b2GetIdCount(&world->islandIdPool);
+    counters.staticTreeHeight=b2DynamicTree_GetHeight(world->broadPhase.trees+b2_staticBody);
+    counters.treeHeight=b2MaxInt(b2DynamicTree_GetHeight(world->broadPhase.trees+b2_dynamicBody),b2DynamicTree_GetHeight(world->broadPhase.trees+b2_kinematicBody));
+    counters.stackUsed=b2GetMaxStackAllocation(&world->stack);counters.byteCount=b2GetByteCount();
+    counters.recycledContactCount=world->recycledContactCount;
+    for(int i=0;i<B2_GRAPH_COLOR_COUNT;++i)
+    {
+        counters.colorCounts[i]=world->constraintGraph.colors[i].contactSims.count;
+        counters.awakeContactCount+=world->constraintGraph.colors[i].contactSims.count;
+    }
+    counters.awakeContactCount+=world->solverSets.data[b2_awakeSet].contactSims.count;
+    return counters;
+}
+
+b2Capacity b2World_GetMaxCapacity(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);return world!=NULL?world->maxCapacity:b2Capacity{};
 }
