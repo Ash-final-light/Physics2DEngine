@@ -249,3 +249,16 @@ int WheelJointSuspensionTest(void)
  b2WheelJoint_SetSpringHertz(j,4);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }float stiff=-JointAxisTranslation(j);ENSURE(stiff>0 && stiff<0.6f*soft);ENSURE_SMALL(PrismaticErrors(j).x,0.01f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-3,0.0001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WheelJointLimitTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={0,3};bd.angularVelocity=3;b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};b2CreateCircleShape(b,&sd,&c);
+ b2WheelJointDef def=b2DefaultWheelJointDef();ENSURE(!def.enableLimit);def.base.bodyIdA=a;def.base.bodyIdB=b;def.base.localFrameA.q={0,1};def.enableSpring=false;def.enableLimit=true;def.lowerTranslation=1;def.upperTranslation=2;b2JointId j=b2CreateWheelJoint(id,&def);ENSURE(b2WheelJoint_IsLimitEnabled(j) && b2WheelJoint_GetLowerLimit(j)==1 && b2WheelJoint_GetUpperLimit(j)==2);
+ for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(JointAxisTranslation(j)-2,0.01f);
+ b2World_EnableWarmStarting(id,false);b2Body_SetTransform(b,{0,0.5f},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,0});for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(JointAxisTranslation(j)-1,0.01f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-3,0.0001f);
+ b2Body_SetTransform(b,{0,1.5f},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,20});b2World_Step(id,0.1f,1);ENSURE(JointAxisTranslation(j)<=2.01f);
+ b2WheelJoint_SetLimits(j,1,1);b2Body_SetLinearVelocity(b,{0,0});for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(JointAxisTranslation(j)-1,0.01f);
+ b2WheelJoint_SetLimits(j,1,2);b2WheelJoint_EnableSpring(j,true);b2WheelJoint_SetSpringHertz(j,2);b2WheelJoint_SetSpringDampingRatio(j,1);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(JointAxisTranslation(j)>=0.98f && JointAxisTranslation(j)<=1.01f);
+ b2WheelJoint_EnableLimit(j,false);ENSURE(!b2WheelJoint_IsLimitEnabled(j));for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(JointAxisTranslation(j),0.005f);ENSURE_SMALL(PrismaticErrors(j).x,0.005f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-3,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

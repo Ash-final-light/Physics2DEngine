@@ -1151,6 +1151,9 @@ typedef struct b2WheelJointDef
 	bool enableSpring;
 	float hertz;
 	float dampingRatio;
+	bool enableLimit;
+	float lowerTranslation;
+	float upperTranslation;
 	int internalValue;
 } b2WheelJointDef;
 B2_API b2WheelJointDef b2DefaultWheelJointDef(void);
@@ -1162,3 +1165,9 @@ B2_API void b2WheelJoint_SetSpringHertz( b2JointId jointId, float hertz );
 B2_API float b2WheelJoint_GetSpringHertz( b2JointId jointId );
 B2_API void b2WheelJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
 B2_API float b2WheelJoint_GetSpringDampingRatio( b2JointId jointId );
+
+B2_API void b2WheelJoint_EnableLimit( b2JointId jointId, bool enableLimit );
+B2_API bool b2WheelJoint_IsLimitEnabled( b2JointId jointId );
+B2_API void b2WheelJoint_SetLimits( b2JointId jointId, float lower, float upper );
+B2_API float b2WheelJoint_GetLowerLimit( b2JointId jointId );
+B2_API float b2WheelJoint_GetUpperLimit( b2JointId jointId );

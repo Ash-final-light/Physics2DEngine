@@ -140,6 +140,10 @@ typedef struct b2WheelJoint
 {
 	float perpImpulse;
 	float springImpulse;
+	float lowerImpulse;
+	float upperImpulse;
+	float lowerTranslation;
+	float upperTranslation;
 	float hertz;
 	float dampingRatio;
 	int indexA;
@@ -151,6 +155,7 @@ typedef struct b2WheelJoint
 	float axialMass;
 	b2Softness springSoftness;
 	bool enableSpring;
+	bool enableLimit;
 } b2WheelJoint;
 
 typedef struct b2JointSim

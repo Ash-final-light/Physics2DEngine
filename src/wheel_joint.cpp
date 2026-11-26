@@ -78,6 +78,8 @@ void b2PrepareWheelJoint( b2JointSim* base, b2StepContext* context )
 	{
 		joint->perpImpulse = 0.0f;
 		joint->springImpulse = 0.0f;
+		joint->lowerImpulse = 0.0f;
+		joint->upperImpulse = 0.0f;
 	}
 }
 
@@ -111,7 +113,7 @@ void b2WarmStartWheelJoint( b2JointSim* base, b2StepContext* context )
 	float s1 = b2Cross( b2Add( d, rA ), perpA );
 	float s2 = b2Cross( rB, perpA );
 
-	float axialImpulse = joint->springImpulse;
+	float axialImpulse = joint->springImpulse + joint->lowerImpulse - joint->upperImpulse;
 
 	b2Vec2 P = b2Add( b2MulSV( axialImpulse, axisA ), b2MulSV( joint->perpImpulse, perpA ) );
 	float LA = axialImpulse * a1 + joint->perpImpulse * s1;
@@ -191,7 +193,83 @@ void b2SolveWheelJoint( b2JointSim* base, b2StepContext* context, bool useBias )
 		wB += iB * LB;
 	}
 
+	if ( joint->enableLimit )
+	{
+		// 下限
+		{
+			float C = translation - joint->lowerTranslation;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
 
+			if ( C > 0.0f )
+			{
+				// 预测性
+				bias = C * context->inv_h;
+			}
+			else if ( useBias )
+			{
+				bias = base->constraintSoftness.biasRate * C;
+				massScale = base->constraintSoftness.massScale;
+				impulseScale = base->constraintSoftness.impulseScale;
+			}
+
+			float Cdot = b2Dot( axisA, b2Sub( vB, vA ) ) + a2 * wB - a1 * wA;
+			float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->lowerImpulse;
+			float oldImpulse = joint->lowerImpulse;
+			joint->lowerImpulse = b2MaxFloat( oldImpulse + impulse, 0.0f );
+			impulse = joint->lowerImpulse - oldImpulse;
+
+			b2Vec2 P = b2MulSV( impulse, axisA );
+			float LA = impulse * a1;
+			float LB = impulse * a2;
+
+			vA = b2MulSub( vA, mA, P );
+			wA -= iA * LA;
+			vB = b2MulAdd( vB, mB, P );
+			wB += iB * LB;
+		}
+
+		// 上限
+		// 注意：翻转符号，使约束满足时 C 为正。
+		// 这也使限位激活时冲量为正。
+		{
+			// 符号翻转
+			float C = joint->upperTranslation - translation;
+			float bias = 0.0f;
+			float massScale = 1.0f;
+			float impulseScale = 0.0f;
+
+			if ( C > 0.0f )
+			{
+				// 预测性
+				bias = C * context->inv_h;
+			}
+			else if ( useBias )
+			{
+				bias = base->constraintSoftness.biasRate * C;
+				massScale = base->constraintSoftness.massScale;
+				impulseScale = base->constraintSoftness.impulseScale;
+			}
+
+			// Cdot 符号翻转
+			float Cdot = b2Dot( axisA, b2Sub( vA, vB ) ) + a1 * wA - a2 * wB;
+			float impulse = -massScale * joint->axialMass * ( Cdot + bias ) - impulseScale * joint->upperImpulse;
+			float oldImpulse = joint->upperImpulse;
+			joint->upperImpulse = b2MaxFloat( oldImpulse + impulse, 0.0f );
+			impulse = joint->upperImpulse - oldImpulse;
+
+			b2Vec2 P = b2MulSV( impulse, axisA );
+			float LA = impulse * a1;
+			float LB = impulse * a2;
+
+			// 施加冲量时符号翻转
+			vA = b2MulAdd( vA, mA, P );
+			wA += iA * LA;
+			vB = b2MulSub( vB, mB, P );
+			wB -= iB * LB;
+		}
+	}
 
 	// 点到线约束
 	{
@@ -284,4 +362,47 @@ float b2WheelJoint_GetSpringDampingRatio( b2JointId jointId )
 {
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	return joint->wheelJoint.dampingRatio;
+}
+
+void b2WheelJoint_EnableLimit( b2JointId jointId, bool enableLimit )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	if ( joint->wheelJoint.enableLimit != enableLimit )
+	{
+		joint->wheelJoint.lowerImpulse = 0.0f;
+		joint->wheelJoint.upperImpulse = 0.0f;
+		joint->wheelJoint.enableLimit = enableLimit;
+	}
+}
+
+bool b2WheelJoint_IsLimitEnabled( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.enableLimit;
+}
+
+void b2WheelJoint_SetLimits( b2JointId jointId, float lower, float upper )
+{
+	if (!(b2IsValidFloat( lower ))) { return; }
+	if (!(b2IsValidFloat( upper ))) { return; }
+
+	b2World* world = b2_worlds + jointId.world0;
+	B2_ASSERT( lower <= upper );
+
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	joint->wheelJoint.lowerTranslation = b2MinFloat( lower, upper );
+	joint->wheelJoint.upperTranslation = b2MaxFloat( lower, upper );
+}
+
+float b2WheelJoint_GetLowerLimit( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.lowerTranslation;
+}
+
+float b2WheelJoint_GetUpperLimit( b2JointId jointId )
+{
+	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
+	return joint->wheelJoint.upperTranslation;
 }
