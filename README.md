@@ -162,3 +162,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 世界形状扫掠 `b2World_CastShape` 使用相对查询原点的凸形状代理，可按回调选择忽略、终止或截断；链段保留单侧碰撞约定。
 
 `b2Shape_TestPoint` 对挂接形状执行世界坐标点包含查询，使用刚体当前变换；线段与链段返回 false。
+
+`b2Shape_CastRay` 直接查询一个挂接形状，输入和命中点使用世界坐标，返回法线、分数及命中标记。

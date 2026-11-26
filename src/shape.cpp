@@ -1259,3 +1259,30 @@ bool b2Shape_TestPoint( b2ShapeId shapeId, b2Pos point )
 
 	return result;
 }
+
+b2WorldCastOutput b2Shape_CastRay( b2ShapeId shapeId, b2Pos origin, b2Vec2 translation )
+{
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidVec2( translation ) );
+
+	b2World* world = b2_worlds + shapeId.world0;
+	b2Shape* shape = b2GetShapeFromId(shapeId);
+
+	// 以原点重定心，使投射在 float 精度下运行
+	b2Transform transform =
+		b2ToRelativeTransform( b2GetBodySim(world,b2Array_Get(world->bodies,shape->bodyId))->transform, origin );
+
+	// 射线从原点出发，因此在重定心坐标系中原点为零
+	b2RayCastInput input = { b2Vec2_zero, translation, 1.0f };
+
+	// 将重定心的 float 结果提升回世界位置
+	b2CastOutput local = b2RayCastShape( &input, shape, transform );
+	b2WorldCastOutput output;
+	output.normal = local.normal;
+	output.point = b2OffsetPos( origin, local.point );
+	output.fraction = local.fraction;
+	output.iterations = local.iterations;
+	output.hit = local.hit;
+
+	return output;
+}

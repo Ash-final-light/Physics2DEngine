@@ -128,3 +128,17 @@ int AttachedShapePointTest(void)
  b2Body_SetTransform(body,{20,30},b2Rot_identity);ENSURE(b2Shape_TestPoint(circle,{22,30}));ENSURE(!b2Shape_TestPoint(circle,{100,202}));
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int AttachedShapeRayTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};bd.rotation={0,1};b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();
+ b2Polygon box=b2MakeBox(2,0.5f);b2ShapeId shape=b2CreatePolygonShape(body,&sd,&box);b2WorldCastOutput r=b2Shape_CastRay(shape,{95,200},{10,0});
+ ENSURE(r.hit && r.normal.x==-1 && r.normal.y==0);ENSURE_SMALL(r.fraction-0.45f,0.00001f);ENSURE(r.point.x==99.5f && r.point.y==200);
+ r=b2Shape_CastRay(shape,{95,203},{10,0});ENSURE(!r.hit);
+ b2Circle c={{3,0},0.5f};shape=b2CreateCircleShape(body,&sd,&c);r=b2Shape_CastRay(shape,{95,203},{10,0});ENSURE(r.hit);ENSURE_SMALL(r.fraction-0.45f,0.00001f);
+ b2Segment edge={{-1,0},{1,0}};shape=b2CreateSegmentShape(body,&sd,&edge);
+ r=b2Shape_CastRay(shape,{95,200},{10,0});ENSURE(r.hit && r.normal.x==-1);ENSURE_SMALL(r.fraction-0.5f,0.00001f);
+ r=b2Shape_CastRay(shape,{105,200},{-10,0});ENSURE(r.hit && r.normal.x==1);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

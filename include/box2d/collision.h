@@ -403,3 +403,6 @@ B2_API size_t b2DynamicTree_GetByteCount( const b2DynamicTree* tree );
 B2_API int b2DynamicTree_GetProxyCount( const b2DynamicTree* tree );
 B2_API uint64_t b2DynamicTree_GetUserData( const b2DynamicTree* tree, int proxyId );
 B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId );
+
+/// 当前单精度世界中的投射结果。
+typedef b2CastOutput b2WorldCastOutput;
