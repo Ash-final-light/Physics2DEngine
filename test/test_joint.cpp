@@ -163,3 +163,17 @@ int RevoluteJointLimitTest(void)
  b2RevoluteJoint_EnableLimit(j,false);ENSURE(!b2RevoluteJoint_IsLimitEnabled(j));b2RevoluteJoint_EnableSpring(j,false);b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.0001f);ENSURE_SMALL(JointAnchorError(j),0.00001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int RevoluteJointMotorTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=2/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2RevoluteJointDef def=b2DefaultRevoluteJointDef();ENSURE(!def.enableMotor && def.maxMotorTorque==0 && def.motorSpeed==0);def.base.bodyIdA=a;def.base.bodyIdB=b;def.enableMotor=true;def.maxMotorTorque=2;def.motorSpeed=2;b2JointId j=b2CreateRevoluteJoint(id,&def);ENSURE(b2RevoluteJoint_IsMotorEnabled(j) && b2RevoluteJoint_GetMaxMotorTorque(j)==2 && b2RevoluteJoint_GetTargetMotorSpeed(j)==2);
+ b2World_Step(id,0.01f,1);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-0.02f,0.0001f);ENSURE_SMALL(b2RevoluteJoint_GetCurrentMotorTorque(j)-2,0.0001f);for(int i=0;i<150;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-2,0.0001f);
+ b2RevoluteJoint_SetTargetMotorSpeed(j,-1);b2RevoluteJoint_SetMaxMotorTorque(j,1);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2RevoluteJoint_GetCurrentMotorTorque(j)+1,0.0001f);for(int i=0;i<350;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)+1,0.0001f);
+ b2Body_SetTransform(b,{0,0},b2Rot_identity);b2Body_SetAngularVelocity(b,0);b2World_EnableWarmStarting(id,false);b2RevoluteJoint_EnableLimit(j,true);b2RevoluteJoint_SetLimits(j,-0.3f,0.4f);b2RevoluteJoint_SetMaxMotorTorque(j,10);b2RevoluteJoint_SetTargetMotorSpeed(j,100);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2RevoluteJoint_GetCurrentAngle(j)<=0.42f && b2AbsFloat(b2RevoluteJoint_GetCurrentMotorTorque(j))<=10.001f);
+ b2RevoluteJoint_SetTargetMotorSpeed(j,-100);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2RevoluteJoint_GetCurrentAngle(j)>=-0.32f);
+ b2RevoluteJoint_EnableMotor(j,false);ENSURE(!b2RevoluteJoint_IsMotorEnabled(j) && b2RevoluteJoint_GetCurrentMotorTorque(j)==0);b2RevoluteJoint_EnableLimit(j,false);b2Body_SetAngularVelocity(b,1);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.0001f);
+ b2RevoluteJoint_EnableMotor(j,true);b2RevoluteJoint_SetMaxMotorTorque(j,0);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2RevoluteJoint_GetCurrentSpeed(j)-1,0.0001f);
+ b2DestroyJoint(j);b2Body_SetAngularVelocity(b,0);def.maxMotorTorque=1;def.motorSpeed=10;for(int i=0;i<26;++i) { ENSURE(b2CreateRevoluteJoint(id,&def).index1>0); }b2World* world=b2_worlds+id.index1-1;ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-0.26f,0.0001f);ENSURE_SMALL(JointAnchorError(b2Body_GetJointCount(b)>0?b2JointId{1,world->worldId,world->joints.data[0].generation}:b2_nullJointId),0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

@@ -539,6 +539,8 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->lowerAngle ))) { return b2_nullJointId; }
 	if (!(b2IsValidFloat( def->upperAngle ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->maxMotorTorque ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->motorSpeed ))) { return b2_nullJointId; }
 	B2_ASSERT( def->lowerAngle <= def->upperAngle );
 
 	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
@@ -566,8 +568,11 @@ b2JointId b2CreateRevoluteJoint( b2WorldId worldId, const b2RevoluteJointDef* de
 	joint->revoluteJoint.lowerAngle = b2ClampFloat( lowerAngle, -0.99f * B2_PI, 0.99f * B2_PI );
 	joint->revoluteJoint.upperAngle = b2ClampFloat( upperAngle, -0.99f * B2_PI, 0.99f * B2_PI );
 
+	joint->revoluteJoint.maxMotorTorque = def->maxMotorTorque;
+	joint->revoluteJoint.motorSpeed = def->motorSpeed;
 	joint->revoluteJoint.enableSpring = def->enableSpring;
 	joint->revoluteJoint.enableLimit = def->enableLimit;
+	joint->revoluteJoint.enableMotor = def->enableMotor;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 

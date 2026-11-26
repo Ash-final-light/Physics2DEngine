@@ -1013,14 +1013,40 @@ B2_API float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId );
 
 typedef struct b2RevoluteJointDef
 {
+	/// 基础关节定义
 	b2JointDef base;
+
+	/// 关节的目标角，单位为弧度。弹簧-阻尼器将驱动到此角。
 	float targetAngle;
+
+	/// 在旋转铰链轴上启用旋转弹簧
 	bool enableSpring;
+
+	/// 弹簧刚度赫兹，每秒周期数
 	float hertz;
+
+	/// 弹簧阻尼比，无量纲
 	float dampingRatio;
+
+	/// 启用关节限位的标志
 	bool enableLimit;
+
+	/// 关节限位的下限角，单位为弧度。最小为 -0.99*pi 弧度。
 	float lowerAngle;
+
+	/// 关节限位的上限角，单位为弧度。最大为 0.99*pi 弧度。
 	float upperAngle;
+
+	/// 启用关节马达的标志
+	bool enableMotor;
+
+	/// 最大马达力矩，通常以牛顿·米为单位
+	float maxMotorTorque;
+
+	/// 期望的马达速度，单位为弧度每秒
+	float motorSpeed;
+
+	/// 内部用于检测有效定义。请勿设置。
 	int internalValue;
 } b2RevoluteJointDef;
 B2_API b2RevoluteJointDef b2DefaultRevoluteJointDef(void);
@@ -1043,3 +1069,11 @@ B2_API bool b2RevoluteJoint_IsLimitEnabled( b2JointId jointId );
 B2_API float b2RevoluteJoint_GetLowerLimit( b2JointId jointId );
 B2_API float b2RevoluteJoint_GetUpperLimit( b2JointId jointId );
 B2_API void b2RevoluteJoint_SetLimits( b2JointId jointId, float lower, float upper );
+
+B2_API void b2RevoluteJoint_EnableMotor( b2JointId jointId, bool enableMotor );
+B2_API bool b2RevoluteJoint_IsMotorEnabled( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed );
+B2_API float b2RevoluteJoint_GetTargetMotorSpeed( b2JointId jointId );
+B2_API void b2RevoluteJoint_SetMaxMotorTorque( b2JointId jointId, float torque );
+B2_API float b2RevoluteJoint_GetMaxMotorTorque( b2JointId jointId );
+B2_API float b2RevoluteJoint_GetCurrentMotorTorque( b2JointId jointId );
