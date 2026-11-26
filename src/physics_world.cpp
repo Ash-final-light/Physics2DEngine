@@ -419,6 +419,11 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
 		b2WorldId worldId = { (uint16_t)( world->worldId + 1 ), world->generation };
 		b2RecArgs_StateHash stateHash = { worldId, b2HashWorldState( world ) };
 		b2RecWrite_StateHash( world->recording, &stateHash );
+    b2AABB bounds;
+		if ( b2ComputeWorldBounds( world, &bounds ) )
+		{
+			b2RecAccumulateBounds( world->recording, bounds );
+		}
 	}
 
 	world->locked = false;

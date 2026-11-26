@@ -1183,3 +1183,47 @@ int RecordingQueryGuardTest( void )
 	b2DestroyWorld( world ); b2DestroyRecording( rec );
 	ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int RecordingBoundsTest( void )
+{
+	int before = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = b2Vec2_zero;
+	b2WorldId world = b2CreateWorld( &wd );
+	b2BodyDef bd = b2DefaultBodyDef(); bd.type = b2_dynamicBody; bd.linearVelocity = { 10, 0 };
+	b2BodyId body = b2CreateBody( world, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0, 0 }, 1 };
+	b2CreateCircleShape( body, &sd, &circle );
+	b2Recording* rec = b2CreateRecording( 0 ); b2World_StartRecording( world, rec );
+	b2AABB expected = b2World_GetBounds( world );
+	for ( int i = 0; i < 60; ++i )
+	{
+		if ( i == 20 ) b2Body_SetLinearVelocity( body, ( b2Vec2{ -10, 0 } ) );
+		b2World_Step( world, 0.1f, 4 );
+		expected = b2AABB_Union( expected, b2World_GetBounds( world ) );
+	}
+	ENSURE( rec->haveBounds && memcmp( &expected, &rec->accumulatedBounds, sizeof( expected ) ) == 0 );
+	int end = b2Recording_GetSize( rec ); b2World_StopRecording( world );
+	const uint8_t* frame = b2Recording_GetData( rec ) + end;
+	ENSURE( frame[0] == 0xF2 && RecordingPayloadSize( frame ) == 16 );
+	ENSURE( memcmp( frame + 4, &expected, sizeof( expected ) ) == 0 );
+	b2Body_SetTransform( body, ( b2Pos{ -50, 0 } ), b2Rot_identity );
+	b2World_StartRecording( world, rec );
+	ENSURE( rec->accumulatedBounds.upperBound.x < -48 );
+	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int RecordingEmptyBoundsTest( void )
+{
+	int before = b2GetByteCount(); b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId world = b2CreateWorld( &wd ); b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec ); b2World_Step( world, 0.1f, 1 );
+	ENSURE( !rec->haveBounds );
+	b2BodyDef bd = b2DefaultBodyDef(); bd.position = { 100, 100 };
+	b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0, 0 }, 1 };
+	b2CreateCircleShape( b2CreateBody( world, &bd ), &sd, &circle );
+	b2World_Step( world, 0.1f, 1 );
+	ENSURE( rec->haveBounds && rec->accumulatedBounds.lowerBound.x > 98 );
+	b2World_StopRecording( world ); b2DestroyWorld( world ); b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}
