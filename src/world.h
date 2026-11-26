@@ -83,6 +83,7 @@ struct b2World
 	void* userTaskContext;
 	struct b2Scheduler* scheduler;
 	bool useScheduler;
+	struct b2StepContext* stepContext;
 	void* userData;
 	b2Stack stack;
 	b2IdPool bodyIdPool;

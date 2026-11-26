@@ -7,6 +7,7 @@
 #include "aabb.h"
 #include "solver.h"
 #include "scheduler.h"
+#include "parallel_for.h"
 
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
@@ -105,6 +106,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 		}
 	}
 	world->userData = def->userData;
+	world->stepContext = static_cast<b2StepContext*>( b2AllocZero( sizeof( b2StepContext ) ) );
+	world->stepContext->phase = 0;
 	world->bodyIdPool = b2CreateIdPool();
 	b2Array_Create( world->bodies );
 	world->shapeIdPool = b2CreateIdPool();
@@ -185,6 +188,7 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2Array_Destroy( world->fatAABBs );
 	b2DestroyIdPool( &world->shapeIdPool );
 	b2DestroyIdPool( &world->bodyIdPool );
+	b2Free( world->stepContext, sizeof( b2StepContext ) );
 	if ( world->scheduler != NULL )
 	{
 		b2DestroyScheduler( world->scheduler );
@@ -288,30 +292,35 @@ void* b2World_GetUserData( b2WorldId worldId )
 }
 
 
-void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
+// 碰撞准备阶段：由任务批次驱动，也可在完整 Step 中同步执行。
+static void b2CollisionPhase( void* context )
 {
-    if ( b2World_IsValid( id ) == false || b2IsValidFloat( timeStep ) == false || timeStep <= 0.0f || subStepCount <= 0 )
-    {
-        return;
-    }
-    b2World* world = b2_worlds+id.index1-1;
-    if ( world->inUse == false || world->locked )
-    {
-        return;
-    }
-    if ( world->useScheduler && world->scheduler == NULL && world->workerCount > 1 )
-    {
-        world->scheduler = b2CreateScheduler( world->workerCount );
-    }
-    world->inv_dt=1.0f/timeStep;world->inv_h=subStepCount/timeStep;
-    b2Array_Clear(world->bodyMoveEvents);
-    b2Array_Clear(world->contactBeginEvents);
-    b2Array_Clear(world->sensorBeginEvents);
-    b2Array_Clear(world->contactHitEvents);
-    b2Array_Clear(world->jointEvents);
-    for(int i=0;i<world->bodies.count;++i) { world->bodies.data[i].bodyMoveIndex=B2_NULL_INDEX; }
-    uint64_t stepTicks=b2GetTicks();world->profile=b2Profile{};
-    world->locked = true;
+	b2World* world = static_cast<b2World*>( context );
+	uint64_t stageTicks = b2GetTicks();
+	b2UpdateBroadPhaseContacts( world );
+	world->profile.pairs = b2GetMillisecondsAndReset( &stageTicks );
+	b2UpdateContacts( world );
+	world->profile.collide = b2GetMillisecondsAndReset( &stageTicks );
+	b2SplitContactIslands( world );
+	world->profile.splitIslands = b2GetMillisecondsAndReset( &stageTicks );
+}
+
+static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount )
+{
+	world->inv_dt = 1.0f / timeStep;
+	world->inv_h = subStepCount / timeStep;
+	b2Array_Clear( world->bodyMoveEvents );
+	b2Array_Clear( world->contactBeginEvents );
+	b2Array_Clear( world->sensorBeginEvents );
+	b2Array_Clear( world->contactHitEvents );
+	b2Array_Clear( world->jointEvents );
+	for ( int i = 0; i < world->bodies.count; ++i )
+	{
+		world->bodies.data[i].bodyMoveIndex = B2_NULL_INDEX;
+	}
+
+	world->profile = b2Profile{};
+	world->locked = true;
 	{
 		b2Capacity* c = &world->maxCapacity;
 		c->staticShapeCount = b2MaxInt( c->staticShapeCount, world->broadPhase.trees[b2_staticBody].proxyCount );
@@ -320,27 +329,93 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
 		int staticBodyCount = world->solverSets.data[b2_staticSet].bodySims.count;
 		c->staticBodyCount = b2MaxInt( c->staticBodyCount, staticBodyCount );
 
-		// 这包括运动学刚体
 		int totalBodyCount = b2GetIdCount( &world->bodyIdPool );
 		c->dynamicBodyCount = b2MaxInt( c->dynamicBodyCount, totalBodyCount - staticBodyCount );
 
 		int totalContactCount = b2GetIdCount( &world->contactIdPool );
 		c->contactCount = b2MaxInt( c->contactCount, totalContactCount );
-        c->jointCount=b2MaxInt(c->jointCount,b2GetIdCount(&world->jointIdPool));
+		c->jointCount = b2MaxInt( c->jointCount, b2GetIdCount( &world->jointIdPool ) );
 	}
 
-    uint64_t stageTicks=b2GetTicks();
-    b2UpdateBroadPhaseContacts( world );world->profile.pairs=b2GetMillisecondsAndReset(&stageTicks);
-    b2UpdateContacts( world );world->profile.collide=b2GetMillisecondsAndReset(&stageTicks);
-    b2SplitContactIslands( world );world->profile.splitIslands=b2GetMillisecondsAndReset(&stageTicks);
-    b2SolveFreeBodies( world, timeStep, subStepCount );world->profile.solve=b2GetMillisecondsAndReset(&stageTicks);
-    world->maxCapacity.arenaByteCount=b2MaxInt(world->maxCapacity.arenaByteCount,b2GetMaxStackAllocation(&world->stack));
-    uint64_t sensorTicks=b2GetTicks();b2BeginSensors(world);b2EndSensors(world);world->profile.sensors=b2GetMilliseconds(sensorTicks);
-    world->endEventArrayIndex=1-world->endEventArrayIndex;
-    b2Array_Clear(world->contactEndEvents[world->endEventArrayIndex]);
-    b2Array_Clear(world->sensorEndEvents[world->endEventArrayIndex]);
-    world->profile.step=b2GetMilliseconds(stepTicks);
-    world->locked = false;
+	b2StepContext* context = world->stepContext;
+	context->timeStep = timeStep;
+	context->subStepCount = subStepCount;
+	context->phase = 1;
+	b2ResetTaskBatch( context );
+	b2AddTask( context, b2_taskPairs, b2CollisionPhase, world );
+	return b2MakeTaskBatch( context );
+}
+
+static b2TaskBatch b2ContinueStepInternal( b2World* world )
+{
+	b2StepContext* context = world->stepContext;
+	if ( context->phase != 1 )
+	{
+		return b2TaskBatch{};
+	}
+
+	context->phase = 0;
+	uint64_t stageTicks = b2GetTicks();
+	b2SolveFreeBodies( world, context->timeStep, context->subStepCount );
+	world->profile.solve = b2GetMillisecondsAndReset( &stageTicks );
+	world->maxCapacity.arenaByteCount = b2MaxInt( world->maxCapacity.arenaByteCount, b2GetMaxStackAllocation( &world->stack ) );
+	uint64_t sensorTicks = b2GetTicks();
+	b2BeginSensors( world );
+	b2EndSensors( world );
+	world->profile.sensors = b2GetMilliseconds( sensorTicks );
+	world->endEventArrayIndex = 1 - world->endEventArrayIndex;
+	b2Array_Clear( world->contactEndEvents[world->endEventArrayIndex] );
+	b2Array_Clear( world->sensorEndEvents[world->endEventArrayIndex] );
+	world->profile.step = b2GetMilliseconds( stageTicks );
+	world->locked = false;
+	return b2TaskBatch{};
+}
+
+b2TaskBatch b2World_BeginStep( b2WorldId id, float timeStep, int subStepCount )
+{
+	if ( b2World_IsValid( id ) == false || b2IsValidFloat( timeStep ) == false || timeStep <= 0.0f || subStepCount <= 0 )
+	{
+		return b2TaskBatch{};
+	}
+	b2World* world = b2_worlds + id.index1 - 1;
+	if ( world->locked )
+	{
+		return b2TaskBatch{};
+	}
+	return b2StartStep( world, timeStep, subStepCount );
+}
+
+b2TaskBatch b2World_ContinueStep( b2WorldId id )
+{
+	if ( b2World_IsValid( id ) == false )
+	{
+		return b2TaskBatch{};
+	}
+	b2World* world = b2_worlds + id.index1 - 1;
+	return b2ContinueStepInternal( world );
+}
+
+void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
+{
+	if ( b2World_IsValid( id ) == false || b2IsValidFloat( timeStep ) == false || timeStep <= 0.0f || subStepCount <= 0 )
+	{
+		return;
+	}
+	b2World* world = b2_worlds + id.index1 - 1;
+	if ( world->locked )
+	{
+		return;
+	}
+	if ( world->useScheduler && world->scheduler == NULL && world->workerCount > 1 )
+	{
+		world->scheduler = b2CreateScheduler( world->workerCount );
+	}
+
+	uint64_t stepTicks = b2GetTicks();
+	b2TaskBatch batch = b2StartStep( world, timeStep, subStepCount );
+	b2RunTaskBatch( world->enqueueTaskFcn, world->finishTaskFcn, world->userTaskContext, batch );
+	b2ContinueStepInternal( world );
+	world->profile.step = b2GetMilliseconds( stepTicks );
 }
 
 void b2World_EnableWarmStarting(b2WorldId id,bool flag)

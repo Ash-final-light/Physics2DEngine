@@ -540,3 +540,78 @@ int WorkerCountTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+typedef struct StepWorld
+{
+	b2WorldId worldId;
+	b2BodyId bodyId;
+} StepWorld;
+
+static StepWorld CreateStepWorld( bool overlapping )
+{
+	StepWorld result = {};
+	b2WorldDef def = b2DefaultWorldDef();
+	result.worldId = b2CreateWorld( &def );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2BodyId ground = b2CreateBody( result.worldId, &bd );
+	b2ShapeDef sd = b2DefaultShapeDef();
+	b2Circle circle = { { 0, 0 }, 0.5f };
+	b2CreateCircleShape( ground, &sd, &circle );
+	bd.type = b2_dynamicBody;
+	bd.position = { 0, overlapping ? 0.0f : 3.0f };
+	result.bodyId = b2CreateBody( result.worldId, &bd );
+	b2CreateCircleShape( result.bodyId, &sd, &circle );
+	return result;
+}
+
+static b2TaskBatch RunStagedStep( b2WorldId id, float timeStep, int subStepCount )
+{
+	b2TaskBatch batch = b2World_BeginStep( id, timeStep, subStepCount );
+	for ( int i = 0; i < batch.count; ++i )
+	{
+		batch.tasks[i].fcn( batch.tasks[i].context );
+	}
+	return b2World_ContinueStep( id );
+}
+
+int StepPhaseTest( void )
+{
+	size_t before = b2GetByteCount();
+	StepWorld full = CreateStepWorld( false );
+	StepWorld staged = CreateStepWorld( false );
+	for ( int i = 0; i < 6; ++i )
+	{
+		b2World_Step( full.worldId, 1.0f / 60.0f, 4 );
+		b2TaskBatch next = RunStagedStep( staged.worldId, 1.0f / 60.0f, 4 );
+		ENSURE( next.count == 0 && next.joinCount == 0 );
+		b2Vec2 p1 = b2Body_GetPosition( full.bodyId );
+		b2Vec2 p2 = b2Body_GetPosition( staged.bodyId );
+		ENSURE_SMALL( p1.x - p2.x, 0.000001f );
+		ENSURE_SMALL( p1.y - p2.y, 0.000001f );
+		b2Vec2 v1 = b2Body_GetLinearVelocity( full.bodyId );
+		b2Vec2 v2 = b2Body_GetLinearVelocity( staged.bodyId );
+		ENSURE_SMALL( v1.x - v2.x, 0.000001f );
+		ENSURE_SMALL( v1.y - v2.y, 0.000001f );
+	}
+	b2DestroyWorld( full.worldId );
+	b2DestroyWorld( staged.worldId );
+
+	// 碰撞阶段返回的批次执行真实工作：重叠刚体在建接触后才可继续
+	StepWorld work = CreateStepWorld( true );
+	ENSURE( b2World_GetCounters( work.worldId ).contactCount == 0 );
+	b2TaskBatch batch = b2World_BeginStep( work.worldId, 1.0f / 60.0f, 4 );
+	ENSURE( batch.count == 1 && batch.tasks[0].type == b2_taskPairs );
+	b2World* world = b2_worlds + work.worldId.index1 - 1;
+	ENSURE( world->locked && world->stepContext->phase == 1 );
+	batch.tasks[0].fcn( batch.tasks[0].context );
+	ENSURE( b2World_GetCounters( work.worldId ).contactCount > 0 );
+	b2TaskBatch next = b2World_ContinueStep( work.worldId );
+	ENSURE( next.count == 0 && world->locked == false && world->stepContext->phase == 0 );
+
+	// 非法或空闲调用返回空批次
+	ENSURE( b2World_BeginStep( work.worldId, -1.0f, 4 ).count == 0 );
+	ENSURE( b2World_ContinueStep( work.worldId ).count == 0 );
+	b2DestroyWorld( work.worldId );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}

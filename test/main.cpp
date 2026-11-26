@@ -44,6 +44,7 @@ int TaskBatchTest( void );
 int SchedulerTest( void );
 int ExternalTaskTest( void );
 int WorkerCountTest( void );
+int StepPhaseTest( void );
 int AABBTest( void );
 int AABBRayCastTest( void );
 int CircleSegmentTest( void );
@@ -460,6 +461,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( WorkerCountTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "StepPhaseTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( StepPhaseTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "AABBTest" ) == 0 )

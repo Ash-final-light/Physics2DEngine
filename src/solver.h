@@ -75,7 +75,11 @@ struct b2StepContext
     b2BodyState* states;
     float h;
     float inv_h;
-    bool anyRestitution;
+	bool anyRestitution;
+
+	float timeStep;
+	int subStepCount;
+	int phase;
 
 	int batchTaskBase;
 	int batchTaskCount;

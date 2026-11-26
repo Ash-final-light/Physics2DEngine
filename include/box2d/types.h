@@ -94,6 +94,11 @@ typedef struct b2WorldDef
 B2_API void b2World_SetWorkerCount( b2WorldId worldId, int count );
 B2_API int b2World_GetWorkerCount( b2WorldId worldId );
 
+/// 开始一次分阶段步进，返回当前阶段需要执行的任务批次。
+B2_API b2TaskBatch b2World_BeginStep( b2WorldId worldId, float timeStep, int subStepCount );
+/// 继续执行分阶段步进的收尾阶段。
+B2_API b2TaskBatch b2World_ContinueStep( b2WorldId worldId );
+
 B2_API b2WorldDef b2DefaultWorldDef( void );
 B2_API b2WorldId b2CreateWorld( const b2WorldDef* def );
 B2_API void b2DestroyWorld( b2WorldId worldId );
