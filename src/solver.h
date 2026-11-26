@@ -72,7 +72,11 @@ typedef struct b2StepTask
 
 #define B2_STEP_TASK_CAPACITY ( B2_MAX_WORKERS + 2 )
 
+struct b2SolverBlock { int startIndex;uint16_t count;uint8_t blockType;uint8_t colorIndex; };
+typedef void b2WideContactFcn(b2SolverBlock,b2StepContext*);
+typedef void b2WideStoreFcn(b2SolverBlock,b2StepContext*,int);
 struct b2ContactSim;
+struct b2ContactPrepareSpan { int start;int count;b2ContactSim* contacts; };
 struct b2ContactCollideSpan { int start; b2ContactSim* contacts; };
 
 struct b2StepContext
@@ -82,7 +86,7 @@ struct b2StepContext
     b2BodyState* states;
     float h;
     float inv_h;
-	bool anyRestitution;
+	b2AtomicInt anyRestitution;
 
 	float timeStep;
 	int subStepCount;
@@ -113,6 +117,17 @@ struct b2StepContext
     uint64_t stepTicks;
     uint64_t constraintTicks;
     int solverStage,solverColor,solverStep,solverTaskType,activeColorIndex;
+    int simdWidth;
+    b2WideContactFcn* prepareContacts;
+    b2WideContactFcn* warmStartContacts;
+    b2WideContactFcn* pushContacts;
+    b2WideContactFcn* solveContacts;
+    b2WideContactFcn* applyRestitution;
+    b2WideStoreFcn* storeImpulses;
+    int wideContactCount;
+    void* wideContactConstraints;
+    b2ContactPrepareSpan contactPrepareSpans[B2_GRAPH_COLOR_COUNT+1];
+    b2Softness contactSoftness,staticSoftness;
     uint64_t solverTaskTicks;
     bool solverTimingActive;
     int collideContactCount;

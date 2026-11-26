@@ -40,6 +40,8 @@ typedef struct b2GraphColor
 
 	// Temporary scalar constraints, including the overflow color.
 	struct b2ContactConstraint* overflowConstraints;
+	void* wideConstraints;
+	int wideConstraintCount;
 } b2GraphColor;
 
 typedef struct b2ConstraintGraph

@@ -48,3 +48,11 @@ void b2SolveNormalColor(b2StepContext* context,int colorIndex,bool useBias);
 
 void b2SolveNormalRange(b2StepContext* context,int colorIndex,bool useBias,int startIndex,int endIndex);
 void b2WarmStartContactRange(b2StepContext* context,int colorIndex,int startIndex,int endIndex);
+
+int b2GetWideContactConstraintByteCountW4(void);
+void b2PrepareContacts_WideW4(b2SolverBlock block,b2StepContext* context);
+void b2WarmStartContacts_WideW4(b2SolverBlock block,b2StepContext* context);
+void b2PushContacts_WideW4(b2SolverBlock block,b2StepContext* context);
+void b2SolveContacts_WideW4(b2SolverBlock block,b2StepContext* context);
+void b2ApplyRestitution_WideW4(b2SolverBlock block,b2StepContext* context);
+void b2StoreImpulses_WideW4(b2SolverBlock block,b2StepContext* context,int workerIndex);

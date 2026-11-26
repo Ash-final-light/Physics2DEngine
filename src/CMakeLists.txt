@@ -11,6 +11,7 @@ add_library(box2d
 	mover.cpp
 	sensor.cpp
 	contact_solver.cpp
+	contact_solver_w4.cpp
 	constraint_graph.cpp
 	island.cpp
 	contact.cpp

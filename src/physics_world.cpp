@@ -38,9 +38,9 @@ static void b2DefaultFinishTaskFcn( void* userTask, void* userContext )
 static void b2ResizeTaskContexts( b2World* world, int count )
 {
  int oldCount=world->taskContexts.count;
- for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet); }
+ for(int i=count;i<oldCount;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].hitEventBitSet); }
  b2Array_Resize(world->taskContexts,count);
- for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys);world->taskContexts.data[i].contactStateBitSet=b2CreateBitSet(1024);world->taskContexts.data[i].jointStateBitSet=b2CreateBitSet(1024); }
+ for(int i=oldCount;i<count;++i) { world->taskContexts.data[i]={};b2Array_Create(world->taskContexts.data[i].pairKeys);world->taskContexts.data[i].contactStateBitSet=b2CreateBitSet(1024);world->taskContexts.data[i].jointStateBitSet=b2CreateBitSet(1024);world->taskContexts.data[i].hitEventBitSet=b2CreateBitSet(1024); }
 }
 
 b2WorldId b2CreateWorld( const b2WorldDef* def )
@@ -186,7 +186,7 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2DestroyIdPool(&world->islandIdPool);
 	b2DestroySolverSets( world );
 	b2DestroyIdPool( &world->contactIdPool );
-	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet); }
+	for(int i=0;i<world->taskContexts.count;++i) { b2Array_Destroy(world->taskContexts.data[i].pairKeys);b2DestroyBitSet(&world->taskContexts.data[i].contactStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].jointStateBitSet);b2DestroyBitSet(&world->taskContexts.data[i].hitEventBitSet); }
 	b2Array_Destroy(world->taskContexts);
 	b2DestroyStack( &world->stack );
 	b2Array_Destroy( world->bodies );

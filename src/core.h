@@ -67,6 +67,11 @@
 
 
 #define B2_ALIGNMENT 64
+#if defined(_MSC_VER)
+#define B2_RESTRICT __restrict
+#else
+#define B2_RESTRICT __restrict__
+#endif
 #define B2_SECRET_COOKIE 1152023
 #define B2_CHECK_DEF( DEF ) B2_ASSERT( ( DEF )->internalValue == B2_SECRET_COOKIE )
 

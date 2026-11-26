@@ -5,6 +5,7 @@
 #include "contact_solver.h"
 #include "world.h"
 #include "shape.h"
+#include "platform.h"
 #include "box2d/math_functions.h"
 
 #include <bit>
@@ -272,7 +273,14 @@ static void b2SolverRangeTask(int startIndex,int endIndex,int workerIndex,void* 
   }
  }
  int contactStart=b2MaxInt(0,startIndex-jointCount),contactEnd=b2MaxInt(0,endIndex-jointCount);
- if(warm) { b2WarmStartContactRange(context,colorIndex,contactStart,contactEnd); }
+ if(context->simdWidth>0 && colorIndex!=B2_OVERFLOW_INDEX)
+ {
+  b2SolverBlock block={contactStart,(uint16_t)(contactEnd-contactStart),0,(uint8_t)colorIndex};
+  if(warm) { context->warmStartContacts(block,context); }
+  else if(useBias) { context->pushContacts(block,context); }
+  else { context->solveContacts(block,context); }
+ }
+ else if(warm) { b2WarmStartContactRange(context,colorIndex,contactStart,contactEnd); }
  else { b2SolveNormalRange(context,colorIndex,useBias,contactStart,contactEnd); }
 }
 
@@ -283,6 +291,10 @@ void b2BeginSolve(b2World* world,b2StepContext* context)
  B2_ASSERT(set->bodySims.count==set->bodyStates.count);
  context->graph=&world->constraintGraph;context->states=set->bodyStates.data;
  context->h=context->timeStep/(float)context->subStepCount;context->inv_h=1.0f/context->h;
+ context->simdWidth=4;
+ context->prepareContacts=b2PrepareContacts_WideW4;context->warmStartContacts=b2WarmStartContacts_WideW4;
+ context->pushContacts=b2PushContacts_WideW4;context->solveContacts=b2SolveContacts_WideW4;
+ context->applyRestitution=b2ApplyRestitution_WideW4;context->storeImpulses=b2StoreImpulses_WideW4;
  context->solverStage=0;context->solverColor=0;context->solverStep=0;
  context->solverTimingActive=false;
  b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
@@ -329,7 +341,8 @@ bool b2ContinueSolve(b2StepContext* context)
    int order=context->solverColor++;
    int colorIndex=order==0?B2_OVERFLOW_INDEX:order-1;context->activeColorIndex=colorIndex;
    b2GraphColor* color=context->graph->colors+colorIndex;
-   int count=color->jointSims.count+color->contactSims.count;
+   int contactCount=context->simdWidth>0 && colorIndex!=B2_OVERFLOW_INDEX?color->wideConstraintCount:color->contactSims.count;
+   int count=color->jointSims.count+contactCount;
    if(colorIndex==B2_OVERFLOW_INDEX)
    {
     if(count>0) { b2SolverRangeTask(0,count,0,context); }
@@ -351,7 +364,7 @@ void b2EndSolve(b2StepContext* context)
  b2World* world=context->world;float timeStep=context->timeStep;
  b2SolverSet* set=world->solverSets.data+b2_awakeSet;
  uint64_t ticks=b2GetTicks();world->profile.constraints=b2GetMilliseconds(context->constraintTicks);
- if(context->anyRestitution && world->restitutionIterations>0)
+ if(b2AtomicLoadInt(&context->anyRestitution) && world->restitutionIterations>0)
  { b2ApplyContactRestitution(context);world->profile.restitution=b2GetMillisecondsAndReset(&ticks); }
  b2StoreContactImpulses(context);b2ReleaseContactConstraints(context);
  world->profile.storeImpulses=b2GetMillisecondsAndReset(&ticks);

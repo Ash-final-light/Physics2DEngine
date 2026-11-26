@@ -2,18 +2,22 @@
 // SPDX-License-Identifier: MIT
 #include "contact_solver.h"
 #include "world.h"
+#include "platform.h"
+#include <cstring>
 
 void b2PrepareContactConstraints(b2StepContext* context)
 {
     b2World* world=context->world;
-    context->anyRestitution=false;
+    b2AtomicStoreInt(&context->anyRestitution,0);
     float warmStartScale=world->enableWarmStarting?1.0f:0.0f;
     float contactHertz=b2MinFloat(world->contactHertz,0.125f*context->inv_h);
     b2Softness contactSoftness=b2MakeSoft(contactHertz,world->contactDampingRatio,context->h);
     b2Softness staticSoftness=b2MakeSoft(2.0f*contactHertz,world->contactDampingRatio,context->h);
+    context->contactSoftness=contactSoftness;context->staticSoftness=staticSoftness;
     for(int colorIndex=0;colorIndex<B2_GRAPH_COLOR_COUNT;++colorIndex)
     {
         b2GraphColor* color=context->graph->colors+colorIndex;
+        if(context->simdWidth>0 && colorIndex!=B2_OVERFLOW_INDEX) { continue; }
         B2_ASSERT(color->overflowConstraints==NULL);
         int count=color->contactSims.count;
         if(count==0) { continue; }
@@ -40,7 +44,7 @@ void b2PrepareContactConstraints(b2StepContext* context)
             constraint->normal=manifold->normal;
             constraint->friction=sim->friction;
             constraint->restitution=sim->restitution;
-            context->anyRestitution|=sim->restitution>0.0f;
+            if(sim->restitution>0.0f) { b2AtomicStoreInt(&context->anyRestitution,1); }
             constraint->tangentSpeed=sim->tangentSpeed;
             constraint->rollingResistance=sim->rollingResistance;
             constraint->rollingImpulse=warmStartScale*manifold->rollingImpulse;
@@ -79,10 +83,50 @@ void b2PrepareContactConstraints(b2StepContext* context)
             }
         }
     }
+
+    if(context->simdWidth>0)
+    {
+        int total=0,span=0;int bytes=b2GetWideContactConstraintByteCountW4();
+        for(int c=0;c<B2_OVERFLOW_INDEX;++c)
+        {
+            b2GraphColor* color=context->graph->colors+c;
+            color->wideConstraintCount=(color->contactSims.count+3)/4;
+            if(color->contactSims.count>0)
+            {
+                context->contactPrepareSpans[span++]={total,color->contactSims.count,color->contactSims.data};
+                total+=color->wideConstraintCount;
+            }
+        }
+        context->contactPrepareSpans[span]={total,0,nullptr};context->wideContactCount=total;
+        context->wideContactConstraints=total?b2StackAlloc(&world->stack,total*bytes,"wide contacts"):nullptr;
+        int base=0;
+        for(int c=0;c<B2_OVERFLOW_INDEX;++c)
+        {
+            auto color=context->graph->colors+c;
+            color->wideConstraints=color->wideConstraintCount?(char*)context->wideContactConstraints+base*bytes:nullptr;
+            if(color->contactSims.count%4!=0)
+            {
+                memset((char*)color->wideConstraints+(color->wideConstraintCount-1)*bytes,0,bytes);
+            }
+            base+=color->wideConstraintCount;
+        }
+        for(int i=0;i<world->workerCount;++i)
+        {
+            b2SetBitCountAndClear(&world->taskContexts.data[i].hitEventBitSet,b2GetIdCapacity(&world->contactIdPool));
+            world->taskContexts.data[i].hasHitEvents=false;
+        }
+        for(int start=0;start<total;start+=1024)
+        {
+            b2SolverBlock block={start,(uint16_t)b2MinInt(1024,total-start),0,0};
+            context->prepareContacts(block,context);
+        }
+    }
 }
 
 void b2ReleaseContactConstraints(b2StepContext* context)
 {
+    if(context->wideContactConstraints) { b2StackFree(&context->world->stack,context->wideContactConstraints);context->wideContactConstraints=nullptr; }
+    for(int c=0;c<B2_OVERFLOW_INDEX;++c) { context->graph->colors[c].wideConstraints=nullptr;context->graph->colors[c].wideConstraintCount=0; }
     for(int i=B2_GRAPH_COLOR_COUNT-1;i>=0;--i)
     {
         b2GraphColor* color=context->graph->colors+i;
@@ -195,6 +239,7 @@ void b2StoreContactImpulses(b2StepContext* context)
     for(int c=0;c<B2_GRAPH_COLOR_COUNT;++c)
     {
         b2GraphColor* color=context->graph->colors+c;
+        if(context->simdWidth>0 && c!=B2_OVERFLOW_INDEX) { continue; }
         for(int i=0;i<color->contactSims.count;++i)
         {
             b2Manifold* manifold=&color->contactSims.data[i].manifold;
@@ -208,6 +253,11 @@ void b2StoreContactImpulses(b2StepContext* context)
                 manifold->points[j].totalNormalImpulse=constraint->points[j].totalNormalImpulse;
             }
         }
+    }
+    if(context->simdWidth>0)
+    {
+        for(int start=0;start<context->wideContactCount;start+=1024)
+        { context->storeImpulses({start,(uint16_t)b2MinInt(1024,context->wideContactCount-start),0,0},context,0); }
     }
 }
 
@@ -253,6 +303,12 @@ void b2WarmStartContacts(b2StepContext* context)
 
 static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )
 {
+    if(context->simdWidth>0 && colorIndex!=B2_OVERFLOW_INDEX)
+    {
+        int count=context->graph->colors[colorIndex].wideConstraintCount;
+        for(int start=0;start<count;start+=1024) { context->applyRestitution({start,(uint16_t)b2MinInt(1024,count-start),0,(uint8_t)colorIndex},context); }
+        return;
+    }
 
 	b2ConstraintGraph* graph = context->graph;
 	b2GraphColor* color = graph->colors + colorIndex;
@@ -371,7 +427,7 @@ static void b2ApplyRestitutionColor( b2StepContext* context,int colorIndex )
 
 void b2ApplyContactRestitution(b2StepContext* context)
 {
-    if(!context->anyRestitution) { return; }
+    if(!b2AtomicLoadInt(&context->anyRestitution)) { return; }
     for(int iteration=0;iteration<context->world->restitutionIterations;++iteration)
     {
         b2ApplyRestitutionColor(context,B2_OVERFLOW_INDEX);

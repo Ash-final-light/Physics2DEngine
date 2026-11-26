@@ -26,6 +26,8 @@ struct b2TaskContext
     b2BitSet contactStateBitSet;
     int recycledContactCount;
     b2BitSet jointStateBitSet;
+    b2BitSet hitEventBitSet;
+    bool hasHitEvents;
 };
 
 struct b2World

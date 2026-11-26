@@ -10,6 +10,7 @@
 #include "box2d/types.h"
 #include "box2d/math_functions.h"
 #include "simd.h"
+#include "contact_solver.h"
 
 int SIMDMathTest(void)
 {
@@ -381,6 +382,67 @@ int ParallelSensorTest(void)
     ENSURE(sawParallelSensors && sawEnd && host.enqueued>0);
     for(auto id:{serial,threaded,reverse}) { b2DestroyWorld(id); }
     ENSURE(b2GetByteCount()==before);return 0;
+}
+
+int b2GetWideContactConstraintByteCountScalar4(void);
+void b2PrepareContacts_WideScalar4(b2SolverBlock,b2StepContext*);
+void b2WarmStartContacts_WideScalar4(b2SolverBlock,b2StepContext*);
+void b2PushContacts_WideScalar4(b2SolverBlock,b2StepContext*);
+void b2SolveContacts_WideScalar4(b2SolverBlock,b2StepContext*);
+void b2ApplyRestitution_WideScalar4(b2SolverBlock,b2StepContext*);
+void b2StoreImpulses_WideScalar4(b2SolverBlock,b2StepContext*,int);
+
+static void RunScalarContactStep(b2WorldId id)
+{
+    bool changed=false;b2TaskBatch batch=b2World_BeginStep(id,1.0f/60,4);
+    while(batch.count>0)
+    {
+        b2StepContext* context=b2_worlds[id.index1-1].stepContext;
+        if(context->phase==5 && !changed)
+        {
+            context->prepareContacts=b2PrepareContacts_WideScalar4;context->warmStartContacts=b2WarmStartContacts_WideScalar4;
+            context->pushContacts=b2PushContacts_WideScalar4;context->solveContacts=b2SolveContacts_WideScalar4;
+            context->applyRestitution=b2ApplyRestitution_WideScalar4;context->storeImpulses=b2StoreImpulses_WideScalar4;
+            for(int start=0;start<context->wideContactCount;start+=1024)
+            {
+                context->prepareContacts({start,(uint16_t)b2MinInt(1024,context->wideContactCount-start),0,0},context);
+            }
+            changed=true;
+        }
+        for(int i=0;i<batch.count;++i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+        batch=b2World_ContinueStep(id);
+    }
+}
+
+int SIMDContact4Test(void)
+{
+    ENSURE(b2GetWideContactConstraintByteCountW4()==b2GetWideContactConstraintByteCountScalar4());
+    size_t before=b2GetByteCount();b2WorldId scalar=MakePairWorld(nullptr),wide=MakePairWorld(nullptr);
+    bool sawTail=false;
+    for(int step=0;step<12;++step)
+    {
+        RunScalarContactStep(scalar);
+        b2TaskBatch batch=b2World_BeginStep(wide,1.0f/60,4);
+        while(batch.count>0)
+        {
+            b2StepContext* context=b2_worlds[wide.index1-1].stepContext;
+            if(context->phase==5)
+            {
+                ENSURE(context->simdWidth==4);
+                for(int c=0;c<B2_OVERFLOW_INDEX;++c) { sawTail|=context->graph->colors[c].contactSims.count%4!=0; }
+            }
+            for(int i=batch.count-1;i>=0;--i) { batch.tasks[i].fcn(batch.tasks[i].context); }
+            batch=b2World_ContinueStep(wide);
+        }
+        ENSURE(CompareContactWorlds(scalar,wide)==0);
+        auto a=b2World_GetBodyEvents(scalar),b=b2World_GetBodyEvents(wide);ENSURE(a.moveCount==b.moveCount);
+        for(int i=0;i<a.moveCount;++i)
+        {
+            ENSURE(a.moveEvents[i].transform.p.x==b.moveEvents[i].transform.p.x);
+            ENSURE(a.moveEvents[i].transform.p.y==b.moveEvents[i].transform.p.y);
+        }
+    }
+    ENSURE(sawTail);b2DestroyWorld(scalar);b2DestroyWorld(wide);ENSURE(b2GetByteCount()==before);return 0;
 }
 
 int BroadPhaseTreeTypesTest( void )
