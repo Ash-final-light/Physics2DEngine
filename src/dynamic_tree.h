@@ -102,3 +102,11 @@ int b2CreateTreeProxyInternal( b2DynamicTree* tree, b2AABB aabb, uint64_t catego
 void b2DynamicTree_MoveProxyInternal( b2DynamicTree* tree, int proxyId, b2AABB aabb, bool markMoved );
 
 void b2DynamicTree_ClearMoved( b2DynamicTree* tree );
+
+static inline bool b2HasTreeMoved( const b2DynamicTree* tree )
+{
+	return b2IsNodeMoved( tree->nodes + B2_ROOT_NODE );
+}
+
+
+void b2DynamicTree_MarkProxyMovedSerial(b2DynamicTree* tree,int proxyId);

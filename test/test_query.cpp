@@ -262,3 +262,18 @@ int WorldDebugDrawTest(void)
  stats={};b2World* world=b2_worlds+id.index1-1;world->locked=true;b2World_Draw(id,&draw);world->locked=false;ENSURE(stats.circles==0);
  draw=b2DefaultDebugDraw();b2World_Draw(id,&draw);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int WorldStaticTreeRebuildTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2World_RebuildStaticTree(id);
+ b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.5f};b2BodyId first={};
+ for(int i=0;i<8;++i) { b2BodyDef bd=b2DefaultBodyDef();bd.position={3.0f*i,0};b2BodyId b=b2CreateBody(id,&bd);if(i==0) { first=b; }b2CreateCircleShape(b,&sd,&c); }
+ b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={10,0};b2BodyId dynamic=b2CreateBody(id,&bd);b2CreateCircleShape(dynamic,&sd,&c);b2World_Step(id,0.01f,1);b2Body_SetTransform(first,{10.6f,0},b2Rot_identity);
+ b2World* world=b2_worlds+id.index1-1;b2DynamicTree* tree=world->broadPhase.trees+b2_staticBody;int moved[16];int count=b2DynamicTree_GatherMovedProxies(tree,moved);ENSURE(count>0);uint64_t movedBefore=0;for(int i=0;i<count;++i) { movedBefore|=uint64_t(1)<<moved[i]; }
+ QueryHits hits={};hits.keepGoing=true;hits.valid=true;b2QueryFilter filter=b2DefaultQueryFilter();b2World_OverlapAABB(id,{0,0},{{-2,-2},{25,2}},filter,CollectOverlap,&hits);uint64_t foundBefore=0;for(int i=0;i<hits.count;++i) { foundBefore|=uint64_t(1)<<hits.shapes[i].index1; }ENSURE(hits.count==9);
+ b2AABB bounds=b2World_GetBounds(id);b2World_RebuildStaticTree(id);b2DynamicTree_Validate(tree);uint64_t movedAfter=0;int after=b2DynamicTree_GatherMovedProxies(tree,moved);for(int i=0;i<after;++i) { movedAfter|=uint64_t(1)<<moved[i]; }ENSURE(movedBefore==movedAfter && count==after);
+ hits.count=0;b2World_OverlapAABB(id,{0,0},{{-2,-2},{25,2}},filter,CollectOverlap,&hits);uint64_t foundAfter=0;for(int i=0;i<hits.count;++i) { foundAfter|=uint64_t(1)<<hits.shapes[i].index1; }ENSURE(foundBefore==foundAfter && hits.count==9);
+ b2AABB result=b2World_GetBounds(id);ENSURE(bounds.lowerBound.x==result.lowerBound.x && bounds.upperBound.x==result.upperBound.x);
+ b2World_Step(id,0.01f,1);ENSURE(b2Body_GetContactCapacity(dynamic)>0);
+ world->locked=true;b2World_RebuildStaticTree(id);world->locked=false;b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

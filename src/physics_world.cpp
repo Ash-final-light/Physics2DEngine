@@ -1631,3 +1631,40 @@ void b2World_Draw( b2WorldId worldId, b2DebugDraw* draw )
 		}
 	}
 }
+
+// 用于内部测试。未优化。
+void b2World_RebuildStaticTree( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked )
+	{
+		return;
+	}
+
+
+
+	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
+
+	// 被移动的代理在重建中必须保留该标志。
+	int movedCount = 0;
+	int* movedProxies = NULL;
+	int proxyCount = b2DynamicTree_GetProxyCount( staticTree );
+	if ( b2HasTreeMoved( staticTree ) )
+	{
+		movedProxies = static_cast<int *>( b2Alloc( proxyCount * sizeof( int ) ) );
+		movedCount = b2DynamicTree_GatherMovedProxies( staticTree, movedProxies );
+	}
+
+	b2DynamicTree_Rebuild( staticTree, true );
+
+	for ( int i = 0; i < movedCount; ++i )
+	{
+		b2DynamicTree_MarkProxyMovedSerial( staticTree, movedProxies[i] );
+	}
+
+	if ( movedProxies != NULL )
+	{
+		b2Free( movedProxies, proxyCount * sizeof( int ) );
+	}
+}

@@ -884,3 +884,5 @@ B2_API b2DebugDraw b2DefaultDebugDraw( void );
 
 
 B2_API void b2World_Draw(b2WorldId worldId,b2DebugDraw* draw);
+
+B2_API void b2World_RebuildStaticTree(b2WorldId worldId);

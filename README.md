@@ -182,3 +182,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2World_GetBounds` 返回参与世界粗检测的形状边界并集；禁用形状不参与，空世界返回零边界。
 
 `b2World_Draw` 通过用户回调输出当前世界的形状、接触、包围盒、质量和岛；`b2DefaultDebugDraw` 允许仅实现需要的回调。物理库继续独立构建，不需要图形窗口或渲染库。
+
+`b2World_RebuildStaticTree` 可手动重建静态树，保留待处理的移动代理标志，以便后续步进继续发现接触。

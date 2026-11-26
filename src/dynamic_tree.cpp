@@ -1470,3 +1470,23 @@ void b2DynamicTree_ClearMoved( b2DynamicTree* tree )
 		}
 	}
 }
+
+void b2DynamicTree_MarkProxyMovedSerial( b2DynamicTree* tree, int proxyId )
+{
+	B2_VALIDATE( 0 <= proxyId && proxyId < tree->proxyCapacity );
+
+	b2TreeNode* nodes = tree->nodes;
+	const int32_t* parents = tree->parents;
+
+	int index = tree->proxies[proxyId].node;
+	B2_VALIDATE( 0 <= index && index < tree->nodeEnd );
+	B2_VALIDATE( b2IsLeaf( nodes + index ) );
+
+	while ( index != B2_NULL_INDEX )
+	{
+		nodes[index].flagIndex |= B2_MOVED_NODE;
+		index = parents[index];
+	}
+}
+
+// 更新代理 AABB 并将祖先标记为已移动。用原子操作保证线程安全。
