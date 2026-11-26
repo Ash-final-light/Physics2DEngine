@@ -107,6 +107,10 @@ B2_API bool b2World_IsValid( b2WorldId id );
 /// 计算仿真状态的深层哈希。用于检测不同步，例如在回滚重仿真中。
 B2_API uint64_t b2World_GetStateHash( b2WorldId worldId );
 
+/// 将世界仿真状态写入调用方缓冲区。image 为 NULL 时只返回所需大小。
+/// 必须在步进边界调用；返回所需字节数，若处于步进中则返回 0。
+B2_API int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity );
+
 B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
 B2_API void* b2World_GetUserData( b2WorldId worldId );
 

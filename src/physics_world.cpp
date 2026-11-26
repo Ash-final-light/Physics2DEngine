@@ -74,6 +74,8 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	*world = b2World{};
 	world->worldId = (uint16_t)worldId;
 	world->generation = generation;
+	world->stepIndex = 0;
+	world->splitIslandId = B2_NULL_INDEX;
 	world->inUse = true;
 	world->stack = b2CreateStack( b2MaxInt( 2048, def->capacity.arenaByteCount ) );
 	world->gravity = def->gravity;
@@ -399,6 +401,7 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
 
 	world->maxCapacity.arenaByteCount = b2MaxInt( world->maxCapacity.arenaByteCount, b2GetMaxStackAllocation( &world->stack ) );
 
+	world->stepIndex += 1;
 	world->endEventArrayIndex = 1 - world->endEventArrayIndex;
 	b2Array_Clear( world->contactEndEvents[world->endEventArrayIndex] );
 	b2Array_Clear( world->sensorEndEvents[world->endEventArrayIndex] );

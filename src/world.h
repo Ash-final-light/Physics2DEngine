@@ -37,6 +37,8 @@ struct b2World
 	uint16_t generation;
 	bool inUse;
 	bool locked;
+	uint64_t stepIndex;
+	int splitIslandId;
 	b2Vec2 gravity;
 	b2Capacity maxCapacity;
 	b2Profile profile;

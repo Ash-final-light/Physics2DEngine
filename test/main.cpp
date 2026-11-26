@@ -153,6 +153,8 @@ int WorldStateHashTest( void );
 int WorldStateHashFreeSlotTest( void );
 int WorldStateHashDeepTest( void );
 int WorldStateHashDeepStepTest( void );
+int WorldSnapshotWriteTest( void );
+int WorldSnapshotStateWriteTest( void );
 int JointLifecycleTest( void );
 int JointDefinitionTest( void );
 int JointOrganizationTest( void );
@@ -818,6 +820,18 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( WorldStateHashDeepStepTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "WorldSnapshotWriteTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( WorldSnapshotWriteTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "WorldSnapshotStateWriteTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( WorldSnapshotStateWriteTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "WorldUserDataTest" ) == 0 )

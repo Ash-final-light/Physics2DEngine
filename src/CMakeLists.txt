@@ -41,6 +41,7 @@ add_library(box2d
 	scheduler.cpp
 	simd.cpp
 	state_hash.cpp
+	snapshot.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 
