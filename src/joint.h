@@ -313,3 +313,10 @@ void b2SolveMoverJoint(b2JointSim* base,b2StepContext* context);
 void b2PreparePogoJoint(b2JointSim* base,b2StepContext* context);
 void b2WarmStartPogoJoint(b2JointSim* base,b2StepContext* context);
 void b2SolvePogoJoint(b2JointSim* base,b2StepContext* context,bool useBias);
+
+void b2DrawJoint(b2DebugDraw* draw,b2World* world,b2Joint* joint);
+void b2DrawDistanceJoint(b2DebugDraw* draw,b2JointSim* base,b2WorldTransform transformA,b2WorldTransform transformB);
+void b2DrawPrismaticJoint(b2DebugDraw* draw,b2JointSim* base,b2WorldTransform transformA,b2WorldTransform transformB,float drawScale);
+void b2DrawRevoluteJoint(b2DebugDraw* draw,b2JointSim* base,b2WorldTransform transformA,b2WorldTransform transformB,float drawScale);
+void b2DrawWeldJoint(b2DebugDraw* draw,b2JointSim* base,b2WorldTransform transformA,b2WorldTransform transformB,float drawScale);
+void b2DrawWheelJoint(b2DebugDraw* draw,b2JointSim* base,b2WorldTransform transformA,b2WorldTransform transformB,float drawScale);

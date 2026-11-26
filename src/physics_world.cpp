@@ -118,6 +118,7 @@ void b2DestroyWorld( b2WorldId worldId )
 	b2DestroyBitSet(&world->debugBodySet);
 	b2DestroyBitSet(&world->debugContactSet);
 	b2DestroyBitSet(&world->debugIslandSet);
+	b2DestroyBitSet(&world->debugJointSet);
 	b2Array_Destroy(world->bodyMoveEvents);
 	b2Array_Destroy(world->contactBeginEvents);
 	b2Array_Destroy(world->contactHitEvents);
@@ -476,7 +477,7 @@ void b2World_DumpMemoryStats(b2WorldId id)
     for(int i=0;i<world->sensorTaskContexts.count;++i) { sensorBytes+=b2GetBitSetBytes(&world->sensorTaskContexts.data[i].eventBits); }
     fprintf(file,"\nsensors\n");b2WriteMemoryStat(file,"sensor storage",sensorBytes,&total);
     b2WriteMemoryStat(file,"sensor events",b2Array_ByteCount(world->sensorBeginEvents)+b2Array_ByteCount(world->sensorEndEvents[0])+b2Array_ByteCount(world->sensorEndEvents[1]),&total);
-    b2WriteMemoryStat(file,"debug bit sets",b2GetBitSetBytes(&world->debugBodySet)+b2GetBitSetBytes(&world->debugContactSet)+b2GetBitSetBytes(&world->debugIslandSet),&total);
+    b2WriteMemoryStat(file,"debug bit sets",b2GetBitSetBytes(&world->debugBodySet)+b2GetBitSetBytes(&world->debugJointSet)+b2GetBitSetBytes(&world->debugContactSet)+b2GetBitSetBytes(&world->debugIslandSet),&total);
     fprintf(file,"\ntotal: %d\n",total);fclose(file);
 }
 
@@ -1445,6 +1446,8 @@ void b2World_Draw( b2WorldId worldId, b2DebugDraw* draw )
 	int bodyCapacity = b2GetIdCapacity( &world->bodyIdPool );
 	b2SetBitCountAndClear( &world->debugBodySet, bodyCapacity );
 
+	int jointCapacity = b2GetIdCapacity( &world->jointIdPool );
+	b2SetBitCountAndClear( &world->debugJointSet, jointCapacity );
 
 
 	int contactCapacity = b2GetIdCapacity( &world->contactIdPool );
@@ -1496,6 +1499,26 @@ void b2World_Draw( b2WorldId worldId, b2DebugDraw* draw )
 				char buffer[32];
 				snprintf( buffer, 32, "  %.2f", body->mass );
 				draw->DrawStringFcn( p, buffer, b2_colorWhite, draw->context );
+			}
+
+			if ( draw->drawJoints )
+			{
+				int jointKey = body->headJointKey;
+				while ( jointKey != B2_NULL_INDEX )
+				{
+					int jointId = jointKey >> 1;
+					int edgeIndex = jointKey & 1;
+					b2Joint* joint = b2Array_Get( world->joints, jointId );
+
+					// 避免重复绘制
+					if ( b2GetBit( &world->debugJointSet, jointId ) == false )
+					{
+						b2DrawJoint( draw, world, joint );
+						b2SetBit( &world->debugJointSet, jointId );
+					}
+
+					jointKey = joint->edges[edgeIndex].nextKey;
+				}
 			}
 
 

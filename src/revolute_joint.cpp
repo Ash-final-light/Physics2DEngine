@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 #include "joint.h"
 #include "world.h"
+#include <stdio.h>
 
 void b2PrepareRevoluteJoint( b2JointSim* base, b2StepContext* context )
 {
@@ -477,4 +478,64 @@ float b2RevoluteJoint_GetCurrentMotorTorque( b2JointId jointId )
 	b2World* world = b2_worlds + jointId.world0;
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_revoluteJoint );
 	return world->inv_h * joint->revoluteJoint.motorImpulse;
+}
+
+void b2DrawRevoluteJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform transformA, b2WorldTransform transformB,
+						  float drawScale )
+{
+	B2_ASSERT( base->type == b2_revoluteJoint );
+
+	b2RevoluteJoint* joint = &base->revoluteJoint;
+
+	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+
+	const float radius = 0.25f * drawScale;
+	draw->DrawCircleFcn( frameB.p, radius, b2_colorGray, draw->context );
+
+	b2Vec2 rx = { radius, 0.0f };
+	b2Vec2 r = b2RotateVector( frameA.q, rx );
+	draw->DrawLineFcn( frameA.p, b2OffsetPos( frameA.p, r ), b2_colorGray, draw->context );
+
+	r = b2RotateVector( frameB.q, rx );
+	draw->DrawLineFcn( frameB.p, b2OffsetPos( frameB.p, r ), b2_colorBlue, draw->context );
+
+	if ( draw->drawJointExtras )
+	{
+		float jointAngle = b2RelativeAngle( frameA.q, frameB.q );
+		char buffer[32];
+		snprintf( buffer, 32, " %.1f deg", 180.0f * jointAngle / B2_PI );
+		draw->DrawStringFcn( b2OffsetPos( frameA.p, r ), buffer, b2_colorWhite, draw->context );
+	}
+
+	float lowerAngle = joint->lowerAngle;
+	float upperAngle = joint->upperAngle;
+
+	if ( joint->enableLimit )
+	{
+		b2Rot rotLo = b2MulRot( frameA.q, b2MakeRot( lowerAngle ) );
+		b2Vec2 rlo = b2RotateVector( rotLo, rx );
+
+		b2Rot rotHi = b2MulRot( frameA.q, b2MakeRot( upperAngle ) );
+		b2Vec2 rhi = b2RotateVector( rotHi, rx );
+
+		draw->DrawLineFcn( frameB.p, b2OffsetPos( frameB.p, rlo ), b2_colorGreen, draw->context );
+		draw->DrawLineFcn( frameB.p, b2OffsetPos( frameB.p, rhi ), b2_colorRed, draw->context );
+	}
+
+	if ( joint->enableSpring )
+	{
+		b2Rot q = b2MulRot( frameA.q, b2MakeRot( joint->targetAngle ) );
+		b2Vec2 v = b2RotateVector( q, rx );
+		draw->DrawLineFcn( frameB.p, b2OffsetPos( frameB.p, v ), b2_colorViolet, draw->context );
+	}
+
+	b2HexColor color = b2_colorGold;
+	draw->DrawLineFcn( frameA.p, frameB.p, color, draw->context );
+
+	if ( draw->drawJointExtras )
+	{
+		draw->DrawLineFcn( transformA.p, frameA.p, color, draw->context );
+		draw->DrawLineFcn( transformB.p, frameB.p, color, draw->context );
+	}
 }

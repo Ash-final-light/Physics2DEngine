@@ -429,3 +429,66 @@ int JointEventTest(void)
  ENSURE(b2Joint_IsValid(j));ENSURE(!b2Joint_IsValid(j2));
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+struct JointDrawStats
+{
+ int points,lines,circles,polygons,strings;
+ b2Pos firstLineA,firstLineB,firstPoint;
+ float circleRadius;
+};
+
+static void JointDrawLine(b2Pos p1,b2Pos p2,b2HexColor color,void* context)
+{
+ (void)color;JointDrawStats* stats=(JointDrawStats*)context;++stats->lines;
+ if(stats->lines==1) { stats->firstLineA=p1;stats->firstLineB=p2; }
+}
+
+static void JointDrawPoint(b2Pos p,float size,b2HexColor color,void* context)
+{
+ (void)size;(void)color;JointDrawStats* stats=(JointDrawStats*)context;++stats->points;
+ if(stats->points==1) { stats->firstPoint=p; }
+}
+
+static void JointDrawCircle(b2Pos center,float radius,b2HexColor color,void* context)
+{
+ (void)center;(void)color;JointDrawStats* stats=(JointDrawStats*)context;++stats->circles;stats->circleRadius=radius;
+}
+
+static void JointDrawPolygon(b2WorldTransform transform,const b2Vec2* vertices,int vertexCount,b2HexColor color,void* context)
+{
+ (void)transform;(void)vertices;(void)vertexCount;(void)color;JointDrawStats* stats=(JointDrawStats*)context;++stats->polygons;
+}
+
+static void JointDrawString(b2Pos p,const char* text,b2HexColor color,void* context)
+{
+ (void)p;(void)text;(void)color;JointDrawStats* stats=(JointDrawStats*)context;++stats->strings;
+}
+
+int JointDrawTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);
+ b2ShapeDef sd=b2DefaultShapeDef();b2Circle circle={{0,0},0.5f};b2CreateCircleShape(b,&sd,&circle);
+ b2DistanceJointDef dj=b2DefaultDistanceJointDef();dj.base.bodyIdA=a;dj.base.bodyIdB=b;dj.length=2;b2JointId j=b2CreateDistanceJoint(id,&dj);
+ b2DebugDraw draw=b2DefaultDebugDraw();ENSURE(draw.jointScale==1);ENSURE(draw.drawJoints==false && draw.drawJointExtras==false);
+ JointDrawStats stats={};draw.DrawLineFcn=JointDrawLine;draw.DrawPointFcn=JointDrawPoint;draw.DrawCircleFcn=JointDrawCircle;draw.DrawPolygonFcn=JointDrawPolygon;draw.DrawStringFcn=JointDrawString;draw.context=&stats;draw.drawShapes=false;
+ // 关闭关节绘制时不产生回调
+ b2World_Draw(id,&draw);ENSURE(stats.lines==0 && stats.points==0 && stats.circles==0);
+ // 打开后按世界参考系绘制两锚点连线：A 在原点，B 在 (2,0)
+ draw.drawJoints=true;b2World_Draw(id,&draw);ENSURE(stats.lines>=1 && stats.points>=2);
+ ENSURE_SMALL(stats.firstLineA.x,0.0001f);ENSURE_SMALL(stats.firstLineA.y,0.0001f);ENSURE_SMALL(stats.firstLineB.x-2,0.0001f);ENSURE_SMALL(stats.firstLineB.y,0.0001f);
+ ENSURE_SMALL(stats.firstPoint.x,0.0001f);ENSURE_SMALL(stats.firstPoint.y,0.0001f);
+ // 关节缩放影响绘制几何尺寸
+ b2RevoluteJointDef rj=b2DefaultRevoluteJointDef();rj.base.bodyIdA=a;rj.base.bodyIdB=b;b2JointId rev=b2CreateRevoluteJoint(id,&rj);ENSURE(b2Joint_IsValid(rev));
+ JointDrawStats one={};draw.context=&one;draw.jointScale=1;b2World_Draw(id,&draw);ENSURE(one.circles>=1);
+ JointDrawStats three={};draw.context=&three;draw.jointScale=3;b2World_Draw(id,&draw);ENSURE(three.circles>=1);
+ ENSURE_SMALL(three.circleRadius-3*one.circleRadius,0.0001f);
+ draw.jointScale=1;
+ // 关节附加信息开关输出力与角度文本
+ JointDrawStats extra={};draw.context=&extra;draw.drawJointExtras=true;b2World_Draw(id,&draw);ENSURE(extra.strings>=1);ENSURE(extra.lines>=1);
+ draw.drawJointExtras=false;
+ // 禁用刚体后其关节不再绘制
+ b2Body_Disable(b);JointDrawStats disabled={};draw.context=&disabled;b2World_Draw(id,&draw);ENSURE(disabled.lines==0 && disabled.points==0 && disabled.circles==0);
+ b2Body_Enable(b);JointDrawStats enabled={};draw.context=&enabled;b2World_Draw(id,&draw);ENSURE(enabled.lines>=1);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

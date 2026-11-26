@@ -590,3 +590,44 @@ float b2PrismaticJoint_GetMaxMotorForce( b2JointId jointId )
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_prismaticJoint );
 	return joint->prismaticJoint.maxMotorForce;
 }
+
+void b2DrawPrismaticJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform transformA, b2WorldTransform transformB,
+						   float drawScale )
+{
+	B2_ASSERT( base->type == b2_prismaticJoint );
+
+	b2PrismaticJoint* joint = &base->prismaticJoint;
+
+	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+	b2Vec2 axisA = b2RotateVector( frameA.q, b2Vec2{ 1.0f, 0.0f } );
+
+	draw->DrawLineFcn( frameA.p, frameB.p, b2_colorDimGray, draw->context );
+
+	if ( joint->enableLimit )
+	{
+		float b = 0.25f * drawScale;
+		b2Pos lower = b2OffsetPos( frameA.p, b2MulSV( joint->lowerTranslation, axisA ) );
+		b2Pos upper = b2OffsetPos( frameA.p, b2MulSV( joint->upperTranslation, axisA ) );
+		b2Vec2 perp = b2LeftPerp( axisA );
+		draw->DrawLineFcn( lower, upper, b2_colorGray, draw->context );
+		draw->DrawLineFcn( b2OffsetPos( lower, b2MulSV( -b, perp ) ), b2OffsetPos( lower, b2MulSV( b, perp ) ), b2_colorGreen,
+						   draw->context );
+		draw->DrawLineFcn( b2OffsetPos( upper, b2MulSV( -b, perp ) ), b2OffsetPos( upper, b2MulSV( b, perp ) ), b2_colorRed,
+						   draw->context );
+	}
+	else
+	{
+		draw->DrawLineFcn( b2OffsetPos( frameA.p, b2Neg( axisA ) ), b2OffsetPos( frameA.p, axisA ), b2_colorGray,
+						   draw->context );
+	}
+
+	if ( joint->enableSpring )
+	{
+		b2Pos p = b2OffsetPos( frameA.p, b2MulSV( joint->targetTranslation, axisA ) );
+		draw->DrawPointFcn( p, 8.0f, b2_colorViolet, draw->context );
+	}
+
+	draw->DrawPointFcn( frameA.p, 5.0f, b2_colorGray, draw->context );
+	draw->DrawPointFcn( frameB.p, 5.0f, b2_colorBlue, draw->context );
+}

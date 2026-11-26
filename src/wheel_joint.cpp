@@ -475,3 +475,42 @@ float b2WheelJoint_GetMaxMotorTorque( b2JointId jointId )
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_wheelJoint );
 	return joint->wheelJoint.maxMotorTorque;
 }
+
+void b2DrawWheelJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform transformA, b2WorldTransform transformB,
+					   float drawScale )
+{
+	B2_ASSERT( base->type == b2_wheelJoint );
+
+	b2WheelJoint* joint = &base->wheelJoint;
+
+	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+	b2Vec2 axisA = b2RotateVector( frameA.q, b2Vec2{ 1.0f, 0.0f } );
+
+	b2HexColor c1 = b2_colorGray;
+	b2HexColor c2 = b2_colorGreen;
+	b2HexColor c3 = b2_colorRed;
+	b2HexColor c4 = b2_colorDimGray;
+	b2HexColor c5 = b2_colorBlue;
+
+	draw->DrawLineFcn( frameA.p, frameB.p, c5, draw->context );
+
+	if ( joint->enableLimit )
+	{
+		b2Pos lower = b2OffsetPos( frameA.p, b2MulSV( joint->lowerTranslation, axisA ) );
+		b2Pos upper = b2OffsetPos( frameA.p, b2MulSV( joint->upperTranslation, axisA ) );
+		b2Vec2 perp = b2LeftPerp( axisA );
+		draw->DrawLineFcn( lower, upper, c1, draw->context );
+		draw->DrawLineFcn( b2OffsetPos( lower, b2MulSV( -0.1f * drawScale, perp ) ),
+						   b2OffsetPos( lower, b2MulSV( 0.1f * drawScale, perp ) ), c2, draw->context );
+		draw->DrawLineFcn( b2OffsetPos( upper, b2MulSV( -0.1f * drawScale, perp ) ),
+						   b2OffsetPos( upper, b2MulSV( 0.1f * drawScale, perp ) ), c3, draw->context );
+	}
+	else
+	{
+		draw->DrawLineFcn( b2OffsetPos( frameA.p, b2Neg( axisA ) ), b2OffsetPos( frameA.p, axisA ), c1, draw->context );
+	}
+
+	draw->DrawPointFcn( frameA.p, 5.0f, c1, draw->context );
+	draw->DrawPointFcn( frameB.p, 5.0f, c4, draw->context );
+}

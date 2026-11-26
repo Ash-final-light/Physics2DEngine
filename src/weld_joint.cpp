@@ -282,3 +282,16 @@ float b2WeldJoint_GetAngularDampingRatio( b2JointId jointId )
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_weldJoint );
 	return joint->weldJoint.angularDampingRatio;
 }
+
+void b2DrawWeldJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform transformA, b2WorldTransform transformB,
+					  float drawScale )
+{
+	B2_ASSERT( base->type == b2_weldJoint );
+
+	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+
+	b2Polygon box = b2MakeBox( 0.25f * drawScale, 0.125f * drawScale );
+	draw->DrawPolygonFcn( frameA, box.vertices, 4, b2_colorDarkOrange, draw->context );
+	draw->DrawPolygonFcn( frameB, box.vertices, 4, b2_colorDarkCyan, draw->context );
+}

@@ -856,6 +856,8 @@ typedef struct b2DebugDraw
 	/// 绘制力时使用的缩放
 	float forceScale;
 
+	/// 关节绘制的全局缩放
+	float jointScale;
 
 	/// 是否绘制接触点
 	bool drawContacts;
@@ -869,7 +871,11 @@ typedef struct b2DebugDraw
 	/// 是否绘制链条形状法线
 	bool drawChainNormals;
 
+	/// 是否绘制关节
+	bool drawJoints;
 
+	/// 是否绘制关节的附加信息
+	bool drawJointExtras;
 
 	/// 是否绘制形状的包围盒
 	bool drawBounds;

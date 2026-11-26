@@ -32,6 +32,7 @@ struct b2World
 	b2BitSet debugBodySet;
 	b2BitSet debugContactSet;
 	b2BitSet debugIslandSet;
+	b2BitSet debugJointSet;
 
 	// 本步已报告的关节力/力矩事件位，步进开始时清零。
 	// 多工作线程时改为每个任务上下文各一份。

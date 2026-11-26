@@ -4,6 +4,7 @@
 #include "body.h"
 #include "world.h"
 #include <cstring>
+#include <stdio.h>
 
 b2Joint* b2GetJointFullId(b2World* world,b2JointId id)
 {
@@ -1312,4 +1313,99 @@ b2JointId b2CreateFilterJoint( b2WorldId worldId, const b2FilterJointDef* def )
 
 	b2JointPair pair = b2CreateJoint( world, &def->base, b2_filterJoint );
 	return b2JointId{ pair.jointSim->jointId + 1, world->worldId, pair.joint->generation };
+}
+
+void b2DrawJoint( b2DebugDraw* draw, b2World* world, b2Joint* joint )
+{
+	b2Body* bodyA = b2Array_Get( world->bodies, joint->edges[0].bodyId );
+	b2Body* bodyB = b2Array_Get( world->bodies, joint->edges[1].bodyId );
+	if ( bodyA->setIndex == b2_disabledSet || bodyB->setIndex == b2_disabledSet )
+	{
+		return;
+	}
+
+	b2JointSim* jointSim = b2GetJointSim( world, joint );
+
+	b2WorldTransform xfA = b2JointBodyTransform( world, joint->edges[0].bodyId );
+	b2WorldTransform xfB = b2JointBodyTransform( world, joint->edges[1].bodyId );
+
+	b2Pos pA = b2TransformWorldPoint( xfA, jointSim->localFrameA.p );
+	b2Pos pB = b2TransformWorldPoint( xfB, jointSim->localFrameB.p );
+
+	float scale = b2MaxFloat( 0.0001f, draw->jointScale * joint->drawScale );
+
+	switch ( joint->type )
+	{
+		case b2_distanceJoint:
+			b2DrawDistanceJoint( draw, jointSim, xfA, xfB );
+			break;
+
+		case b2_filterJoint:
+			draw->DrawPointFcn( pA, 8.0f, b2_colorLightSkyBlue, draw->context );
+			draw->DrawPointFcn( pB, 8.0f, b2_colorLightSkyBlue, draw->context );
+			if ( draw->drawJointExtras )
+			{
+				draw->DrawLineFcn( pA, pB, b2_colorGold, draw->context );
+			}
+			break;
+
+		case b2_motorJoint:
+			draw->DrawPointFcn( pA, 8.0f, b2_colorYellowGreen, draw->context );
+			draw->DrawPointFcn( pB, 8.0f, b2_colorPlum, draw->context );
+			if ( draw->drawJointExtras )
+			{
+				draw->DrawLineFcn( pA, pB, b2_colorLightGray, draw->context );
+			}
+			break;
+
+		case b2_moverJoint:
+			draw->DrawPointFcn( pB, 8.0f, b2_colorPlum, draw->context );
+			break;
+
+		case b2_pogoJoint:
+			draw->DrawLineFcn( pA, pB, b2_colorLightGray, draw->context );
+			break;
+
+		case b2_prismaticJoint:
+			b2DrawPrismaticJoint( draw, jointSim, xfA, xfB, scale );
+			break;
+
+		case b2_revoluteJoint:
+			b2DrawRevoluteJoint( draw, jointSim, xfA, xfB, scale );
+			break;
+
+		case b2_weldJoint:
+			b2DrawWeldJoint( draw, jointSim, xfA, xfB, scale );
+			break;
+
+		case b2_wheelJoint:
+			b2DrawWheelJoint( draw, jointSim, xfA, xfB, scale );
+			break;
+
+		default:
+			break;
+	}
+
+	if ( draw->drawGraphColors )
+	{
+		int colorIndex = joint->colorIndex;
+		if ( colorIndex != B2_NULL_INDEX )
+		{
+			b2Pos p = b2LerpPos( pA, pB, 0.5f );
+			draw->DrawPointFcn( p, 5.0f, b2GetGraphColor( colorIndex ), draw->context );
+		}
+	}
+
+	if ( draw->drawJointExtras )
+	{
+		b2Vec2 force = b2GetJointConstraintForce( world, joint );
+		float torque = b2GetJointConstraintTorque( world, joint );
+		b2Pos p = b2LerpPos( pA, pB, 0.5f );
+
+		draw->DrawLineFcn( p, b2OffsetPos( p, b2MulSV( 0.001f, force ) ), b2_colorAzure, draw->context );
+
+		char buffer[64];
+		snprintf( buffer, 64, "f = [%g, %g], t = %g", force.x, force.y, torque );
+		draw->DrawStringFcn( p, buffer, b2_colorAzure, draw->context );
+	}
 }

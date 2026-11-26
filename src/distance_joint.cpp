@@ -517,3 +517,48 @@ float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId )
 	b2JointSim* joint = b2GetJointSimCheckType( jointId, b2_distanceJoint );
 	return joint->distanceJoint.maxMotorForce;
 }
+
+void b2DrawDistanceJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform transformA, b2WorldTransform transformB )
+{
+	B2_ASSERT( base->type == b2_distanceJoint );
+
+	b2DistanceJoint* joint = &base->distanceJoint;
+
+	b2Pos pA = b2TransformWorldPoint( transformA, base->localFrameA.p );
+	b2Pos pB = b2TransformWorldPoint( transformB, base->localFrameB.p );
+
+	b2Vec2 axis = b2Normalize( b2SubPos( pB, pA ) );
+
+	if ( joint->minLength < joint->maxLength && joint->enableLimit )
+	{
+		b2Pos pMin = b2OffsetPos( pA, b2MulSV( joint->minLength, axis ) );
+		b2Pos pMax = b2OffsetPos( pA, b2MulSV( joint->maxLength, axis ) );
+		b2Vec2 offset = b2MulSV( 0.05f * b2GetLengthUnitsPerMeter(), b2RightPerp( axis ) );
+
+		if ( joint->minLength > B2_LINEAR_SLOP )
+		{
+			draw->DrawLineFcn( b2OffsetPos( pMin, b2Neg( offset ) ), b2OffsetPos( pMin, offset ), b2_colorLightGreen,
+							   draw->context );
+		}
+
+		if ( joint->maxLength < B2_HUGE )
+		{
+			draw->DrawLineFcn( b2OffsetPos( pMax, b2Neg( offset ) ), b2OffsetPos( pMax, offset ), b2_colorRed, draw->context );
+		}
+
+		if ( joint->minLength > B2_LINEAR_SLOP && joint->maxLength < B2_HUGE )
+		{
+			draw->DrawLineFcn( pMin, pMax, b2_colorGray, draw->context );
+		}
+	}
+
+	draw->DrawLineFcn( pA, pB, b2_colorWhite, draw->context );
+	draw->DrawPointFcn( pA, 4.0f, b2_colorWhite, draw->context );
+	draw->DrawPointFcn( pB, 4.0f, b2_colorWhite, draw->context );
+
+	if ( joint->hertz > 0.0f && joint->enableSpring )
+	{
+		b2Pos pRest = b2OffsetPos( pA, b2MulSV( joint->length, axis ) );
+		draw->DrawPointFcn( pRest, 4.0f, b2_colorBlue, draw->context );
+	}
+}
