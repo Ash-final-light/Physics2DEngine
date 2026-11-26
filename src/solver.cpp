@@ -112,6 +112,7 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
         b2Rot q=b2NLerp(sweep.q1,sweep.q2,context.fraction);b2Vec2 c=b2Lerp(sweep.c1,sweep.c2,context.fraction);
         fastBodySim->transform.q=q;fastBodySim->transform.p=b2Add(base,b2Sub(c,b2RotateVector(q,sweep.localCenter)));
         fastBodySim->center=b2Add(base,c);fastBodySim->flags|=b2_hadTimeOfImpact;
+        world->bodyMoveEvents.data[bodySimIndex].transform=fastBodySim->transform;
         b2BodyState* state=awake->bodyStates.data+bodySimIndex;
         float timeLoss=(1.0f-context.fraction)*dt;
         b2Vec2 dv=b2MulSV(-timeLoss*fastBodySim->gravityScale,world->gravity);
@@ -138,6 +139,7 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
     float h=timeStep/(float)subStepCount;
     b2SolverSet* set=world->solverSets.data+b2_awakeSet;
     B2_ASSERT(set->bodySims.count==set->bodyStates.count);
+    b2Array_Resize(world->bodyMoveEvents,set->bodySims.count);
     b2StepContext context={world,&world->constraintGraph,set->bodyStates.data,h,1.0f/h};
     world->profile.solverSetup=b2GetMillisecondsAndReset(&ticks);
     b2PrepareContactConstraints(&context);
@@ -198,6 +200,8 @@ void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount )
         float maxDeltaPosition=b2Length(state->deltaPosition)+b2AbsFloat(state->deltaRotation.s)*sim->maxExtent;
         float sleepVelocity=b2MaxFloat(maxVelocity,0.5f/timeStep*maxDeltaPosition);
         b2Body* body=world->bodies.data+sim->bodyId;
+        body->bodyMoveIndex=i;
+        world->bodyMoveEvents.data[i]=b2BodyMoveEvent{body->userData,sim->transform,b2BodyId{body->id+1,world->worldId,body->generation},false};
         if(!world->enableSleep || (body->flags&b2_enableSleep)==0 || sleepVelocity>body->sleepThreshold) { body->sleepTime=0; }
         else { body->sleepTime+=timeStep; }
         body->flags&=~b2_bodyTransientFlags;body->flags|=state->flags&b2_isSpeedCapped;

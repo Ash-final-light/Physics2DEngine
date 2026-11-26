@@ -231,6 +231,32 @@ B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
 B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
+typedef struct b2BodyMoveEvent
+{
+	/// 刚体用户数据。
+	void* userData;
+
+	/// 刚体的世界变换。
+	b2WorldTransform transform;
+
+	/// 移动的刚体的 id。
+	b2BodyId bodyId;
+
+	/// 此刚体是否在本时间步进入休眠？
+	bool fellAsleep;
+} b2BodyMoveEvent;
+
+/// 刚体事件在 Box2D 世界中缓冲，并在时间步完成后作为事件数组可用。
+/// 注意：若刚体被销毁，此数据变得无效
+typedef struct b2BodyEvents
+{
+	/// 移动事件数组
+	b2BodyMoveEvent* moveEvents;
+
+	/// 移动事件数量
+	int moveCount;
+} b2BodyEvents;
+B2_API b2BodyEvents b2World_GetBodyEvents(b2WorldId worldId);
 typedef struct b2Profile
 {
 	float step;				   ///<

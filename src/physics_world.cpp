@@ -77,6 +77,7 @@ b2WorldId b2CreateWorld( const b2WorldDef* def )
 	b2CreateBroadPhase( &world->broadPhase, &def->capacity );
 	world->contactIdPool = b2CreateIdPool();
 	b2Array_Create( world->contacts );
+	b2Array_CreateN(world->bodyMoveEvents,4);
 	world->islandIdPool=b2CreateIdPool();
 	b2Array_Create(world->islands);
 	b2CreateSolverSets( world );
@@ -97,6 +98,7 @@ void b2DestroyWorld( b2WorldId worldId )
 		return;
 	}
 
+	b2Array_Destroy(world->bodyMoveEvents);
 	b2DestroyGraph(&world->constraintGraph);
 	b2DestroyBroadPhase( &world->broadPhase );
 	b2Array_Destroy( world->contacts );
@@ -180,6 +182,8 @@ void b2World_Step( b2WorldId id, float timeStep, int subStepCount )
     {
         return;
     }
+    b2Array_Clear(world->bodyMoveEvents);
+    for(int i=0;i<world->bodies.count;++i) { world->bodies.data[i].bodyMoveIndex=B2_NULL_INDEX; }
     uint64_t stepTicks=b2GetTicks();world->profile=b2Profile{};
     world->locked = true;
 	{
@@ -419,5 +423,12 @@ void b2World_DumpMemoryStats(b2WorldId id)
     { bitBytes+=b2GetBitSetBytes(&world->constraintGraph.colors[i].bodySet);graphBytes+=b2Array_ByteCount(world->constraintGraph.colors[i].contactSims); }
     fprintf(file,"\nconstraint graph\n");b2WriteMemoryStat(file,"body bit sets",bitBytes,&total);b2WriteMemoryStat(file,"contact sim",graphBytes,&total);
     fprintf(file,"\n");b2WriteMemoryStat(file,"stack allocator",world->stack.capacity,&total);
+    fprintf(file,"\nevents\n");b2WriteMemoryStat(file,"body moves",b2Array_ByteCount(world->bodyMoveEvents),&total);
     fprintf(file,"\ntotal: %d\n",total);fclose(file);
+}
+
+b2BodyEvents b2World_GetBodyEvents(b2WorldId id)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return b2BodyEvents{}; }
+    return b2BodyEvents{world->bodyMoveEvents.data,world->bodyMoveEvents.count};
 }

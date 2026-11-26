@@ -252,6 +252,12 @@ void b2TrySleepIsland( b2World* world, int islandId )
 			B2_ASSERT( body->islandIndex == i );
 
 			body->flags &= ~b2_bodyTransientFlags;
+            if(body->bodyMoveIndex!=B2_NULL_INDEX)
+            {
+                b2BodyMoveEvent* event=b2Array_Get(world->bodyMoveEvents,body->bodyMoveIndex);
+                B2_ASSERT(event->bodyId.index1-1==bodyId && event->bodyId.generation==body->generation);
+                event->fellAsleep=true;body->bodyMoveIndex=B2_NULL_INDEX;
+            }
 
 			int awakeBodyIndex = body->localIndex;
 			b2BodySim* awakeSim = b2Array_Get( awakeSet->bodySims, awakeBodyIndex );

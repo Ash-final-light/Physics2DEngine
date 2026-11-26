@@ -322,3 +322,42 @@ int WorldProfileMemoryTest(void)
     ENSURE(remove("box2d_memory.txt")==0);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int BodyMoveEventsTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;ENSURE(b2World_GetBodyEvents(id).moveCount==0);
+    int tag=42;b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.userData=&tag;bd.linearVelocity={2,0};
+    b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_kinematicBody;bd.userData=NULL;bd.position={10,0};bd.linearVelocity={0,1};b2BodyId k=b2CreateBody(id,&bd);
+    bd.type=b2_staticBody;b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.isEnabled=false;b2CreateBody(id,&bd);
+    b2World_Step(id,0.1f,1);b2BodyEvents events=b2World_GetBodyEvents(id);ENSURE(events.moveCount==2);
+    bool foundA=false,foundK=false;
+    for(int i=0;i<events.moveCount;++i)
+    {
+        const b2BodyMoveEvent* event=events.moveEvents+i;ENSURE(b2Body_IsValid(event->bodyId));
+        b2WorldTransform transform=b2Body_GetTransform(event->bodyId);
+        ENSURE(event->transform.p.x==transform.p.x && event->transform.p.y==transform.p.y && event->transform.q.s==transform.q.s);
+        ENSURE(!event->fellAsleep);
+        if(event->bodyId.index1==a.index1) { foundA=true;ENSURE(event->userData==&tag); }
+        if(event->bodyId.index1==k.index1) { foundK=true;ENSURE(event->userData==NULL); }
+    }
+    ENSURE(foundA && foundK);world->locked=true;ENSURE(b2World_GetBodyEvents(id).moveCount==0);world->locked=false;
+    b2Body_Disable(k);b2World_Step(id,0.1f,1);ENSURE(b2World_GetBodyEvents(id).moveCount==1);
+    b2Body_SetLinearVelocity(a,{0,0});int slept=0;
+    for(int i=0;i<40;++i)
+    {
+        b2World_Step(id,1.0f/60.0f,1);events=b2World_GetBodyEvents(id);
+        for(int j=0;j<events.moveCount;++j) { slept+=events.moveEvents[j].fellAsleep?1:0; }
+    }
+    ENSURE(slept==1 && !b2Body_IsAwake(a));b2World_Step(id,0.1f,1);ENSURE(b2World_GetBodyEvents(id).moveCount==0);
+    b2Body_SetAwake(a,true);b2World_Step(id,0.01f,1);events=b2World_GetBodyEvents(id);ENSURE(events.moveCount==1 && !events.moveEvents[0].fellAsleep);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // The event carries the actual CCD-clipped transform.
+    id=b2CreateWorld(&wd);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};bd.isBullet=true;
+    a=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},0.1f};b2CreateCircleShape(a,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,0};bd.isBullet=false;b2BodyId wallBody=b2CreateBody(id,&bd);
+    b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(wallBody,&sd,&wall);b2World_Step(id,0.05f,1);
+    events=b2World_GetBodyEvents(id);ENSURE(events.moveCount==1 && events.moveEvents[0].transform.p.x<0);
+    ENSURE(events.moveEvents[0].transform.p.x==b2Body_GetPosition(a).x);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

@@ -25,6 +25,7 @@ struct b2World
 	b2Vec2 gravity;
 	b2Capacity maxCapacity;
 	b2Profile profile;
+	b2DynamicArray<b2BodyMoveEvent> bodyMoveEvents;
 	int recycledContactCount;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;
