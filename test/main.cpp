@@ -149,6 +149,7 @@ int PrismaticJointMotorTest( void );
 int WheelJointSuspensionTest( void );
 int WheelJointLimitTest( void );
 int WheelJointMotorTest( void );
+int WeldJointTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -1053,6 +1054,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"WheelJointLimitTest")==0) { ran=1; RUN_TEST(WheelJointLimitTest); }
 
 	if(filter==NULL || strcmp(filter,"WheelJointMotorTest")==0) { ran=1; RUN_TEST(WheelJointMotorTest); }
+
+	if(filter==NULL || strcmp(filter,"WeldJointTest")==0) { ran=1; RUN_TEST(WeldJointTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

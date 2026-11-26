@@ -485,6 +485,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PrepareWheelJoint( joint, context );
 			break;
 
+		case b2_weldJoint:
+			b2PrepareWeldJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -510,6 +514,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartWheelJoint( joint, context );
 			break;
 
+		case b2_weldJoint:
+			b2WarmStartWeldJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -533,6 +541,10 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_wheelJoint:
 			b2SolveWheelJoint( joint, context, useBias );
+			break;
+
+		case b2_weldJoint:
+			b2SolveWeldJoint( joint, context, useBias );
 			break;
 
 		default:
@@ -707,6 +719,49 @@ b2JointId b2CreateWheelJoint( b2WorldId worldId, const b2WheelJointDef* def )
 	joint->wheelJoint.enableSpring = def->enableSpring;
 	joint->wheelJoint.enableLimit = def->enableLimit;
 	joint->wheelJoint.enableMotor = def->enableMotor;
+
+	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
+
+
+	return jointId;
+}
+
+b2WeldJointDef b2DefaultWeldJointDef( void )
+{
+	b2WeldJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+b2JointId b2CreateWeldJoint( b2WorldId worldId, const b2WeldJointDef* def )
+{
+	B2_CHECK_DEF( def );
+	if (!(b2IsValidFloat( def->linearHertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->angularHertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->linearDampingRatio ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->angularDampingRatio ))) { return b2_nullJointId; }
+
+	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
+
+	B2_ASSERT( world->locked == false );
+
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_weldJoint );
+
+	b2JointSim* joint = pair.jointSim;
+
+	b2WeldJoint empty = {};
+	joint->weldJoint = empty;
+	joint->weldJoint.linearHertz = def->linearHertz;
+	joint->weldJoint.linearDampingRatio = def->linearDampingRatio;
+	joint->weldJoint.angularHertz = def->angularHertz;
+	joint->weldJoint.angularDampingRatio = def->angularDampingRatio;
+	joint->weldJoint.linearImpulse = b2Vec2_zero;
+	joint->weldJoint.angularImpulse = 0.0f;
 
 	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 

@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8, b2_weldJoint=7 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1203,3 +1203,35 @@ B2_API float b2WheelJoint_GetTargetMotorSpeed( b2JointId jointId );
 B2_API float b2WheelJoint_GetCurrentMotorTorque( b2JointId jointId );
 B2_API void b2WheelJoint_SetMaxMotorTorque( b2JointId jointId, float torque );
 B2_API float b2WheelJoint_GetMaxMotorTorque( b2JointId jointId );
+
+typedef struct b2WeldJointDef
+{
+	/// 基础关节定义
+	b2JointDef base;
+
+	/// 以赫兹（每秒周期数）表示的线性刚度。使用零表示最大刚度。
+	float linearHertz;
+
+	/// 以赫兹（每秒周期数）表示的角刚度。使用零表示最大刚度。
+	float angularHertz;
+
+	/// 线性阻尼比，无量纲。使用 1 表示临界阻尼。
+	float linearDampingRatio;
+
+	/// 角阻尼比，无量纲。使用 1 表示临界阻尼。
+	float angularDampingRatio;
+
+	/// 内部用于检测有效定义。请勿设置。
+	int internalValue;
+} b2WeldJointDef;
+B2_API b2WeldJointDef b2DefaultWeldJointDef(void);
+B2_API b2JointId b2CreateWeldJoint(b2WorldId worldId,const b2WeldJointDef* def);
+
+B2_API void b2WeldJoint_SetLinearHertz( b2JointId jointId, float hertz );
+B2_API float b2WeldJoint_GetLinearHertz( b2JointId jointId );
+B2_API void b2WeldJoint_SetAngularHertz( b2JointId jointId, float hertz );
+B2_API float b2WeldJoint_GetAngularHertz( b2JointId jointId );
+B2_API void b2WeldJoint_SetLinearDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2WeldJoint_GetLinearDampingRatio( b2JointId jointId );
+B2_API void b2WeldJoint_SetAngularDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2WeldJoint_GetAngularDampingRatio( b2JointId jointId );

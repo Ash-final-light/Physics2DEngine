@@ -220,3 +220,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 车轮关节可限制悬挂轴的最小、最大平移，并保留车轮转动自由度；限位可与悬挂弹簧同时使用。
 
 车轮关节旋转马达可按最大力矩驱动目标相对角速度，并与悬挂弹簧和行程限位共同使用。
+
+焊接关节 `b2CreateWeldJoint` 约束两侧锚点与相对角度，可分别调节线性、角向频率和阻尼。频率为零时使用通用约束刚度，支持软硬混合。
