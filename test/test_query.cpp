@@ -142,3 +142,15 @@ int AttachedShapeRayTest(void)
  r=b2Shape_CastRay(shape,{105,200},{-10,0});ENSURE(r.hit && r.normal.x==1);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int ShapeClosestPointTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};bd.rotation={0,1};b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();
+ b2Circle c={{2,0},0.5f};b2ShapeId circle=b2CreateCircleShape(body,&sd,&c);b2Pos p=b2Shape_GetClosestPoint(circle,{103,202});ENSURE_SMALL(p.x-100.5f,0.00001f);ENSURE_SMALL(p.y-202,0.00001f);
+ b2Polygon box=b2MakeBox(2,0.5f);b2ShapeId polygon=b2CreatePolygonShape(body,&sd,&box);p=b2Shape_GetClosestPoint(polygon,{103,201});ENSURE_SMALL(p.x-100.5f,0.00001f);ENSURE_SMALL(p.y-201,0.00001f);
+ p=b2Shape_GetClosestPoint(polygon,{100,200});ENSURE_SMALL(p.x-100,0.00001f);ENSURE_SMALL(p.y-200,0.00001f);
+ b2Segment edge={{-1,0},{1,0}};b2ShapeId segment=b2CreateSegmentShape(body,&sd,&edge);p=b2Shape_GetClosestPoint(segment,{103,204});ENSURE_SMALL(p.x-100,0.00001f);ENSURE_SMALL(p.y-201,0.00001f);
+ b2Body_SetTransform(body,{20,30},b2Rot_identity);p=b2Shape_GetClosestPoint(circle,{25,30});ENSURE_SMALL(p.x-22.5f,0.00001f);ENSURE_SMALL(p.y-30,0.00001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

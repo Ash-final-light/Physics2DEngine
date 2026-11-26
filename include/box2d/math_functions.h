@@ -578,3 +578,19 @@ B2_INLINE b2Vec2 b2InvTransformWorldPoint( b2WorldTransform t, b2Pos p )
 	float vy = (float)( p.y - t.p.y );
 	return B2_LITERAL( b2Vec2 ){ t.q.c * vx + t.q.s * vy, -t.q.s * vx + t.q.c * vy };
 }
+
+B2_INLINE b2Pos b2TransformWorldPoint( b2WorldTransform t, b2Vec2 p )
+{
+	float rx = t.q.c * p.x - t.q.s * p.y;
+	float ry = t.q.s * p.x + t.q.c * p.y;
+	return B2_LITERAL( b2Pos ){ t.p.x + rx, t.p.y + ry };
+}
+
+B2_INLINE b2Transform b2InvMulWorldTransforms( b2WorldTransform A, b2WorldTransform B )
+{
+	b2Transform C;
+	C.q = b2InvMulRot( A.q, B.q );
+	b2Vec2 d = { (float)( B.p.x - A.p.x ), (float)( B.p.y - A.p.y ) };
+	C.p = b2InvRotateVector( A.q, d );
+	return C;
+}

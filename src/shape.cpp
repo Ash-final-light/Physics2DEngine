@@ -1286,3 +1286,31 @@ b2WorldCastOutput b2Shape_CastRay( b2ShapeId shapeId, b2Pos origin, b2Vec2 trans
 
 	return output;
 }
+
+b2Pos b2Shape_GetClosestPoint( b2ShapeId shapeId, b2Pos target )
+{
+	b2World* world = b2_worlds + shapeId.world0;
+	if ( world == NULL )
+	{
+		return b2Pos_zero;
+	}
+
+	b2Shape* shape = b2GetShapeFromId(shapeId);
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2WorldTransform transform = b2GetBodySim(world,body)->transform;
+
+	// 目标作为代理 B 的坐标系传入，因此相对位姿用 double 做差，远离原点时结果仍精确
+	b2Vec2 zero = b2Vec2_zero;
+	b2WorldTransform targetTransform = { target, b2Rot_identity };
+
+	b2DistanceInput input;
+	input.proxyA = b2MakeShapeDistanceProxy( shape );
+	input.proxyB = b2MakeProxy( &zero, 1, 0.0f );
+	input.transform = b2InvMulWorldTransforms( transform, targetTransform );
+	input.useRadii = true;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput output = b2ComputeShapeDistance( &input, &cache, NULL, 0 );
+
+	return b2TransformWorldPoint( transform, output.pointA );
+}

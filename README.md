@@ -164,3 +164,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2Shape_TestPoint` 对挂接形状执行世界坐标点包含查询，使用刚体当前变换；线段与链段返回 false。
 
 `b2Shape_CastRay` 直接查询一个挂接形状，输入和命中点使用世界坐标，返回法线、分数及命中标记。
+
+`b2Shape_GetClosestPoint` 以目标世界位置为查询点，使用当前几何及圆角半径求最近点，并返回世界位置。

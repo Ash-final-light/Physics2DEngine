@@ -121,6 +121,7 @@ int WorldRayClosestTest( void );
 int WorldShapeCastTest( void );
 int AttachedShapePointTest( void );
 int AttachedShapeRayTest( void );
+int ShapeClosestPointTest( void );
 int WorldRayCastTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
@@ -969,6 +970,8 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"AttachedShapePointTest")==0) { ran=1; RUN_TEST(AttachedShapePointTest); }
 
 	if(filter==NULL || strcmp(filter,"AttachedShapeRayTest")==0) { ran=1; RUN_TEST(AttachedShapeRayTest); }
+
+	if(filter==NULL || strcmp(filter,"ShapeClosestPointTest")==0) { ran=1; RUN_TEST(ShapeClosestPointTest); }
 
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{

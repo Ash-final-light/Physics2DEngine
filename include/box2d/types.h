@@ -595,3 +595,5 @@ B2_API b2TreeStats b2World_CastShape(b2WorldId worldId,b2Pos origin,const b2Shap
 B2_API bool b2Shape_TestPoint(b2ShapeId shapeId,b2Pos point);
 
 B2_API b2WorldCastOutput b2Shape_CastRay(b2ShapeId shapeId,b2Pos origin,b2Vec2 translation);
+
+B2_API b2Pos b2Shape_GetClosestPoint(b2ShapeId shapeId,b2Pos target);
