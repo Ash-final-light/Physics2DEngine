@@ -113,6 +113,7 @@ int ContactTuningTest( void );
 int ContactRecycleTest( void );
 int ContactTouchEventsTest( void );
 int ContactHitEventsTest( void );
+int CustomCollisionFilterTest( void );
 int SensorOverlapEventsTest( void );
 int SensorEventOptionsDataTest( void );
 int ContactFrictionTest( void );
@@ -948,6 +949,7 @@ if(filter==NULL || strcmp(filter,"ContactIslandTest")==0) { ran=1; RUN_TEST(Cont
 	if(filter==NULL || strcmp(filter,"ContactHitEventsTest")==0) { ran=1; RUN_TEST(ContactHitEventsTest); }
 	if(filter==NULL || strcmp(filter,"SensorOverlapEventsTest")==0) { ran=1; RUN_TEST(SensorOverlapEventsTest); }
 	if(filter==NULL || strcmp(filter,"SensorEventOptionsDataTest")==0) { ran=1; RUN_TEST(SensorEventOptionsDataTest); }
+	if(filter==NULL || strcmp(filter,"CustomCollisionFilterTest")==0) { ran=1; RUN_TEST(CustomCollisionFilterTest); }
 	if ( filter == NULL || strcmp( filter, "HullTest" ) == 0 )
 	{
 		ran = 1;

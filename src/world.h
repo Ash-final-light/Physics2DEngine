@@ -53,6 +53,8 @@ struct b2World
 	float contactDampingRatio;
 	float contactSpeed;
 	float maxLinearSpeed;
+	b2CustomFilterCallbackFcn* customFilterFcn;
+	void* customFilterContext;
 	b2FrictionCallbackFcn* frictionCallback;
 	b2RestitutionCallbackFcn* restitutionCallback;
 	bool enableWarmStarting;

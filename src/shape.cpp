@@ -170,6 +170,7 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     shape->userData = def->userData;
     shape->enableContactEvents=def->enableContactEvents;
     shape->enableSensorEvents=def->enableSensorEvents;
+    shape->enableCustomFiltering=def->enableCustomFiltering;
     shape->sensorIndex=B2_NULL_INDEX;
     shape->enableHitEvents=def->enableHitEvents;
     shape->prevShapeId = B2_NULL_INDEX;

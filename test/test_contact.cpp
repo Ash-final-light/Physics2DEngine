@@ -275,3 +275,42 @@ int ContactHitEventsTest(void)
     ENSURE_SMALL(events.hitEvents[0].point.x+1,0.0001f);ENSURE_SMALL(events.hitEvents[0].point.y+0.5f,0.0001f);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+struct CustomFilterState { bool allow;bool valid;int calls; };
+static bool TestCustomFilter(b2ShapeId a,b2ShapeId b,void* context)
+{
+    CustomFilterState* state=static_cast<CustomFilterState*>(context);state->valid&=b2Shape_IsValid(a)&&b2Shape_IsValid(b);++state->calls;return state->allow;
+}
+
+int CustomCollisionFilterTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;
+    for(int opt=0;opt<2;++opt)
+    {
+        b2WorldId id=b2CreateWorld(&wd);b2World* world=b2_worlds+id.index1-1;CustomFilterState state={false,true,0};b2World_SetCustomFilterCallback(id,TestCustomFilter,&state);
+        b2BodyDef bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;b2BodyId a=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.enableCustomFiltering=opt!=0;
+        b2Circle c={{0,0},1};b2ShapeId sa=b2CreateCircleShape(a,&sd,&c);bd.type=b2_staticBody;bd.position={2,0};b2BodyId b=b2CreateBody(id,&bd);sd.enableCustomFiltering=false;b2CreateCircleShape(b,&sd,&c);
+        b2World_Step(id,0.001f,1);ENSURE(world->broadPhase.pairSet.count==(opt?0:1));ENSURE(state.valid && (opt?state.calls>0:state.calls==0));
+        if(opt)
+        {
+            state.allow=true;b2Body_SetTransform(a,{0.2f,0},b2Rot_identity);b2World_Step(id,0.001f,1);ENSURE(world->broadPhase.pairSet.count==1);
+            int prior=state.calls;state.allow=false;b2World_Step(id,0.001f,1);ENSURE(world->broadPhase.pairSet.count==1 && state.calls==prior);
+            b2Filter filter=b2DefaultFilter();filter.maskBits=0;b2Shape_SetFilter(sa,filter);b2Shape_SetFilter(sa,b2DefaultFilter());b2World_Step(id,0.001f,1);ENSURE(world->broadPhase.pairSet.count==0);
+        }
+        b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    }
+    // Sensor queries re-evaluate the callback each step.
+    b2WorldId id=b2CreateWorld(&wd);CustomFilterState state={false,true,0};b2World_SetCustomFilterCallback(id,TestCustomFilter,&state);
+    b2BodyDef bd=b2DefaultBodyDef();b2BodyId fixed=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.isSensor=true;sd.enableSensorEvents=true;sd.enableCustomFiltering=true;
+    b2Circle c={{0,0},2};b2CreateCircleShape(fixed,&sd,&c);bd.type=b2_dynamicBody;b2BodyId visitor=b2CreateBody(id,&bd);sd.isSensor=false;sd.enableCustomFiltering=false;c.radius=0.5f;b2CreateCircleShape(visitor,&sd,&c);
+    b2World_Step(id,0.01f,1);ENSURE(b2World_GetSensorEvents(id).beginCount==0 && state.calls>0 && state.valid);
+    state.allow=true;b2World_Step(id,0.01f,1);ENSURE(b2World_GetSensorEvents(id).beginCount==1);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);
+    // The same callback can reject a CCD candidate before a new contact exists.
+    id=b2CreateWorld(&wd);state={false,true,0};b2World_SetCustomFilterCallback(id,TestCustomFilter,&state);bd=b2DefaultBodyDef();bd.type=b2_dynamicBody;bd.position={-2,0};bd.linearVelocity={100,0};
+    b2BodyId bullet=b2CreateBody(id,&bd);sd=b2DefaultShapeDef();sd.enableCustomFiltering=true;c.radius=0.1f;b2CreateCircleShape(bullet,&sd,&c);
+    bd.type=b2_staticBody;bd.position={0,0};fixed=b2CreateBody(id,&bd);b2Polygon wall=b2MakeBox(0.05f,10);b2CreatePolygonShape(fixed,&sd,&wall);
+    b2World_Step(id,0.05f,1);ENSURE_SMALL(b2Body_GetPosition(bullet).x-3,0.00001f);ENSURE(state.calls>0 && state.valid);
+    state.allow=true;b2Body_SetTransform(bullet,{-2,0},b2Rot_identity);b2Body_SetLinearVelocity(bullet,{100,0});b2World_Step(id,0.05f,1);ENSURE(b2Body_GetPosition(bullet).x<0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

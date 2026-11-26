@@ -147,6 +147,12 @@ static void b2FlushCandidatePairs( b2PairContext* context )
         {
             continue;
         }
+        if((a->enableCustomFiltering || b->enableCustomFiltering) && context->world->customFilterFcn!=NULL)
+        {
+            b2World* world=context->world;
+            b2ShapeId idA={a->id+1,world->worldId,a->generation},idB={b->id+1,world->worldId,b->generation};
+            if(!world->customFilterFcn(idA,idB,world->customFilterContext)) { continue; }
+        }
         b2Array_Push( *context->pairKeys, key );
     }
     context->batchCount = 0;

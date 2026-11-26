@@ -39,6 +39,11 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     B2_ASSERT(body->type==b2_staticBody || (fastBodySim->flags&b2_isBullet));
     if(body->flags&b2_isBullet) { return true; }
     b2BodySim* bodySim=b2GetBodySim(world,body);
+    if((shape->enableCustomFiltering || fastShape->enableCustomFiltering) && world->customFilterFcn!=NULL)
+    {
+        b2ShapeId idA={shape->id+1,world->worldId,shape->generation},idB={fastShape->id+1,world->worldId,fastShape->generation};
+        if(!world->customFilterFcn(idA,idB,world->customFilterContext)) { return true; }
+    }
 	// 沿链条形状快速平行运动时提前退出。
 	if ( shape->type == b2_chainSegmentShape )
 	{

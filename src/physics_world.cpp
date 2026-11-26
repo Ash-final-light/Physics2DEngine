@@ -489,3 +489,8 @@ b2SensorEvents b2World_GetSensorEvents(b2WorldId id)
     b2DynamicArray<b2SensorEndTouchEvent>* ends=world->sensorEndEvents+(1-world->endEventArrayIndex);
     return b2SensorEvents{world->sensorBeginEvents.data,ends->data,world->sensorBeginEvents.count,ends->count};
 }
+
+void b2World_SetCustomFilterCallback(b2WorldId id,b2CustomFilterCallbackFcn* fcn,void* context)
+{
+    b2World* world=b2GetWorldFromId(id);if(world==NULL) { return; }world->customFilterFcn=fcn;world->customFilterContext=context;
+}

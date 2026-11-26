@@ -81,6 +81,11 @@ static bool b2SensorQueryCallback( int proxyId, uint64_t userData, void* context
 
 
 	// 相对位姿用 double 做差，使远离原点时传感器重叠仍精确
+    if((sensorShape->enableCustomFiltering || otherShape->enableCustomFiltering) && world->customFilterFcn!=NULL)
+    {
+        b2ShapeId idA={sensorShape->id+1,world->worldId,sensorShape->generation},idB={otherShape->id+1,world->worldId,otherShape->generation};
+        if(!world->customFilterFcn(idA,idB,world->customFilterContext)) { return true; }
+    }
 	b2WorldTransform otherTransform = b2GetBodySim(world,world->bodies.data+otherShape->bodyId)->transform;
 
 	b2DistanceInput input;

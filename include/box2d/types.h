@@ -8,6 +8,9 @@
 #include "id.h"
 #include "math_types.h"
 
+typedef bool b2CustomFilterCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,void* context);
+B2_API void b2World_SetCustomFilterCallback(b2WorldId worldId,b2CustomFilterCallbackFcn* fcn,void* context);
+
 typedef float b2FrictionCallbackFcn( float frictionA, uint64_t userMaterialIdA, float frictionB, uint64_t userMaterialIdB );
 typedef float b2RestitutionCallbackFcn( float restitutionA, uint64_t userMaterialIdA, float restitutionB, uint64_t userMaterialIdB );
 
@@ -141,6 +144,7 @@ typedef struct b2ShapeDef
     b2SurfaceMaterial material;
     float density;
     b2Filter filter;
+    bool enableCustomFiltering;
     bool isSensor;
     bool enableSensorEvents;
     bool enableContactEvents;

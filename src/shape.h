@@ -22,6 +22,7 @@ struct b2Shape
     void* userData;
     bool enableContactEvents;
     bool enableSensorEvents;
+    bool enableCustomFiltering;
     bool enableHitEvents;
     union
     {
