@@ -36,6 +36,7 @@ add_library(box2d
 	solver.cpp
 	solver_set.cpp
 	parallel_for.cpp
+	scheduler.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

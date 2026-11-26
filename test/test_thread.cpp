@@ -3,6 +3,8 @@
 
 #include "core.h"
 #include "parallel_for.h"
+#include "platform.h"
+#include "scheduler.h"
 #include "solver.h"
 #include "test_macros.h"
 
@@ -289,5 +291,77 @@ int TaskBatchTest( void )
 		ENSURE( ((b2StepTask*)batch.joinTasks[i].context)->context == &data[3 + i] );
 	}
 	ENSURE( context.taskCount == 5 );
+	return 0;
+}
+
+typedef struct SchedulerTaskData
+{
+	b2AtomicInt* total;
+	int* calls;
+	int id;
+} SchedulerTaskData;
+
+static void SchedulerTaskFcn( void* context )
+{
+	SchedulerTaskData* data = (SchedulerTaskData*)context;
+	b2AtomicFetchAddInt( data->total, 1 );
+	data->calls[data->id] += 1;
+}
+
+static int RunSchedulerPass( int workerCount, int taskCount )
+{
+	size_t before = b2GetByteCount();
+	b2Scheduler* scheduler = b2CreateScheduler( workerCount );
+	ENSURE( scheduler != NULL );
+	ENSURE( b2GetByteCount() > before );
+
+	b2AtomicInt total;
+	b2AtomicStoreInt( &total, 0 );
+	int calls[32] = {};
+	SchedulerTaskData data[32];
+	void* handles[32];
+	for ( int i = 0; i < taskCount; ++i )
+	{
+		data[i] = SchedulerTaskData{ &total, calls, i };
+		handles[i] = b2SchedulerEnqueueTask( SchedulerTaskFcn, &data[i], scheduler );
+		ENSURE( handles[i] != NULL );
+	}
+	for ( int i = taskCount - 1; i >= 0; --i )
+	{
+		b2SchedulerFinishTask( handles[i], scheduler );
+	}
+	ENSURE( b2AtomicLoadInt( &total ) == taskCount );
+	for ( int i = 0; i < taskCount; ++i )
+	{
+		ENSURE( calls[i] == 1 );
+	}
+
+	// reset 后继续入队，槽位重新使用但任务仍全部执行
+	b2ResetScheduler( scheduler );
+	int secondCalls[32] = {};
+	for ( int i = 0; i < taskCount; ++i )
+	{
+		data[i] = SchedulerTaskData{ &total, secondCalls, i };
+		handles[i] = b2SchedulerEnqueueTask( SchedulerTaskFcn, &data[i], scheduler );
+	}
+	for ( int i = 0; i < taskCount; ++i )
+	{
+		b2SchedulerFinishTask( handles[i], scheduler );
+	}
+	ENSURE( b2AtomicLoadInt( &total ) == 2 * taskCount );
+	for ( int i = 0; i < taskCount; ++i )
+	{
+		ENSURE( secondCalls[i] == 1 );
+	}
+
+	b2DestroyScheduler( scheduler );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
+
+int SchedulerTest( void )
+{
+	ENSURE( RunSchedulerPass( 4, 24 ) == 0 );
+	ENSURE( RunSchedulerPass( 2, 8 ) == 0 );
 	return 0;
 }

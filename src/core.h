@@ -21,6 +21,11 @@
 #define B2_SECRET_COOKIE 1152023
 #define B2_CHECK_DEF( DEF ) B2_ASSERT( ( DEF )->internalValue == B2_SECRET_COOKIE )
 
+typedef struct b2AtomicInt
+{
+	int value;
+} b2AtomicInt;
+
 typedef struct b2AtomicI64
 {
 	alignas( 8 ) int64_t value;
@@ -80,6 +85,7 @@ typedef struct b2Thread b2Thread;
 // name 可为 NULL，否则会被复制。
 b2Thread* b2CreateThread( b2ThreadFunction* function, void* context, const char* name );
 void b2JoinThread( b2Thread* t );
+void b2Yield( void );
 
 #ifdef __cplusplus
 #include <type_traits>

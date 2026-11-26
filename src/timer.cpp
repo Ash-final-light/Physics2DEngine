@@ -69,6 +69,11 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	return ms;
 }
 
+void b2Yield( void )
+{
+	SwitchToThread();
+}
+
 typedef struct b2Mutex
 {
 	CRITICAL_SECTION cs;
@@ -226,6 +231,7 @@ void b2JoinThread( b2Thread* t )
 #elif defined( __linux__ ) || defined( __EMSCRIPTEN__ )
 
 #include <time.h>
+#include <sched.h>
 
 uint64_t b2GetTicks( void )
 {
@@ -246,6 +252,11 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	float ms = (float)( ( ticksNow - *ticks ) / 1000000.0 );
 	*ticks = ticksNow;
 	return ms;
+}
+
+void b2Yield( void )
+{
+	sched_yield();
 }
 
 #include <pthread.h>
@@ -370,6 +381,7 @@ void b2JoinThread( b2Thread* t )
 #elif defined( __APPLE__ )
 
 #include <mach/mach_time.h>
+#include <sched.h>
 
 static double s_invFrequency = 0.0;
 
@@ -402,6 +414,11 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 	float ms = (float)( s_invFrequency * ( ticksNow - *ticks ) );
 	*ticks = ticksNow;
 	return ms;
+}
+
+void b2Yield( void )
+{
+	sched_yield();
 }
 
 #include <pthread.h>
@@ -539,6 +556,10 @@ float b2GetMillisecondsAndReset( uint64_t* ticks )
 {
 	(void)ticks;
 	return 0.0f;
+}
+
+void b2Yield( void )
+{
 }
 
 typedef struct b2Mutex
