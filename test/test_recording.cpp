@@ -318,3 +318,131 @@ int RecordingWorldLifetimeTest( void )
 	ENSURE( b2GetByteCount() == baseline );
 	return 0;
 }
+
+// Each public operation must append one complete frame with the stable opcode.
+#define CHECK_RECORD( opcode, ... ) \
+	do { \
+		int previousSize = b2Recording_GetSize( rec ); \
+		__VA_ARGS__; \
+		int currentSize = b2Recording_GetSize( rec ); \
+		ENSURE( currentSize >= previousSize + 4 ); \
+		const uint8_t* frame = b2Recording_GetData( rec ) + previousSize; \
+		ENSURE( frame[0] == opcode ); \
+		ENSURE( RecordingPayloadSize( frame ) + 4 == currentSize - previousSize ); \
+	} while ( 0 )
+
+int RecordingWorldOperationsTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( id, rec );
+	CHECK_RECORD( 0x02, b2World_EnableSleeping( id, false ) );
+	CHECK_RECORD( 0x03, b2World_EnableContinuous( id, false ) );
+	CHECK_RECORD( 0x04, b2World_SetRestitutionThreshold( id, 2.0f ) );
+	CHECK_RECORD( 0x05, b2World_SetHitEventThreshold( id, 3.0f ) );
+	int gravityOffset = b2Recording_GetSize( rec );
+	CHECK_RECORD( 0x06, b2World_SetGravity( id, ( b2Vec2{ 1.0f, -2.0f } ) ) );
+	const uint8_t* gravity = b2Recording_GetData( rec ) + gravityOffset;
+	ENSURE( RecordingPayloadSize( gravity ) == 12 );
+	ENSURE( ReadRecordingU32( gravity + 4 ) == b2StoreWorldId( id ) );
+	ENSURE( ReadRecordingU32( gravity + 8 ) == 0x3F800000u );
+	ENSURE( ReadRecordingU32( gravity + 12 ) == 0xC0000000u );
+	b2ExplosionDef explosion = b2DefaultExplosionDef();
+	CHECK_RECORD( 0x07, b2World_Explode( id, &explosion ) );
+	CHECK_RECORD( 0x08, b2World_SetContactTuning( id, 20, 0.8f, 2 ) );
+	CHECK_RECORD( 0x09, b2World_SetContactRecycleDistance( id, 0.02f ) );
+	CHECK_RECORD( 0x0A, b2World_SetMaxLinearSpeed( id, 100 ) );
+	CHECK_RECORD( 0x0B, b2World_EnableWarmStarting( id, false ) );
+	CHECK_RECORD( 0x0C, b2World_RebuildStaticTree( id ) );
+	CHECK_RECORD( 0x0D, b2World_SetRestitutionIterations( id, 2 ) );
+	CHECK_RECORD( 0x0E, b2World_EnableRestitutionPropagation( id, false ) );
+	b2World_StopRecording( id );
+	int stoppedSize = b2Recording_GetSize( rec );
+	b2World_SetGravity( id, b2Vec2_zero );
+	ENSURE( b2Recording_GetSize( rec ) == stoppedSize );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingBodyOperationsTest( void )
+{
+	int baseline = b2GetByteCount();
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( id, rec );
+	b2BodyDef bd = b2DefaultBodyDef();
+	b2BodyId body;
+	CHECK_RECORD( 0x10, body = b2CreateBody( id, &bd ) );
+	CHECK_RECORD( 0x20, b2Body_SetTransform( body, ( b2Pos{ 3, 5 } ), b2Rot_identity ) );
+	CHECK_RECORD( 0x22, b2Body_SetType( body, b2_dynamicBody ) );
+	CHECK_RECORD( 0x21, b2Body_SetLinearVelocity( body, ( b2Vec2{ 1, 2 } ) ) );
+	CHECK_RECORD( 0x23, b2Body_SetName( body, "moving" ) );
+	CHECK_RECORD( 0x24, b2Body_SetAngularVelocity( body, 0.5f ) );
+	b2WorldTransform target = { { 4, 6 }, b2Rot_identity };
+	CHECK_RECORD( 0x25, b2Body_SetTargetTransform( body, target, 0.5f, true ) );
+	CHECK_RECORD( 0x26, b2Body_ApplyForce( body, ( b2Vec2{ 1, 0 } ), ( b2Pos{ 3, 5 } ), true ) );
+	CHECK_RECORD( 0x27, b2Body_ApplyForceToCenter( body, ( b2Vec2{ 0, 1 } ), true ) );
+	CHECK_RECORD( 0x28, b2Body_ApplyTorque( body, 1, true ) );
+	CHECK_RECORD( 0x29, b2Body_ClearForces( body ) );
+	CHECK_RECORD( 0x2A, b2Body_ApplyLinearImpulse( body, ( b2Vec2{ 1, 0 } ), ( b2Pos{ 3, 5 } ), true ) );
+	CHECK_RECORD( 0x2B, b2Body_ApplyLinearImpulseToCenter( body, ( b2Vec2{ 0, 1 } ), true ) );
+	CHECK_RECORD( 0x2C, b2Body_ApplyAngularImpulse( body, 1, true ) );
+	b2MassData mass = { 2, { 0, 0 }, 1 };
+	CHECK_RECORD( 0x2D, b2Body_SetMassData( body, mass ) );
+	CHECK_RECORD( 0x2E, b2Body_UpdateMassFromShapes( body ) );
+	CHECK_RECORD( 0x2F, b2Body_SetLinearDamping( body, 0.1f ) );
+	CHECK_RECORD( 0x30, b2Body_SetAngularDamping( body, 0.2f ) );
+	CHECK_RECORD( 0x31, b2Body_SetGravityScale( body, 2.0f ) );
+	CHECK_RECORD( 0x32, b2Body_SetAwake( body, false ) );
+	CHECK_RECORD( 0x33, b2Body_WakeTouching( body ) );
+	CHECK_RECORD( 0x34, b2Body_EnableSleeping( body, false ) );
+	CHECK_RECORD( 0x35, b2Body_SetSleepThreshold( body, 0.05f ) );
+	CHECK_RECORD( 0x36, b2Body_Disable( body ) );
+	CHECK_RECORD( 0x37, b2Body_Enable( body ) );
+	CHECK_RECORD( 0x38, b2Body_SetMotionLocks( body, ( b2MotionLocks{ true, false, false } ) ) );
+	CHECK_RECORD( 0x39, b2Body_SetBullet( body, true ) );
+	CHECK_RECORD( 0x3A, b2Body_EnableContactRecycling( body, false ) );
+	CHECK_RECORD( 0x3B, b2Body_EnableContactEvents( body, true ) );
+	CHECK_RECORD( 0x3C, b2Body_EnableHitEvents( body, true ) );
+	CHECK_RECORD( 0x3D, b2Body_SetSafetyFactor( body, 0.8f ) );
+	CHECK_RECORD( 0x11, b2DestroyBody( body ) );
+	b2World_StopRecording( id );
+	b2DestroyRecording( rec );
+	b2DestroyWorld( id );
+	ENSURE( b2GetByteCount() == baseline );
+	return 0;
+}
+
+int RecordingBodyPayloadTest( void )
+{
+	b2WorldDef wd = b2DefaultWorldDef();
+	b2WorldId id = b2CreateWorld( &wd );
+	b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( id, rec );
+	b2BodyDef bd = b2DefaultBodyDef();
+	bd.type = b2_dynamicBody;
+	bd.name = "payload";
+	int start = b2Recording_GetSize( rec );
+	b2BodyId body = b2CreateBody( id, &bd );
+	const uint8_t* frame = b2Recording_GetData( rec ) + start;
+	int payloadSize = RecordingPayloadSize( frame );
+	ENSURE( frame[0] == 0x10 && ReadRecordingU32( frame + 4 ) == b2StoreWorldId( id ) );
+	ENSURE( ReadRecordingU32( frame + 8 ) == b2_dynamicBody );
+	uint64_t stored = b2StoreBodyId( body );
+	ENSURE( ReadRecordingU32( frame + payloadSize - 4 ) == (uint32_t)stored );
+	ENSURE( ReadRecordingU32( frame + payloadSize ) == (uint32_t)( stored >> 32 ) );
+	start = b2Recording_GetSize( rec );
+	b2Body_SetName( body, "abc" );
+	frame = b2Recording_GetData( rec ) + start;
+	ENSURE( frame[0] == 0x23 && RecordingPayloadSize( frame ) == 13 );
+	ENSURE( frame[12] == 3 && frame[13] == 0 && memcmp( frame + 14, "abc", 3 ) == 0 );
+	b2World_StopRecording( id );
+	b2DestroyWorld( id );
+	b2DestroyRecording( rec );
+	return 0;
+}

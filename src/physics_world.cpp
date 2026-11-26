@@ -473,6 +473,7 @@ void b2World_EnableWarmStarting(b2WorldId id,bool flag)
 {
     b2World* world=b2GetWorldFromId(id);
     if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldEnableWarmStarting, id, flag );
     world->enableWarmStarting=flag;
 }
 
@@ -487,6 +488,7 @@ void b2World_SetContactTuning(b2WorldId id,float hertz,float dampingRatio,float 
     if(!b2IsValidFloat(hertz) || !b2IsValidFloat(dampingRatio) || !b2IsValidFloat(pushSpeed)) { return; }
     b2World* world=b2GetWorldFromId(id);
     if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetContactTuning, id, hertz, dampingRatio, pushSpeed );
     world->contactHertz=b2ClampFloat(hertz,0.0f,FLT_MAX);
     world->contactDampingRatio=b2ClampFloat(dampingRatio,0.0f,FLT_MAX);
     world->contactSpeed=b2ClampFloat(pushSpeed,0.0f,FLT_MAX);
@@ -503,6 +505,7 @@ void b2World_SetContactRecycleDistance(b2WorldId id,float distance)
 {
     if(!b2IsValidFloat(distance)) { return; }
     b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetContactRecycleDistance, id, distance );
     world->contactRecycleDistance=b2ClampFloat(distance,0.0f,FLT_MAX);
 }
 
@@ -514,7 +517,9 @@ float b2World_GetContactRecycleDistance(b2WorldId id)
 void b2World_SetRestitutionThreshold(b2WorldId id,float value)
 {
     if(!b2IsValidFloat(value)) { return; }b2World* world=b2GetWorldFromId(id);
-    if(world==NULL || world->locked) { return; }world->restitutionThreshold=b2ClampFloat(value,0.0f,FLT_MAX);
+    if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetRestitutionThreshold, id, value );
+    world->restitutionThreshold=b2ClampFloat(value,0.0f,FLT_MAX);
 }
 
 float b2World_GetRestitutionThreshold(b2WorldId id)
@@ -525,7 +530,9 @@ float b2World_GetRestitutionThreshold(b2WorldId id)
 void b2World_SetRestitutionIterations(b2WorldId id,int iterations)
 {
     if(iterations<0) { return; }b2World* world=b2GetWorldFromId(id);
-    if(world==NULL || world->locked) { return; }world->restitutionIterations=b2ClampInt(iterations,0,B2_MAX_RESTITUTION_ITERATIONS);
+    if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetRestitutionIterations, id, iterations );
+    world->restitutionIterations=b2ClampInt(iterations,0,B2_MAX_RESTITUTION_ITERATIONS);
 }
 
 int b2World_GetRestitutionIterations(b2WorldId id)
@@ -535,7 +542,9 @@ int b2World_GetRestitutionIterations(b2WorldId id)
 
 void b2World_EnableRestitutionPropagation(b2WorldId id,bool flag)
 {
-    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->enableRestitutionPropagation=flag;
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldEnableRestitutionPropagation, id, flag );
+    world->enableRestitutionPropagation=flag;
 }
 
 bool b2World_IsRestitutionPropagationEnabled(b2WorldId id)
@@ -556,6 +565,7 @@ void b2World_SetRestitutionCallback(b2WorldId id,b2RestitutionCallbackFcn* callb
 void b2World_EnableSleeping(b2WorldId id,bool flag)
 {
     b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked || flag==world->enableSleep) { return; }
+    B2_REC( world, WorldEnableSleeping, id, flag );
     world->enableSleep=flag;
     if(!flag)
     {
@@ -572,7 +582,9 @@ bool b2World_IsSleepingEnabled(b2WorldId id)
 void b2World_SetMaxLinearSpeed(b2WorldId id,float speed)
 {
     if(!b2IsValidFloat(speed) || speed<=0) { return; }b2World* world=b2GetWorldFromId(id);
-    if(world==NULL || world->locked) { return; }world->maxLinearSpeed=speed;
+    if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetMaxLinearSpeed, id, speed );
+    world->maxLinearSpeed=speed;
 }
 
 float b2World_GetMaxLinearSpeed(b2WorldId id)
@@ -582,7 +594,13 @@ float b2World_GetMaxLinearSpeed(b2WorldId id)
 
 void b2World_SetGravity(b2WorldId id,b2Vec2 gravity)
 {
-    if(!b2IsValidVec2(gravity)) { return; }b2World* world=b2GetWorldFromId(id);if(world!=NULL) { world->gravity=gravity; }
+    if(!b2IsValidVec2(gravity)) { return; }
+    b2World* world=b2GetWorldFromId(id);
+    if(world!=NULL)
+    {
+        B2_REC( world, WorldSetGravity, id, gravity );
+        world->gravity=gravity;
+    }
 }
 
 b2Vec2 b2World_GetGravity(b2WorldId id)
@@ -592,7 +610,9 @@ b2Vec2 b2World_GetGravity(b2WorldId id)
 
 void b2World_EnableContinuous(b2WorldId id,bool flag)
 {
-    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }world->enableContinuous=flag;
+    b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldEnableContinuous, id, flag );
+    world->enableContinuous=flag;
 }
 
 bool b2World_IsContinuousEnabled(b2WorldId id)
@@ -722,6 +742,7 @@ b2JointEvents b2World_GetJointEvents(b2WorldId id)
 void b2World_SetHitEventThreshold(b2WorldId id,float value)
 {
     if(!b2IsValidFloat(value)) { return; }b2World* world=b2GetWorldFromId(id);if(world==NULL || world->locked) { return; }
+    B2_REC( world, WorldSetHitEventThreshold, id, value );
     world->hitEventThreshold=b2ClampFloat(value,0.0f,FLT_MAX);
 }
 
@@ -1274,6 +1295,7 @@ void b2World_Explode( b2WorldId worldId, const b2ExplosionDef* explosionDef )
 
 
 
+	B2_REC( world, WorldExplode, worldId, *explosionDef );
 	struct ExplosionContext explosionContext = { world, position, radius, falloff, impulsePerLength };
 
 	// 粗检测树是 float，因此将局部查询盒向外取整平移到世界。
@@ -1906,6 +1928,7 @@ void b2World_RebuildStaticTree( b2WorldId worldId )
 
 
 
+	B2_REC( world, WorldRebuildStaticTree, worldId );
 	b2DynamicTree* staticTree = world->broadPhase.trees + b2_staticBody;
 
 	// 被移动的代理在重建中必须保留该标志。

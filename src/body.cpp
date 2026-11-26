@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "body.h"
+#include "recording.h"
 
 #include "core.h"
 #include "world.h"
@@ -130,6 +131,7 @@ b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
     }
     if(setIndex==b2_awakeSet || setIndex>=b2_firstSleepingSet) { b2CreateIslandForBody(world,setIndex,body); }
     if(def->name!=NULL) { strncpy_s(body->name,sizeof(body->name),def->name,B2_NAME_LENGTH); }
+    B2_REC_CREATE( world, CreateBody, ( b2BodyId{ id + 1, world->worldId, generation } ), worldId, *def );
     return b2BodyId{id+1,world->worldId,generation};
 }
 
@@ -148,6 +150,7 @@ void b2DestroyBody( b2BodyId bodyId )
 	}
 
 
+    B2_REC( world, DestroyBody, bodyId );
     while(body->headJointKey!=B2_NULL_INDEX) { b2DestroyJointInternal(world,world->joints.data+(body->headJointKey>>1)); }
     b2DestroyBodyContacts( world, body );
     while ( body->headChainId != B2_NULL_INDEX )
@@ -203,6 +206,7 @@ void b2Body_SetName( b2BodyId bodyId, const char* name )
 	{
 		return;
 	}
+	B2_REC( ( b2_worlds + bodyId.world0 ), BodySetName, bodyId, name );
 	if ( name != NULL )
 	{
 		strncpy_s( body->name, sizeof( body->name ), name, B2_NAME_LENGTH );
@@ -310,6 +314,7 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	{
 		return;
 	}
+	B2_REC( world, BodySetTransform, bodyId, position, rotation );
 	b2Body* body = b2GetBodyFullId( world, bodyId );
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p = position;
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.q = rotation;
@@ -461,6 +466,7 @@ void b2Body_UpdateMassFromShapes( b2BodyId id )
 {
     if ( b2Body_IsValid( id ) && b2_worlds[id.world0].locked == false )
     {
+        B2_REC( ( b2_worlds + id.world0 ), BodyUpdateMassFromShapes, id );
         b2UpdateBodyMassData( b2_worlds + id.world0, b2GetBodyFullId( b2_worlds + id.world0, id ) );
     }
 }
@@ -475,6 +481,7 @@ void b2Body_SetMassData( b2BodyId id, b2MassData data )
         return;
     }
     b2World* world = b2_worlds + id.world0;
+    B2_REC( world, BodySetMassData, id, data );
     b2Body* body = b2GetBodyFullId( world, id );
     body->mass = data.mass;
     body->inertia = data.rotationalInertia;
@@ -561,6 +568,7 @@ void b2Body_SetLinearVelocity( b2BodyId id, b2Vec2 velocity )
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), BodySetLinearVelocity, id, velocity );
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
     if ( body->type == b2_staticBody || (body->setIndex != b2_disabledSet) == false )
     {
@@ -582,6 +590,7 @@ void b2Body_SetAngularVelocity( b2BodyId id, float velocity )
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), BodySetAngularVelocity, id, velocity );
     b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
     if ( body->type == b2_staticBody || (body->setIndex != b2_disabledSet) == false || ((body->flags & b2_lockAngularZ) != 0) )
     {
@@ -625,6 +634,7 @@ void b2Body_SetGravityScale( b2BodyId id, float scale )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( scale ) )
     {
+        B2_REC( ( b2_worlds + id.world0 ), BodySetGravityScale, id, scale );
         b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->gravityScale = scale;
     }
 }
@@ -640,6 +650,7 @@ void b2Body_SetLinearDamping( b2BodyId id, float damping )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
     {
+        B2_REC( ( b2_worlds + id.world0 ), BodySetLinearDamping, id, damping );
         b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->linearDamping = damping;
     }
 }
@@ -654,6 +665,7 @@ void b2Body_SetAngularDamping( b2BodyId id, float damping )
 {
     if ( b2Body_IsValid( id ) && b2IsValidFloat( damping ) && damping >= 0.0f )
     {
+        B2_REC( ( b2_worlds + id.world0 ), BodySetAngularDamping, id, damping );
         b2GetBodySim(b2_worlds+id.world0,b2GetBodyFullId( b2_worlds+id.world0, id ))->angularDamping = damping;
     }
 }
@@ -689,6 +701,7 @@ void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyForce, id, force, point, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -703,6 +716,7 @@ void b2Body_ApplyForceToCenter( b2BodyId id, b2Vec2 force, bool wake )
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyForceToCenter, id, force, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -714,6 +728,7 @@ void b2Body_ClearForces( b2BodyId id )
 {
     if ( b2Body_IsValid( id ) )
     {
+        B2_REC( ( b2_worlds + id.world0 ), BodyClearForces, id );
         b2Body* body = b2GetBodyFullId( b2_worlds+id.world0, id );
         b2GetBodySim(b2_worlds+id.world0,body)->force = b2Vec2_zero;
         b2GetBodySim(b2_worlds+id.world0,body)->torque = 0.0f;
@@ -727,6 +742,7 @@ void b2Body_ApplyTorque( b2BodyId id, float torque, bool wake )
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyTorque, id, torque, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -748,6 +764,7 @@ void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool w
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyLinearImpulse, id, impulse, point, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -763,6 +780,7 @@ void b2Body_ApplyLinearImpulseToCenter( b2BodyId id, b2Vec2 impulse, bool wake )
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyLinearImpulseToCenter, id, impulse, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -778,6 +796,7 @@ void b2Body_ApplyAngularImpulse( b2BodyId id, float impulse, bool wake )
     {
         return;
     }
+    if ( b2Body_IsValid( id ) ) { B2_REC( ( b2_worlds + id.world0 ), BodyApplyAngularImpulse, id, impulse, wake ); }
     b2Body* body = b2GetBodyForExternalAction( id, wake );
     if ( body != NULL )
     {
@@ -792,6 +811,7 @@ void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float time
     {
         return;
     }
+    B2_REC( ( b2_worlds + id.world0 ), BodySetTargetTransform, id, target, timeStep, wake );
     b2Body* body=b2GetBodyFullId(b2_worlds+id.world0,id);
     if ( (body->setIndex != b2_disabledSet)==false || body->type==b2_staticBody || ((body->setIndex == b2_awakeSet)==false && wake==false) )
     {
@@ -827,6 +847,7 @@ void b2Body_SetType( b2BodyId id, b2BodyType type )
     if(b2Body_IsValid(id)==false || type<b2_staticBody || type>=b2_bodyTypeCount || b2_worlds[id.world0].locked)
     { return; }
     b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodySetType, id, (int32_t)type );
     b2Body* body=b2GetBodyFullId(world,id);
     if(body->type==type) { return; }
     b2WakeBody(world,body);
@@ -890,7 +911,9 @@ int b2Body_GetContactData( b2BodyId id, b2ContactData* output, int capacity )
 void b2Body_EnableContactRecycling(b2BodyId id,bool flag)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyEnableContactRecycling, id, flag );
+    b2Body* body=b2GetBodyFullId(world,id);
     uint32_t newFlag=flag?b2_bodyEnableContactRecycling:0;
     if((body->flags&b2_bodyEnableContactRecycling)==newFlag) { return; }
     body->flags=(body->flags&~b2_bodyEnableContactRecycling)|newFlag;b2SyncBodyFlags(world,body);
@@ -904,7 +927,9 @@ bool b2Body_IsContactRecyclingEnabled(b2BodyId id)
 void b2Body_SetMotionLocks(b2BodyId id,b2MotionLocks locks)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodySetMotionLocks, id, locks );
+    b2Body* body=b2GetBodyFullId(world,id);
     uint32_t newFlags=(locks.linearX?b2_lockLinearX:0)|(locks.linearY?b2_lockLinearY:0)|(locks.angularZ?b2_lockAngularZ:0);
     if((body->flags&b2_allLocks)==newFlags) { return; }
     body->flags=(body->flags&~b2_allLocks)|newFlags;b2SyncBodyFlags(world,body);
@@ -927,7 +952,9 @@ b2MotionLocks b2Body_GetMotionLocks(b2BodyId id)
 void b2Body_Disable(b2BodyId id)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyDisable, id );
+    b2Body* body=b2GetBodyFullId(world,id);
     if(body->setIndex==b2_disabledSet) { return; }
     // Removing support must wake connected bodies, including when this body is static.
     int key=body->headContactKey;
@@ -948,7 +975,9 @@ void b2Body_Disable(b2BodyId id)
 void b2Body_Enable(b2BodyId id)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyEnable, id );
+    b2Body* body=b2GetBodyFullId(world,id);
     if(body->setIndex!=b2_disabledSet) { return; }
     int target=body->type==b2_staticBody?b2_staticSet:b2_awakeSet;
     b2TransferBody(world,world->solverSets.data+target,world->solverSets.data+b2_disabledSet,body);
@@ -972,7 +1001,9 @@ bool b2Body_IsAwake(b2BodyId id)
 void b2Body_SetAwake(b2BodyId id,bool awake)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodySetAwake, id, awake );
+    b2Body* body=b2GetBodyFullId(world,id);
     if(awake && body->setIndex>=b2_firstSleepingSet) { b2WakeBody(world,body); }
     else if(!awake && body->setIndex==b2_awakeSet)
     {
@@ -984,7 +1015,9 @@ void b2Body_SetAwake(b2BodyId id,bool awake)
 void b2Body_WakeTouching(b2BodyId id)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyWakeTouching, id );
+    b2Body* body=b2GetBodyFullId(world,id);
     int key=body->headContactKey;
     while(key!=B2_NULL_INDEX)
     {
@@ -997,6 +1030,7 @@ void b2Body_WakeTouching(b2BodyId id)
 void b2Body_SetSleepThreshold(b2BodyId id,float threshold)
 {
     if(!b2IsValidFloat(threshold) || threshold<0 || !b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), BodySetSleepThreshold, id, threshold );
     b2GetBodyFullId(b2_worlds+id.world0,id)->sleepThreshold=threshold;
 }
 
@@ -1008,7 +1042,9 @@ float b2Body_GetSleepThreshold(b2BodyId id)
 void b2Body_EnableSleeping(b2BodyId id,bool enableSleep)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyEnableSleeping, id, enableSleep );
+    b2Body* body=b2GetBodyFullId(world,id);
     bool current=(body->flags&b2_enableSleep)!=0;if(current==enableSleep) { return; }
     body->flags=enableSleep?body->flags|b2_enableSleep:body->flags&~b2_enableSleep;b2SyncBodyFlags(world,body);
     if(!enableSleep) { b2WakeBody(world,body); }
@@ -1022,7 +1058,9 @@ bool b2Body_IsSleepingEnabled(b2BodyId id)
 void b2Body_SetBullet(b2BodyId id,bool flag)
 {
     if(!b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
-    b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodySetBullet, id, flag );
+    b2Body* body=b2GetBodyFullId(world,id);
     uint32_t newFlag=flag?b2_isBullet:0;if((body->flags&b2_isBullet)==newFlag) { return; }
     body->flags=(body->flags&~b2_isBullet)|newFlag;b2SyncBodyFlags(world,body);
 }
@@ -1035,6 +1073,7 @@ bool b2Body_IsBullet(b2BodyId id)
 void b2Body_SetSafetyFactor(b2BodyId id,float factor)
 {
     if(!b2IsValidFloat(factor) || factor<0 || !b2Body_IsValid(id) || b2_worlds[id.world0].locked) { return; }
+    B2_REC( ( b2_worlds + id.world0 ), BodySetSafetyFactor, id, factor );
     b2GetBodyFullId(b2_worlds+id.world0,id)->safetyFactor=factor;
 }
 
@@ -1045,14 +1084,18 @@ float b2Body_GetSafetyFactor(b2BodyId id)
 
 void b2Body_EnableContactEvents(b2BodyId id,bool flag)
 {
-    if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyEnableContactEvents, id, flag );
+    b2Body* body=b2GetBodyFullId(world,id);
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { world->shapes.data[shapeId].enableContactEvents=flag; }
 }
 
 void b2Body_EnableHitEvents(b2BodyId id,bool flag)
 {
-    if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;b2Body* body=b2GetBodyFullId(world,id);
+    if(!b2Body_IsValid(id)) { return; }b2World* world=b2_worlds+id.world0;
+    B2_REC( world, BodyEnableHitEvents, id, flag );
+    b2Body* body=b2GetBodyFullId(world,id);
     for(int shapeId=body->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
     { world->shapes.data[shapeId].enableHitEvents=flag; }
 }
