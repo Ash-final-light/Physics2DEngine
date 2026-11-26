@@ -126,6 +126,8 @@ typedef struct b2QueryFilter
 	uint64_t maskBits;
 } b2QueryFilter;
 B2_API b2QueryFilter b2DefaultQueryFilter(void);
+typedef float b2CastResultCallbackFcn(b2ShapeId shapeId,b2Pos point,b2Vec2 normal,float fraction,void* context);
+B2_API b2TreeStats b2World_CastRay(b2WorldId worldId,b2Pos origin,b2Vec2 translation,b2QueryFilter filter,b2CastResultCallbackFcn* fcn,void* context);
 typedef bool b2OverlapResultCallbackFcn(b2ShapeId shapeId,void* context);
 B2_API b2TreeStats b2World_OverlapShape(b2WorldId worldId,b2Pos origin,const b2ShapeProxy* proxy,b2QueryFilter filter,b2OverlapResultCallbackFcn* fcn,void* context);
 B2_API b2TreeStats b2World_OverlapAABB(b2WorldId worldId,b2Pos origin,b2AABB aabb,b2QueryFilter filter,b2OverlapResultCallbackFcn* fcn,void* context);

@@ -652,3 +652,98 @@ b2TreeStats b2World_OverlapShape( b2WorldId worldId, b2Pos origin, const b2Shape
 
 	return treeStats;
 }
+
+typedef struct WorldRayCastContext
+{
+	b2World* world;
+	b2CastResultCallbackFcn* fcn;
+	b2QueryFilter filter;
+	float fraction;
+	b2Pos origin;
+	void* userContext;
+} WorldRayCastContext;
+
+static float RayCastCallback( const b2RayCastInput* input, int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+
+	WorldRayCastContext* worldContext = static_cast<WorldRayCastContext *>( context );
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return input->maxFraction;
+	}
+
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2WorldTransform bodyTransform = b2GetBodySim(world,body)->transform;
+	b2Transform transform = b2ToRelativeTransform( bodyTransform, worldContext->origin );
+
+	b2RayCastInput localInput = *input;
+	localInput.origin = b2Vec2_zero;
+	b2CastOutput output = b2RayCastShape( &localInput, shape, transform );
+
+	if ( output.hit )
+	{
+		b2ShapeId id = { shapeId + 1, world->worldId, shape->generation };
+		b2Pos point = b2OffsetPos( worldContext->origin, output.point );
+		float fraction = worldContext->fcn( id, point, output.normal, output.fraction, worldContext->userContext );
+
+		// 用户可返回 -1 以跳过此形状
+		if ( 0.0f <= fraction && fraction <= 1.0f )
+		{
+			worldContext->fraction = fraction;
+		}
+
+		return fraction;
+	}
+
+	return input->maxFraction;
+}
+
+b2TreeStats b2World_CastRay( b2WorldId worldId, b2Pos origin, b2Vec2 translation, b2QueryFilter filter,
+							 b2CastResultCallbackFcn* fcn, void* context )
+{
+	b2TreeStats treeStats = {};
+
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world==NULL || world->locked || fcn==NULL )
+	{
+		return treeStats;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidVec2( translation ) );
+
+
+
+	// 树遍历看到的原点被截断为 float，射线最多偏移一个坐标 ULP，
+	// 在极端距离上相当于擦边漏检容差。每形状投射相对上下文携带的全精度原点重新做差。
+	b2RayCastInput input = { b2ToVec2( origin ), translation, 1.0f };
+
+	WorldRayCastContext worldContext = { world, fcn, filter, 1.0f, origin, context };
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2TreeStats treeResult = b2DynamicTree_CastRay( world->broadPhase.trees + i, &input, filter.maskBits,
+														RayCastCallback, &worldContext );
+		treeStats.nodeVisits += treeResult.nodeVisits;
+		treeStats.leafVisits += treeResult.leafVisits;
+
+		if ( worldContext.fraction == 0.0f )
+		{
+			break;
+		}
+
+		input.maxFraction = worldContext.fraction;
+	}
+
+
+
+	return treeStats;
+}

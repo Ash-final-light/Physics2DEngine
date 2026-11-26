@@ -56,3 +56,33 @@ int WorldOverlapShapeTest(void)
     filter.maskBits=2;hits.count=0;b2World_OverlapShape(id,origin,&proxy,filter,CollectOverlap,&hits);ENSURE(hits.count==1 && hits.shapes[0].index1==far.index1);
     b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+struct RayHits { int count;int mode;int skipIndex;bool valid;b2ShapeId shape;b2Pos point;b2Vec2 normal;float fraction; };
+static float CollectRay(b2ShapeId shape,b2Pos point,b2Vec2 normal,float fraction,void* context)
+{
+    RayHits* hits=static_cast<RayHits*>(context);++hits->count;hits->valid&=b2Shape_IsValid(shape)&&b2IsValidVec2(point)&&b2IsValidVec2(normal)&&fraction>=0&&fraction<=1;
+    if(hits->mode==3 && shape.index1==hits->skipIndex) { return -1; }
+    hits->shape=shape;hits->point=point;hits->normal=normal;hits->fraction=fraction;
+    if(hits->mode==0) { return 1; }if(hits->mode==2) { return 0; }return fraction;
+}
+
+int WorldRayCastTest(void)
+{
+    size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);
+    b2World* world=b2_worlds+id.index1-1;b2Pos origin={1000,2000};b2BodyDef bd=b2DefaultBodyDef();bd.position={1002,2000};b2ShapeDef sd=b2DefaultShapeDef();
+    b2BodyId body=b2CreateBody(id,&bd);b2Circle circle={{0,0},0.5f};b2ShapeId near=b2CreateCircleShape(body,&sd,&circle);
+    bd.type=b2_dynamicBody;bd.position={1005,2000};body=b2CreateBody(id,&bd);sd.filter.categoryBits=2;b2Polygon box=b2MakeBox(0.5f,0.5f);b2ShapeId middle=b2CreatePolygonShape(body,&sd,&box);
+    bd.type=b2_kinematicBody;bd.position={1008,2000};body=b2CreateBody(id,&bd);sd.filter.categoryBits=4;b2Capsule capsule={{0,-0.5f},{0,0.5f},0.5f};b2ShapeId far=b2CreateCapsuleShape(body,&sd,&capsule);
+    b2QueryFilter filter=b2DefaultQueryFilter();RayHits hits={};hits.valid=true;hits.mode=0;
+    b2TreeStats stats=b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==3 && hits.valid && stats.leafVisits>=3);
+    hits={};hits.valid=true;hits.mode=1;b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);
+    ENSURE(hits.count==1 && hits.shape.index1==near.index1);ENSURE_SMALL(hits.fraction-0.15f,0.00001f);
+    ENSURE_SMALL(hits.point.x-1001.5f,0.00001f);ENSURE(hits.point.y==2000 && hits.normal.x==-1 && hits.normal.y==0);
+    hits={};hits.valid=true;hits.mode=2;b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==1);
+    hits={};hits.valid=true;hits.mode=3;hits.skipIndex=near.index1;b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);ENSURE(hits.shape.index1==middle.index1 && hits.count>=2 && hits.count<=3);
+    ENSURE_SMALL(hits.fraction-0.45f,0.00001f);
+    hits={};hits.valid=true;filter.maskBits=4;b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);ENSURE(hits.count==1 && hits.shape.index1==far.index1);
+    hits.count=0;b2World_CastRay(id,origin,{0,10},filter,CollectRay,&hits);ENSURE(hits.count==0);
+    world->locked=true;stats=b2World_CastRay(id,origin,{10,0},filter,CollectRay,&hits);world->locked=false;ENSURE(hits.count==0 && stats.nodeVisits==0);
+    b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

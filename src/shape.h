@@ -99,3 +99,5 @@ static inline bool b2ShouldQueryCollide( b2Filter shapeFilter, b2QueryFilter que
 {
 	return ( shapeFilter.categoryBits & queryFilter.maskBits ) != 0 && ( shapeFilter.maskBits & queryFilter.categoryBits ) != 0;
 }
+
+b2CastOutput b2RayCastShape(const b2RayCastInput* input,const b2Shape* shape,b2Transform transform);

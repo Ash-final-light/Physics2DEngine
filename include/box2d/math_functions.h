@@ -561,3 +561,13 @@ B2_INLINE b2Transform b2ToRelativeTransform( b2WorldTransform t, b2Pos base )
 	r.p = B2_LITERAL( b2Vec2 ){ (float)( t.p.x - base.x ), (float)( t.p.y - base.y ) };
 	return r;
 }
+
+B2_INLINE b2Vec2 b2ToVec2( b2Pos p )
+{
+	return B2_LITERAL( b2Vec2 ){ (float)p.x, (float)p.y };
+}
+
+B2_INLINE b2Pos b2OffsetPos( b2Pos p, b2Vec2 d )
+{
+	return B2_LITERAL( b2Pos ){ p.x + d.x, p.y + d.y };
+}

@@ -1126,3 +1126,38 @@ bool b2Shape_ArePreSolveEventsEnabled( b2ShapeId shapeId )
 	b2Shape* shape = b2GetShapeFromId(shapeId);
 	return shape->enablePreSolveEvents;
 }
+
+b2CastOutput b2RayCastShape( const b2RayCastInput* input, const b2Shape* shape,
+							 b2Transform transform )
+{
+	b2RayCastInput localInput = *input;
+	localInput.origin = b2InvTransformPoint( transform, input->origin );
+	localInput.translation = b2InvRotateVector( transform.q, input->translation );
+
+	b2CastOutput output = {};
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			output = b2CastRayCapsule( &shape->capsule, &localInput );
+			break;
+		case b2_circleShape:
+			output = b2CastRayCircle( &shape->circle, &localInput );
+			break;
+		case b2_polygonShape:
+			output = b2CastRayPolygon( &shape->polygon, &localInput );
+			break;
+		case b2_segmentShape:
+			output = b2CastRaySegment( &shape->segment, &localInput, false );
+			break;
+		case b2_chainSegmentShape:
+			output = b2CastRaySegment( &shape->chainSegment.segment, &localInput, true );
+			break;
+		default:
+			return output;
+	}
+
+	// 输出点留在输入变换的坐标系中，这是调用者选择的坐标系，通常重定心到原点附近。
+	output.point = b2TransformPoint( transform, output.point );
+	output.normal = b2RotateVector( transform.q, output.normal );
+	return output;
+}
