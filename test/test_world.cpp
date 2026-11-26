@@ -310,7 +310,8 @@ int WorldProfileMemoryTest(void)
     ENSURE(profile.pairs>=0 && profile.collide>=0 && profile.solve>=0 && profile.prepareConstraints>=0);
     ENSURE(profile.integrateVelocities>=0 && profile.warmStart>=0 && profile.solveImpulses>=0 && profile.integratePositions>=0 && profile.relaxImpulses>=0);
     ENSURE(profile.step+0.001f>=profile.pairs+profile.collide+profile.solve);
-    ENSURE(profile.sensors>=0 && profile.jointEvents==0 && profile.hitEvents>=0 && profile.bullets==0 && profile.restitution==0);
+    // 关节事件计时自 M207 起为真实测量值，与其它计时字段一样只要求非负。
+    ENSURE(profile.sensors>=0 && profile.jointEvents>=0 && profile.hitEvents>=0 && profile.bullets==0 && profile.restitution==0);
     world->profile.sensorHits=123;b2World_Step(id,1.0f/60.0f,1);ENSURE(b2World_GetProfile(id).sensorHits==0);
     size_t bytes=b2GetByteCount();b2World_DumpMemoryStats(id);ENSURE(b2GetByteCount()==bytes);
     FILE* file=fopen("box2d_memory.txt","r");ENSURE(file!=NULL);
