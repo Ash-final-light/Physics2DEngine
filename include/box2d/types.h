@@ -987,6 +987,8 @@ B2_API b2Transform b2Joint_GetLocalFrameA(b2JointId jointId);
 B2_API b2Transform b2Joint_GetLocalFrameB(b2JointId jointId);
 B2_API void b2Joint_SetLocalFrameA(b2JointId jointId,b2Transform localFrame);
 B2_API void b2Joint_SetLocalFrameB(b2JointId jointId,b2Transform localFrame);
+B2_API void b2Joint_SetConstraintTuning(b2JointId jointId,float hertz,float dampingRatio);
+B2_API void b2Joint_GetConstraintTuning(b2JointId jointId,float* hertz,float* dampingRatio);
 B2_API void b2DistanceJoint_SetRestLength(b2JointId jointId,float length);
 B2_API float b2DistanceJoint_GetRestLength(b2JointId jointId);
 B2_API float b2DistanceJoint_GetCurrentLength(b2JointId jointId);

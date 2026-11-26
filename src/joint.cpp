@@ -546,6 +546,28 @@ void b2Joint_SetLocalFrameB( b2JointId jointId, b2Transform localFrame )
 	b2GetJointSim( world, joint )->localFrameB = localFrame;
 }
 
+void b2Joint_SetConstraintTuning( b2JointId jointId, float hertz, float dampingRatio )
+{
+	if ( b2IsValidFloat( hertz ) == false || hertz < 0.0f || b2IsValidFloat( dampingRatio ) == false || dampingRatio < 0.0f || b2Joint_IsValid( jointId ) == false )
+	{
+		return;
+	}
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	base->constraintHertz = hertz;
+	base->constraintDampingRatio = dampingRatio;
+}
+
+void b2Joint_GetConstraintTuning( b2JointId jointId, float* hertz, float* dampingRatio )
+{
+	b2World* world = b2_worlds + jointId.world0;
+	b2Joint* joint = b2GetJointFullId( world, jointId );
+	b2JointSim* base = b2GetJointSim( world, joint );
+	*hertz = base->constraintHertz;
+	*dampingRatio = base->constraintDampingRatio;
+}
+
 void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 {
 	// 按时间步钳制关节 hertz 以减少抖动。
