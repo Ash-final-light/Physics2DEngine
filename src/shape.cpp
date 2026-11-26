@@ -1533,3 +1533,54 @@ void b2Shape_ApplyWind( b2ShapeId shapeId, b2Vec2 wind, float drag, float lift, 
 	sim->force = b2Add( sim->force, force );
 	sim->torque += torque;
 }
+
+b2PlaneResult b2CollideMover( const b2Capsule* mover, const b2Shape* shape, b2Transform transform )
+{
+	b2Capsule localMover;
+	localMover.center1 = b2InvTransformPoint( transform, mover->center1 );
+	localMover.center2 = b2InvTransformPoint( transform, mover->center2 );
+	localMover.radius = mover->radius;
+
+	b2PlaneResult result = {};
+	switch ( shape->type )
+	{
+		case b2_capsuleShape:
+			result = b2CollideMoverAndCapsule( &localMover, &shape->capsule );
+			break;
+		case b2_circleShape:
+			result = b2CollideMoverAndCircle( &localMover, &shape->circle );
+			break;
+		case b2_polygonShape:
+			result = b2CollideMoverAndPolygon( &localMover, &shape->polygon );
+			break;
+		case b2_segmentShape:
+			result = b2CollideMoverAndSegment( &localMover, &shape->segment );
+			break;
+		case b2_chainSegmentShape:
+		{
+			b2Vec2 centroid = b2Lerp( localMover.center1, localMover.center2, 0.5f );
+			b2Vec2 edge =
+				b2Sub( shape->chainSegment.segment.point2, shape->chainSegment.segment.point1 );
+			b2Vec2 r = b2Sub( centroid, shape->chainSegment.segment.point1 );
+
+			// 跳过背面碰撞。
+			if ( b2Cross( r, edge ) < 0.0f )
+			{
+				return result;
+			}
+
+			result = b2CollideMoverAndSegment( &localMover, &shape->chainSegment.segment );
+		}
+		break;
+		default:
+			return result;
+	}
+
+	if ( result.hit == false )
+	{
+		return result;
+	}
+
+	result.plane.normal = b2RotateVector( transform.q, result.plane.normal );
+	return result;
+}

@@ -756,3 +756,107 @@ b2CastOutput b2CastShapePolygon( const b2Polygon* shape, const b2ShapeCastInput*
 	pairInput.canEncroach = input->canEncroach;
 	return b2CastShape( &pairInput );
 }
+
+b2PlaneResult b2CollideMoverAndCircle( const b2Capsule* mover, const b2Circle* shape )
+{
+	b2DistanceInput distanceInput;
+	distanceInput.proxyA = b2MakeProxy( &shape->center, 1, 0.0f );
+	distanceInput.proxyB = b2MakeProxy( &mover->center1, 2, mover->radius );
+	distanceInput.transform = b2Transform_identity;
+	distanceInput.useRadii = false;
+
+	float totalRadius = mover->radius + shape->radius;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+	if ( distanceOutput.distance <= totalRadius )
+	{
+		b2Plane plane = { distanceOutput.normal, totalRadius - distanceOutput.distance };
+		return b2PlaneResult{
+			.plane = plane,
+			.point = distanceOutput.pointA,
+			.hit = true,
+		};
+	}
+
+	return b2PlaneResult{};
+}
+
+b2PlaneResult b2CollideMoverAndCapsule( const b2Capsule* mover, const b2Capsule* shape )
+{
+	b2DistanceInput distanceInput;
+	distanceInput.proxyA = b2MakeProxy( &shape->center1, 2, 0.0f );
+	distanceInput.proxyB = b2MakeProxy( &mover->center1, 2, mover->radius );
+	distanceInput.transform = b2Transform_identity;
+	distanceInput.useRadii = false;
+
+	float totalRadius = mover->radius + shape->radius;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+	if ( distanceOutput.distance <= totalRadius )
+	{
+		b2Plane plane = { distanceOutput.normal, totalRadius - distanceOutput.distance };
+		return b2PlaneResult{
+			.plane = plane,
+			.point = distanceOutput.pointA,
+			.hit = true,
+		};
+	}
+
+	return b2PlaneResult{};
+}
+
+b2PlaneResult b2CollideMoverAndPolygon( const b2Capsule* mover, const b2Polygon* shape )
+{
+	b2DistanceInput distanceInput;
+	distanceInput.proxyA = b2MakeProxy( shape->vertices, shape->count, shape->radius );
+	distanceInput.proxyB = b2MakeProxy( &mover->center1, 2, mover->radius );
+	distanceInput.transform = b2Transform_identity;
+	distanceInput.useRadii = false;
+
+	float totalRadius = mover->radius + shape->radius;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+	if ( distanceOutput.distance <= totalRadius )
+	{
+		b2Plane plane = { distanceOutput.normal, totalRadius - distanceOutput.distance };
+		return b2PlaneResult{
+			.plane = plane,
+			.point = distanceOutput.pointA,
+			.hit = true,
+		};
+	}
+
+	return b2PlaneResult{};
+}
+
+b2PlaneResult b2CollideMoverAndSegment( const b2Capsule* mover, const b2Segment* shape )
+{
+	b2DistanceInput distanceInput;
+	distanceInput.proxyA = b2MakeProxy( &shape->point1, 2, 0.0f );
+	distanceInput.proxyB = b2MakeProxy( &mover->center1, 2, mover->radius );
+	distanceInput.transform = b2Transform_identity;
+	distanceInput.useRadii = false;
+
+	float totalRadius = mover->radius;
+
+	b2SimplexCache cache = {};
+	b2DistanceOutput distanceOutput = b2ComputeShapeDistance( &distanceInput, &cache, NULL, 0 );
+
+	if ( distanceOutput.distance <= totalRadius )
+	{
+		b2Plane plane = { distanceOutput.normal, totalRadius - distanceOutput.distance };
+		return b2PlaneResult{
+			.plane = plane,
+			.point = distanceOutput.pointA,
+			.hit = true,
+		};
+	}
+
+	return b2PlaneResult{};
+}

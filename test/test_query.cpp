@@ -3,6 +3,7 @@
 #include "test_macros.h"
 #include "world.h"
 #include "body.h"
+#include "shape.h"
 
 struct QueryHits { b2ShapeId shapes[16];int count;bool keepGoing;bool valid; };
 static bool CollectOverlap(b2ShapeId shape,void* context)
@@ -196,5 +197,29 @@ int WorldMoverCastTest(void)
  filter.maskBits=4;f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);ENSURE_SMALL(f-0.64f,0.002f);
  filter.maskBits=UINT64_MAX;f=b2World_CastMover(id,{1000,2000},&mover,{-10,0},filter);ENSURE(f==1);
  b2World* world=b2_worlds+id.index1-1;world->locked=true;f=b2World_CastMover(id,{1000,2000},&mover,{10,0},filter);world->locked=false;ENSURE(f==1);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
+
+struct PlaneHits { b2PlaneResult planes[8];int count;bool keepGoing;bool valid; };
+static bool CollectPlane(b2ShapeId shape,const b2PlaneResult* plane,void* context)
+{
+ PlaneHits* hits=static_cast<PlaneHits*>(context);hits->valid&=b2Shape_IsValid(shape)&&plane->hit&&b2IsNormalized(plane->plane.normal);
+ if(hits->count<8) { hits->planes[hits->count]=*plane; }++hits->count;return hits->keepGoing;
+}
+int WorldMoverPlanesTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();b2WorldId id=b2CreateWorld(&wd);
+ b2BodyDef bd=b2DefaultBodyDef();bd.position={1000,2000};b2BodyId body=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Segment floor={{-10,0},{10,0}},wall={{0,-10},{0,10}};
+ b2CreateSegmentShape(body,&sd,&floor);sd.filter.categoryBits=2;b2CreateSegmentShape(body,&sd,&wall);
+ b2Capsule mover={{0.4f,0.25f},{0.4f,1.25f},0.5f};b2QueryFilter filter=b2DefaultQueryFilter();PlaneHits hits={};hits.keepGoing=true;hits.valid=true;
+ b2World_CollideMover(id,{1000,2000},&mover,filter,CollectPlane,&hits);ENSURE(hits.count==2 && hits.valid);bool up=false,right=false;
+ for(int i=0;i<2;++i) { b2Plane plane=hits.planes[i].plane;if(plane.normal.y>0.99f) { up=true;ENSURE_SMALL(plane.offset-0.25f,0.0001f); }if(plane.normal.x>0.99f) { right=true;ENSURE_SMALL(plane.offset-0.1f,0.0001f); } }ENSURE(up && right);
+ filter.maskBits=2;hits.count=0;b2World_CollideMover(id,{1000,2000},&mover,filter,CollectPlane,&hits);ENSURE(hits.count==1 && hits.planes[0].plane.normal.x>0.99f);
+ filter.maskBits=UINT64_MAX;hits.count=0;hits.keepGoing=false;b2World_CollideMover(id,{1000,2000},&mover,filter,CollectPlane,&hits);ENSURE(hits.count==1);
+ hits.count=0;hits.keepGoing=true;b2World_CollideMover(id,{1100,2100},&mover,filter,CollectPlane,&hits);ENSURE(hits.count==0);
+ b2Shape shape={};shape.type=b2_circleShape;shape.circle={{0,0},0.5f};b2Capsule testMover={{0,0.75f},{0,1.5f},0.5f};b2PlaneResult p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(p.hit && p.plane.normal.y>0.99f);ENSURE_SMALL(p.plane.offset-0.25f,0.00001f);
+ shape.type=b2_capsuleShape;shape.capsule={{-1,0},{1,0},0.5f};p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(p.hit && p.plane.normal.y>0.99f);
+ shape.type=b2_polygonShape;shape.polygon=b2MakeBox(1,0.5f);p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(p.hit && p.plane.normal.y>0.99f);
+ shape.type=b2_chainSegmentShape;shape.chainSegment.segment={{1,0},{-1,0}};testMover={{0,0.25f},{0,1.25f},0.5f};p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(p.hit);testMover={{0,-0.25f},{0,-1.25f},0.5f};p=b2CollideMover(&testMover,&shape,b2Transform_identity);ENSURE(!p.hit);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }

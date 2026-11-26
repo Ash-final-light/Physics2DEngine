@@ -439,3 +439,15 @@ typedef struct b2PlaneSolverResult
 B2_API b2PlaneSolverResult b2SolvePlanes( b2Vec2 targetDelta, b2CollisionPlane* planes, int count );
 
 B2_API b2Vec2 b2ClipVector(b2Vec2 vector,const b2CollisionPlane* planes,int count);
+
+typedef struct b2PlaneResult
+{
+	/// 移动器与凸形状之间的碰撞平面
+	b2Plane plane;
+
+	/// 形状上的碰撞点。
+	b2Vec2 point;
+
+	/// 碰撞是否登记为命中？若否，应忽略此平面。
+	bool hit;
+} b2PlaneResult;

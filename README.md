@@ -176,3 +176,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2ClipVector` 使用平面求解器记录的有效推移裁剪角色速度；离开表面的速度和禁止裁剪的软碰撞平面保持其原有作用。
 
 `b2World_CastMover` 扫掠相对查询原点的胶囊，返回可移动分数。它使用角色贴面推进语义，并忽略初始重叠形状。
+
+`b2World_CollideMover` 为胶囊收集世界接触平面，通过形状过滤器和回调选择需要的接触。平面可交给 `b2SolvePlanes` 与 `b2ClipVector` 处理位移和速度。

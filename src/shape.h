@@ -105,3 +105,9 @@ b2CastOutput b2RayCastShape(const b2RayCastInput* input,const b2Shape* shape,b2T
 b2CastOutput b2ShapeCastShape(const b2ShapeCastInput* input,const b2Shape* shape,b2Transform transform);
 
 float b2GetShapeProjectedPerimeter(const b2Shape* shape,b2Vec2 line);
+
+b2PlaneResult b2CollideMoverAndCircle( const b2Capsule* mover, const b2Circle* shape );
+b2PlaneResult b2CollideMoverAndCapsule( const b2Capsule* mover, const b2Capsule* shape );
+b2PlaneResult b2CollideMoverAndPolygon( const b2Capsule* mover, const b2Polygon* shape );
+b2PlaneResult b2CollideMoverAndSegment( const b2Capsule* mover, const b2Segment* shape );
+b2PlaneResult b2CollideMover( const b2Capsule* mover, const b2Shape* shape, b2Transform transform );

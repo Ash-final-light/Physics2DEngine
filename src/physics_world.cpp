@@ -1132,3 +1132,81 @@ float b2World_CastMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mover
 
 	return worldContext.fraction;
 }
+
+typedef struct WorldMoverContext
+{
+	b2World* world;
+	b2PlaneResultCallbackFcn* fcn;
+	b2QueryFilter filter;
+	b2Capsule mover;
+	b2Pos origin;
+	void* userContext;
+} WorldMoverContext;
+
+static bool TreeCollideCallback( int proxyId, uint64_t userData, void* context )
+{
+	(void)proxyId;
+
+	int shapeId = (int)userData;
+	WorldMoverContext* worldContext = (WorldMoverContext*)context;
+	b2World* world = worldContext->world;
+
+	b2Shape* shape = b2Array_Get( world->shapes, shapeId );
+
+	if ( b2ShouldQueryCollide( shape->filter, worldContext->filter ) == false )
+	{
+		return true;
+	}
+
+	// 以查询原点重定心，移动体和结果平面相对原点
+	b2Body* body = b2Array_Get( world->bodies, shape->bodyId );
+	b2Transform transform = b2ToRelativeTransform( b2GetBodySim(world,body)->transform, worldContext->origin );
+
+	b2PlaneResult result = b2CollideMover( &worldContext->mover, shape, transform );
+
+	// todo 处理深度重叠
+	if ( result.hit && b2IsNormalized( result.plane.normal ) )
+	{
+		b2ShapeId id = { shape->id + 1, world->worldId, shape->generation };
+		return worldContext->fcn( id, &result, worldContext->userContext );
+	}
+
+	return true;
+}
+
+// 很想对移动体使用形状代理，但这使处理深度重叠变得困难，通用性可能不值得。
+void b2World_CollideMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mover, b2QueryFilter filter,
+						   b2PlaneResultCallbackFcn* fcn, void* context )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+
+	if ( world == nullptr || world->locked || fcn == nullptr )
+	{
+		return;
+	}
+
+	B2_ASSERT( b2IsValidVec2( origin ) );
+
+
+
+
+	b2Vec2 r = { mover->radius, mover->radius };
+
+	// 相对盒向外取整提升到世界 float，对树保守
+	b2AABB relBox;
+	relBox.lowerBound = b2Sub( b2Min( mover->center1, mover->center2 ), r );
+	relBox.upperBound = b2Add( b2Max( mover->center1, mover->center2 ), r );
+	b2AABB aabb = b2OffsetAABB( relBox, origin );
+
+	WorldMoverContext worldContext = {
+		world, fcn, filter, *mover, origin, context,
+	};
+
+	for ( int i = 0; i < b2_bodyTypeCount; ++i )
+	{
+		b2DynamicTree_OverlapAABB( world->broadPhase.trees + i, aabb, filter.maskBits, TreeCollideCallback,
+								   &worldContext );
+	}
+
+
+}
