@@ -75,6 +75,12 @@ void b2DestroySemaphore( b2Semaphore* s );
 void b2WaitSemaphore( b2Semaphore* s );
 void b2SignalSemaphore( b2Semaphore* s );
 
+typedef void b2ThreadFunction( void* context );
+typedef struct b2Thread b2Thread;
+// name 可为 NULL，否则会被复制。
+b2Thread* b2CreateThread( b2ThreadFunction* function, void* context, const char* name );
+void b2JoinThread( b2Thread* t );
+
 #ifdef __cplusplus
 #include <type_traits>
 #define B2_TYPE_OF( A ) std::remove_cvref_t<decltype( A )>

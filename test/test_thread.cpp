@@ -111,3 +111,102 @@ int SemaphoreTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+typedef struct ThreadData
+{
+	int value;
+} ThreadData;
+
+static void ThreadWorker( void* context )
+{
+	ThreadData* data = (ThreadData*)context;
+	data->value = 99;
+}
+
+typedef struct JoinWaitData
+{
+	b2Semaphore* release;
+	std::atomic<int>* done;
+} JoinWaitData;
+
+static void JoinWaitWorker( void* context )
+{
+	JoinWaitData* data = (JoinWaitData*)context;
+	b2WaitSemaphore( data->release );
+	data->done->fetch_add( 1 );
+}
+
+typedef struct ThreadSumData
+{
+	b2Mutex* mutex;
+	int sum;
+} ThreadSumData;
+
+static void ThreadSumWorker( void* context )
+{
+	ThreadSumData* data = (ThreadSumData*)context;
+	for ( int i = 0; i < 250; ++i )
+	{
+		b2LockMutex( data->mutex );
+		data->sum += 1;
+		b2UnlockMutex( data->mutex );
+	}
+}
+
+int ThreadTest( void )
+{
+	size_t before = b2GetByteCount();
+
+	ThreadData data = {};
+	b2Thread* thread = b2CreateThread( ThreadWorker, &data, "worker" );
+	ENSURE( thread != NULL );
+	ENSURE( b2GetByteCount() > before );
+	b2JoinThread( thread );
+	ENSURE( data.value == 99 );
+
+	// join 必须等待任务真正完成
+	b2Semaphore* release = b2CreateSemaphore( 0 );
+	std::atomic<int> done{ 0 };
+	std::atomic<int> started{ 0 };
+	std::atomic<int> joined{ 0 };
+	JoinWaitData waitData = { release, &done };
+	b2Thread* blocked = b2CreateThread( JoinWaitWorker, &waitData, "join wait" );
+	std::thread joiner( [&]() {
+		started.fetch_add( 1 );
+		b2JoinThread( blocked );
+		joined.fetch_add( 1 );
+	} );
+	for ( int i = 0; i < 1000000 && started.load() == 0; ++i )
+	{
+		std::this_thread::yield();
+	}
+	ENSURE( started.load() == 1 );
+	for ( int i = 0; i < 1000; ++i )
+	{
+		std::this_thread::yield();
+	}
+	ENSURE( joined.load() == 0 );
+	ENSURE( done.load() == 0 );
+	b2SignalSemaphore( release );
+	joiner.join();
+	ENSURE( joined.load() == 1 );
+	ENSURE( done.load() == 1 );
+	b2DestroySemaphore( release );
+
+	ThreadSumData sumData = {};
+	sumData.mutex = b2CreateMutex();
+	b2Thread* workers[4];
+	for ( int i = 0; i < 4; ++i )
+	{
+		workers[i] = b2CreateThread( ThreadSumWorker, &sumData, "sum worker" );
+	}
+	for ( int i = 0; i < 4; ++i )
+	{
+		b2JoinThread( workers[i] );
+	}
+	ENSURE( sumData.sum == 1000 );
+	b2DestroyMutex( sumData.mutex );
+
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
