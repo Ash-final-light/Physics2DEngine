@@ -46,6 +46,7 @@ int ExternalTaskTest( void );
 int WorkerCountTest( void );
 int StepPhaseTest( void );
 int DeferredTaskTest( void );
+int StepOrderTest( void );
 int AABBTest( void );
 int AABBRayCastTest( void );
 int CircleSegmentTest( void );
@@ -474,6 +475,12 @@ int main( int argc, char** argv )
 	{
 		ran = 1;
 		RUN_TEST( DeferredTaskTest );
+	}
+
+	if ( filter == NULL || strcmp( filter, "StepOrderTest" ) == 0 )
+	{
+		ran = 1;
+		RUN_TEST( StepOrderTest );
 	}
 
 	if ( filter == NULL || strcmp( filter, "AABBTest" ) == 0 )

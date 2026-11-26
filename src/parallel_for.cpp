@@ -29,15 +29,17 @@ static void b2RunStepTask( void* taskContext )
 
 void b2ResetTaskBatch( b2StepContext* stepContext )
 {
-	// 上一批任务保留为下一批的依赖，必须复制出来以免被新任务覆盖。
-	for ( int i = 0; i < stepContext->batchTaskCount; ++i )
+	// 上一批的普通任务与延迟任务都保留为下一批的依赖，且必须复制出来以免被新任务覆盖。
+	int base = stepContext->treeStaged ? 0 : stepContext->batchTaskBase;
+	int count = stepContext->batchTaskCount + ( stepContext->treeStaged ? 1 : 0 );
+	for ( int i = 0; i < count; ++i )
 	{
-		stepContext->joinStepTasks[i] = stepContext->stepTasks[stepContext->batchTaskBase + i];
-		stepContext->joinTasks[i] = stepContext->tasks[stepContext->batchTaskBase + i];
+		stepContext->joinStepTasks[i] = stepContext->stepTasks[base + i];
+		stepContext->joinTasks[i] = stepContext->tasks[base + i];
 		stepContext->joinTasks[i].context = stepContext->joinStepTasks + i;
 	}
 	stepContext->joinTaskBase = 0;
-	stepContext->joinTaskCount = stepContext->batchTaskCount;
+	stepContext->joinTaskCount = count;
 	stepContext->batchTaskBase = 1;
 	stepContext->batchTaskCount = 0;
 	stepContext->treeStaged = false;

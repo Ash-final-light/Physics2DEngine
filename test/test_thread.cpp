@@ -686,3 +686,119 @@ int DeferredTaskTest( void )
 	b2DestroySemaphore( context.treeSemaphore );
 	return 0;
 }
+
+typedef struct OrderHost
+{
+	bool reverse;
+	int* sequence;
+	int* sequenceCount;
+	const b2Task* held;
+} OrderHost;
+
+static void RunMixedBatch( OrderHost* host, b2TaskBatch batch )
+{
+	for ( int k = 0; k < batch.count; ++k )
+	{
+		int i = host->reverse ? batch.count - 1 - k : k;
+		const b2Task* task = batch.tasks + i;
+		if ( task->deferred )
+		{
+			host->held = task;
+			continue;
+		}
+		task->fcn( task->context );
+	}
+	if ( batch.joinCount > 0 && host->held != NULL )
+	{
+		host->held->fcn( host->held->context );
+		host->held = NULL;
+	}
+}
+
+int StepOrderTest( void )
+{
+	size_t before = b2GetByteCount();
+	b2StepContext context = {};
+	int calls[4] = {};
+	int deferredCalls = 0;
+	int sequence[16] = {};
+	int sequenceCount = 0;
+	ExternalCounter counters[4];
+	for ( int i = 0; i < 4; ++i )
+	{
+		counters[i] = ExternalCounter{ calls, sequence, &sequenceCount, i };
+	}
+
+	b2ResetTaskBatch( &context );
+	b2AddTask( &context, b2_taskPairs, ExternalTaskFcn, &counters[0] );
+	b2AddTask( &context, b2_taskCollide, ExternalTaskFcn, &counters[1] );
+	DeferredData deferred = { &deferredCalls, sequence, &sequenceCount };
+	b2StageDeferredTask( &context, b2_taskTreeRebuild, DeferredTaskFcn, &deferred );
+	b2TaskBatch batch = b2MakeTaskBatch( &context );
+	OrderHost forward = { false, sequence, &sequenceCount, NULL };
+	RunMixedBatch( &forward, batch );
+	// 首批没有前置接合任务，宿主在阶段末尾接合延迟任务
+	if ( forward.held != NULL )
+	{
+		forward.held->fcn( forward.held->context );
+		forward.held = NULL;
+	}
+	ENSURE( forward.held == NULL && sequenceCount == 3 );
+	ENSURE( calls[0] == 1 && calls[1] == 1 && deferredCalls == 1 );
+
+	// 重置后上一批的普通任务与延迟任务都进入接合集合
+	b2ResetTaskBatch( &context );
+	batch = b2MakeTaskBatch( &context );
+	ENSURE( batch.count == 0 && batch.joinCount == 3 );
+	bool hasDeferred = false;
+	for ( int i = 0; i < batch.joinCount; ++i )
+	{
+		hasDeferred = hasDeferred || batch.joinTasks[i].type == b2_taskTreeRebuild;
+	}
+	ENSURE( hasDeferred );
+
+	for ( int i = 2; i < 4; ++i )
+	{
+		calls[i] = 0;
+	}
+	sequenceCount = 0;
+	deferredCalls = 0;
+	b2AddTask( &context, b2_taskSolver, ExternalTaskFcn, &counters[2] );
+	b2AddTask( &context, b2_taskFinalize, ExternalTaskFcn, &counters[3] );
+	b2StageDeferredTask( &context, b2_taskTreeRebuild, DeferredTaskFcn, &deferred );
+	batch = b2MakeTaskBatch( &context );
+	OrderHost reverse = { true, sequence, &sequenceCount, NULL };
+	RunMixedBatch( &reverse, batch );
+	ENSURE( reverse.held == NULL && sequenceCount == 3 );
+	ENSURE( calls[2] == 1 && calls[3] == 1 && deferredCalls == 1 );
+
+	// 重复步进后完整 Step 与分阶段 Step 保持一致，且世界仍可继续
+	StepWorld full = CreateStepWorld( false );
+	StepWorld staged = CreateStepWorld( false );
+	for ( int i = 0; i < 4; ++i )
+	{
+		b2World_Step( full.worldId, 1.0f / 60.0f, 4 );
+		RunStagedStep( staged.worldId, 1.0f / 60.0f, 4 );
+	}
+	b2Vec2 p1 = b2Body_GetPosition( full.bodyId );
+	b2Vec2 p2 = b2Body_GetPosition( staged.bodyId );
+	ENSURE_SMALL( p1.x - p2.x, 0.000001f );
+	ENSURE_SMALL( p1.y - p2.y, 0.000001f );
+
+	b2TaskBatch active = b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 );
+	ENSURE( active.count > 0 );
+	ENSURE( b2World_BeginStep( staged.worldId, 1.0f / 60.0f, 4 ).count == 0 );
+	for ( int i = 0; i < active.count; ++i )
+	{
+		active.tasks[i].fcn( active.tasks[i].context );
+	}
+	ENSURE( b2World_ContinueStep( staged.worldId ).count == 0 );
+	ENSURE( b2World_ContinueStep( staged.worldId ).count == 0 );
+	b2World_Step( staged.worldId, 1.0f / 60.0f, 4 );
+	ENSURE( b2World_IsValid( staged.worldId ) );
+
+	b2DestroyWorld( full.worldId );
+	b2DestroyWorld( staged.worldId );
+	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
