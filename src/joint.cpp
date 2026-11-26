@@ -445,10 +445,12 @@ b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def)
  if(!b2World_IsValid(worldId) || !b2IsValidFloat(def->length) || def->length<=0 || !b2IsValidTransform(def->base.localFrameA) || !b2IsValidTransform(def->base.localFrameB) || !b2IsValidFloat(def->base.constraintHertz) || def->base.constraintHertz<0 || !b2IsValidFloat(def->base.constraintDampingRatio) || def->base.constraintDampingRatio<0 || !b2IsValidFloat(def->base.drawScale)) { return b2_nullJointId; }
  if(!b2IsValidFloat(def->hertz) || !b2IsValidFloat(def->dampingRatio) || !b2IsValidFloat(def->lowerSpringForce) || !b2IsValidFloat(def->upperSpringForce)) { return b2_nullJointId; }
  if(!b2IsValidFloat(def->minLength) || !b2IsValidFloat(def->maxLength)) { return b2_nullJointId; }
+ if(!b2IsValidFloat(def->maxMotorForce) || !b2IsValidFloat(def->motorSpeed)) { return b2_nullJointId; }
  b2World* world=b2_worlds+worldId.index1-1;const b2JointDef* base=&def->base;
  if(!world->inUse || world->locked || base->bodyIdA.world0!=world->worldId || base->bodyIdB.world0!=world->worldId || base->bodyIdA.index1==base->bodyIdB.index1 || !b2Body_IsValid(base->bodyIdA) || !b2Body_IsValid(base->bodyIdB)) { return b2_nullJointId; }
  b2JointPair pair=b2CreateJoint(world,base,b2_distanceJoint);pair.jointSim->distanceJoint={};pair.jointSim->distanceJoint.length=b2MaxFloat(def->length,B2_LINEAR_SLOP);
 
+ pair.jointSim->distanceJoint.enableMotor=def->enableMotor;pair.jointSim->distanceJoint.maxMotorForce=def->maxMotorForce;pair.jointSim->distanceJoint.motorSpeed=def->motorSpeed;
  pair.jointSim->distanceJoint.enableLimit=def->enableLimit;pair.jointSim->distanceJoint.minLength=b2MaxFloat(def->minLength,B2_LINEAR_SLOP);pair.jointSim->distanceJoint.maxLength=b2MaxFloat(def->minLength,def->maxLength);
  pair.jointSim->distanceJoint.enableSpring=def->enableSpring;pair.jointSim->distanceJoint.hertz=def->hertz;pair.jointSim->distanceJoint.dampingRatio=def->dampingRatio;
  pair.jointSim->distanceJoint.lowerSpringForce=b2MinFloat(def->lowerSpringForce,def->upperSpringForce);pair.jointSim->distanceJoint.upperSpringForce=b2MaxFloat(def->lowerSpringForce,def->upperSpringForce);

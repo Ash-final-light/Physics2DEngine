@@ -933,14 +933,47 @@ typedef struct b2JointDef
 
 typedef struct b2DistanceJointDef
 {
- b2JointDef base;
- float length;
- bool enableSpring;
- float lowerSpringForce,upperSpringForce;
- float hertz,dampingRatio;
- bool enableLimit;
- float minLength,maxLength;
- int internalValue;
+	/// 基础关节定义
+	b2JointDef base;
+
+	/// 此关节的静止长度。夹紧到稳定的最小值。
+	float length;
+
+	/// 使距离约束表现为弹簧。若为 false，则距离关节为刚性，覆盖限位与马达。
+	bool enableSpring;
+
+	/// 下限弹簧力控制它能承受的张力。
+	float lowerSpringForce;
+
+	/// 上限弹簧力控制它能承受的压缩。
+	float upperSpringForce;
+
+	/// 弹簧线性刚度赫兹，每秒周期数。
+	float hertz;
+
+	/// 弹簧线性阻尼比，无量纲
+	float dampingRatio;
+
+	/// 启用/禁用关节限位
+	bool enableLimit;
+
+	/// 限位的最小长度。夹紧到稳定的最小值。
+	float minLength;
+
+	/// 限位的最大长度。必须大于或等于最小长度。
+	float maxLength;
+
+	/// 启用/禁用关节马达
+	bool enableMotor;
+
+	/// 最大马达力，通常以牛顿为单位
+	float maxMotorForce;
+
+	/// 期望的马达速度，通常以米每秒为单位
+	float motorSpeed;
+
+	/// 内部用于检测有效定义。请勿设置。
+	int internalValue;
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
@@ -969,3 +1002,11 @@ B2_API bool b2DistanceJoint_IsLimitEnabled( b2JointId jointId );
 B2_API void b2DistanceJoint_SetLimits( b2JointId jointId, float minLength, float maxLength );
 B2_API float b2DistanceJoint_GetLowerLimit( b2JointId jointId );
 B2_API float b2DistanceJoint_GetUpperLimit( b2JointId jointId );
+
+B2_API void b2DistanceJoint_EnableMotor( b2JointId jointId, bool enableMotor );
+B2_API bool b2DistanceJoint_IsMotorEnabled( b2JointId jointId );
+B2_API void b2DistanceJoint_SetTargetMotorSpeed( b2JointId jointId, float motorSpeed );
+B2_API float b2DistanceJoint_GetTargetMotorSpeed( b2JointId jointId );
+B2_API float b2DistanceJoint_GetCurrentMotorForce( b2JointId jointId );
+B2_API void b2DistanceJoint_SetMaxMotorForce( b2JointId jointId, float force );
+B2_API float b2DistanceJoint_GetMaxMotorForce( b2JointId jointId );

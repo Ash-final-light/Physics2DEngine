@@ -50,19 +50,37 @@ typedef struct b2Joint
 
 } b2Joint;
 
-struct b2DistanceJoint
+typedef struct b2DistanceJoint
 {
- float length;
- float hertz,dampingRatio,lowerSpringForce,upperSpringForce;
- bool enableSpring;
- b2Softness distanceSoftness;
- float minLength,maxLength;
- bool enableLimit;
- float impulse,lowerImpulse,upperImpulse;
- int indexA,indexB;
- b2Vec2 anchorA,anchorB,deltaCenter;
- float axialMass;
-};
+	float length;
+	float hertz;
+	float dampingRatio;
+	float lowerSpringForce;
+	float upperSpringForce;
+	float minLength;
+	float maxLength;
+
+	float maxMotorForce;
+	float motorSpeed;
+
+	float impulse;
+	float lowerImpulse;
+	float upperImpulse;
+	float motorImpulse;
+
+	int indexA;
+	int indexB;
+	b2Vec2 anchorA;
+	b2Vec2 anchorB;
+	b2Vec2 deltaCenter;
+	b2Softness distanceSoftness;
+	float axialMass;
+
+	bool enableSpring;
+	bool enableLimit;
+	bool enableMotor;
+} b2DistanceJoint;
+
 typedef struct b2JointSim
 {
 	int jointId;

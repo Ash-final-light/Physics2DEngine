@@ -101,3 +101,21 @@ int DistanceJointLimitTest(void)
  b2DistanceJoint_EnableLimit(joint,true);b2DistanceJoint_SetLimits(joint,2,3);b2DistanceJoint_EnableSpring(joint,false);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+int DistanceJointMotorTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();b2BodyId anchor=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={2,0};b2BodyId bob=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();sd.density=1/B2_PI;b2Circle c={{0,0},1};b2CreateCircleShape(bob,&sd,&c);
+ b2DistanceJointDef def=b2DefaultDistanceJointDef();ENSURE(!def.enableMotor && def.maxMotorForce==0 && def.motorSpeed==0);def.base.bodyIdA=anchor;def.base.bodyIdB=bob;def.enableSpring=true;def.enableMotor=true;def.maxMotorForce=10;def.motorSpeed=2;b2JointId joint=b2CreateDistanceJoint(id,&def);
+ ENSURE(b2DistanceJoint_IsMotorEnabled(joint) && b2DistanceJoint_GetMaxMotorForce(joint)==10 && b2DistanceJoint_GetTargetMotorSpeed(joint)==2);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x-0.1f,0.0001f);ENSURE_SMALL(b2DistanceJoint_GetCurrentMotorForce(joint)-10,0.0001f);
+ for(int i=0;i<30;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x-2,0.0001f);
+ b2DistanceJoint_SetTargetMotorSpeed(joint,-1);b2DistanceJoint_SetMaxMotorForce(joint,5);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2DistanceJoint_GetCurrentMotorForce(joint)+5,0.0001f);
+ for(int i=0;i<90;++i) { b2World_Step(id,0.01f,1); }ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x+1,0.0001f);
+ b2DistanceJoint_EnableMotor(joint,false);ENSURE(!b2DistanceJoint_IsMotorEnabled(joint) && b2DistanceJoint_GetCurrentMotorForce(joint)==0);float x=b2Body_GetPosition(bob).x;b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetPosition(bob).x-x+0.01f,0.0001f);
+ b2DistanceJoint_EnableMotor(joint,true);b2DistanceJoint_SetMaxMotorForce(joint,0);b2DistanceJoint_SetTargetMotorSpeed(joint,100);b2Body_SetLinearVelocity(bob,{0,0});b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x,0.0001f);
+ b2DistanceJoint_SetLimits(joint,1,2.5f);b2DistanceJoint_EnableLimit(joint,true);b2DistanceJoint_SetMaxMotorForce(joint,100);b2DistanceJoint_SetTargetMotorSpeed(joint,5);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2DistanceJoint_GetCurrentLength(joint)<=2.51f);
+ b2DistanceJoint_SetTargetMotorSpeed(joint,-5);for(int i=0;i<120;++i) { b2World_Step(id,1.0f/60,4); }ENSURE(b2DistanceJoint_GetCurrentLength(joint)>=0.99f);
+ b2DistanceJoint_EnableSpring(joint,false);b2DistanceJoint_SetTargetMotorSpeed(joint,5);for(int i=0;i<60;++i) { b2World_Step(id,1.0f/60,4); }ENSURE_SMALL(b2DistanceJoint_GetCurrentLength(joint)-1,0.01f);
+ b2DestroyJoint(joint);b2Body_SetTransform(bob,{2,0},b2Rot_identity);b2Body_SetLinearVelocity(bob,{0,0});def.maxMotorForce=1;def.motorSpeed=10;for(int i=0;i<26;++i) { ENSURE(b2CreateDistanceJoint(id,&def).index1>0); }
+ b2World* world=b2_worlds+id.index1-1;ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);b2World_EnableWarmStarting(id,false);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(bob).x-0.26f,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}
