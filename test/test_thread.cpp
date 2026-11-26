@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MIT
 
 #include "core.h"
+#include "parallel_for.h"
+#include "solver.h"
 #include "test_macros.h"
 
 #include <atomic>
@@ -208,5 +210,84 @@ int ThreadTest( void )
 	b2DestroyMutex( sumData.mutex );
 
 	ENSURE( b2GetByteCount() == before );
+	return 0;
+}
+
+typedef struct BatchTaskData
+{
+	int id;
+	int* calls;
+	int* sequence;
+	int* sequenceCount;
+} BatchTaskData;
+
+static void BatchTaskFcn( void* context )
+{
+	BatchTaskData* data = (BatchTaskData*)context;
+	data->calls[data->id] += 1;
+	data->sequence[data->sequenceCount[0]++] = data->id;
+}
+
+int TaskBatchTest( void )
+{
+	b2StepContext context = {};
+	int calls[5] = {};
+	int sequence[8] = {};
+	int sequenceCount = 0;
+	BatchTaskData data[5];
+	for ( int i = 0; i < 5; ++i )
+	{
+		data[i] = BatchTaskData{ i, calls, sequence, &sequenceCount };
+	}
+
+	b2ResetTaskBatch( &context );
+	for ( int i = 0; i < 3; ++i )
+	{
+		b2AddTask( &context, (b2TaskType)( b2_taskPairs + i ), BatchTaskFcn, &data[i] );
+	}
+	b2TaskBatch batch = b2MakeTaskBatch( &context );
+	ENSURE( batch.count == 3 && batch.joinCount == 0 );
+	for ( int i = 0; i < batch.count; ++i )
+	{
+		ENSURE( batch.tasks[i].fcn != NULL );
+		ENSURE( batch.tasks[i].type == (b2TaskType)( b2_taskPairs + i ) );
+		ENSURE( batch.tasks[i].deferred == false );
+		ENSURE( batch.tasks[i].context == &context.stepTasks[1 + i] );
+	}
+
+	// 上一批作为新批次的依赖：先执行接合任务，再执行本批任务，每个任务只执行一次
+	b2ResetTaskBatch( &context );
+	b2AddTask( &context, b2_taskSolver, BatchTaskFcn, &data[3] );
+	b2AddTask( &context, b2_taskFinalize, BatchTaskFcn, &data[4] );
+	batch = b2MakeTaskBatch( &context );
+	ENSURE( batch.count == 2 && batch.joinCount == 3 );
+	for ( int i = 0; i < batch.joinCount; ++i )
+	{
+		batch.joinTasks[i].fcn( batch.joinTasks[i].context );
+	}
+	for ( int i = 0; i < batch.count; ++i )
+	{
+		batch.tasks[i].fcn( batch.tasks[i].context );
+	}
+	for ( int i = 0; i < 5; ++i )
+	{
+		ENSURE( calls[i] == 1 );
+	}
+	ENSURE( sequenceCount == 5 );
+	for ( int i = 0; i < 5; ++i )
+	{
+		ENSURE( sequence[i] == i );
+	}
+
+	// 再次重置只保留最近一批，旧任务不会重复执行
+	b2ResetTaskBatch( &context );
+	batch = b2MakeTaskBatch( &context );
+	ENSURE( batch.count == 0 && batch.joinCount == 2 );
+	for ( int i = 0; i < batch.joinCount; ++i )
+	{
+		ENSURE( batch.joinTasks[i].context == &context.joinStepTasks[i] );
+		ENSURE( ((b2StepTask*)batch.joinTasks[i].context)->context == &data[3 + i] );
+	}
+	ENSURE( context.taskCount == 5 );
 	return 0;
 }

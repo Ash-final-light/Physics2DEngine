@@ -8,6 +8,38 @@
 #include "id.h"
 #include "math_types.h"
 
+/// Box2D 任务函数原型：每次入队恰好调用一次，并收到同一个 taskContext 指针。
+typedef void b2TaskCallbackFcn( void* taskContext );
+
+typedef enum b2TaskType
+{
+	b2_taskPairs,
+	b2_taskCollide,
+	b2_taskTreeRebuild,
+	b2_taskIslandSplit,
+	b2_taskSolver,
+	b2_taskFinalize,
+	b2_taskContinuous,
+	b2_taskSensors,
+	b2_taskTypeCount
+} b2TaskType;
+
+typedef struct b2Task
+{
+	b2TaskCallbackFcn* fcn;
+	void* context;
+	b2TaskType type;
+	bool deferred;
+} b2Task;
+
+typedef struct b2TaskBatch
+{
+	const b2Task* tasks;
+	int count;
+	const b2Task* joinTasks;
+	int joinCount;
+} b2TaskBatch;
+
 typedef void b2PreSolveCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Manifold* manifold,void* context);
 typedef bool b2PreContinuousCallbackFcn(b2ShapeId shapeIdA,b2ShapeId shapeIdB,b2Pos point,b2Vec2 normal,void* context);
 B2_API void b2World_SetPreSolveCallback(b2WorldId worldId,b2PreSolveCallbackFcn* preSolveFcn,b2PreContinuousCallbackFcn* preContinuousFcn,void* context);

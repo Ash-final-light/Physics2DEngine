@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include "box2d/constants.h"
 #include "box2d/math_functions.h"
+#include "box2d/types.h"
 
 struct b2Softness { float biasRate;float massScale;float impulseScale; };
 
@@ -54,6 +56,18 @@ static inline b2Softness b2MakeSoft( float hertz, float zeta, float h )
 struct b2World;
 struct b2ConstraintGraph;
 struct b2BodyState;
+struct b2StepContext;
+
+typedef struct b2StepTask
+{
+	b2TaskCallbackFcn* fcn;
+	void* context;
+	b2StepContext* stepContext;
+	bool deferred;
+} b2StepTask;
+
+#define B2_STEP_TASK_CAPACITY ( B2_MAX_WORKERS + 2 )
+
 struct b2StepContext
 {
     b2World* world;
@@ -62,5 +76,15 @@ struct b2StepContext
     float h;
     float inv_h;
     bool anyRestitution;
+
+	int batchTaskBase;
+	int batchTaskCount;
+	int taskCount;
+	int joinTaskBase;
+	int joinTaskCount;
+	b2Task tasks[B2_STEP_TASK_CAPACITY];
+	b2Task joinTasks[B2_STEP_TASK_CAPACITY];
+	b2StepTask joinStepTasks[B2_STEP_TASK_CAPACITY];
+	b2StepTask stepTasks[B2_STEP_TASK_CAPACITY];
 };
 void b2SolveFreeBodies( b2World* world, float timeStep, int subStepCount );
