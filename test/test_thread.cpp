@@ -615,3 +615,74 @@ int StepPhaseTest( void )
 	ENSURE( b2GetByteCount() == before );
 	return 0;
 }
+
+typedef struct DeferredData
+{
+	int* calls;
+	int* sequence;
+	int* sequenceCount;
+} DeferredData;
+
+static void DeferredTaskFcn( void* context )
+{
+	DeferredData* data = (DeferredData*)context;
+	data->calls[0] += 1;
+	data->sequence[data->sequenceCount[0]++] = 2;
+}
+
+int DeferredTaskTest( void )
+{
+	b2StepContext context = {};
+	int calls[2] = {};
+	int deferredCalls = 0;
+	int sequence[8] = {};
+	int sequenceCount = 0;
+	ExternalCounter counters[2];
+	for ( int i = 0; i < 2; ++i )
+	{
+		counters[i] = ExternalCounter{ calls, sequence, &sequenceCount, i };
+	}
+
+	b2ResetTaskBatch( &context );
+	b2AddTask( &context, b2_taskPairs, ExternalTaskFcn, &counters[0] );
+	b2AddTask( &context, b2_taskCollide, ExternalTaskFcn, &counters[1] );
+	DeferredData deferred = { &deferredCalls, sequence, &sequenceCount };
+	b2StageDeferredTask( &context, b2_taskTreeRebuild, DeferredTaskFcn, &deferred );
+	b2TaskBatch batch = b2MakeTaskBatch( &context );
+	ENSURE( batch.count == 3 && batch.joinCount == 0 );
+	ENSURE( batch.tasks[0].deferred && batch.tasks[0].type == b2_taskTreeRebuild );
+	ENSURE( batch.tasks[1].deferred == false && batch.tasks[2].deferred == false );
+
+	ExternalTaskRecord record = {};
+	void* treeHandle = NULL;
+	b2RunTaskBatchWithTree( ExternalEnqueue, ExternalFinish, &record, batch, &treeHandle );
+	ENSURE( treeHandle != NULL && deferredCalls == 0 );
+	ENSURE( calls[0] == 1 && calls[1] == 1 );
+	ENSURE( sequenceCount == 2 );
+	ENSURE( ( sequence[0] == 0 && sequence[1] == 1 ) || ( sequence[0] == 1 && sequence[1] == 0 ) );
+
+	// 延迟任务在后续接合时才执行，完成顺序可观察
+	ExternalFinish( treeHandle, &record );
+	ENSURE( deferredCalls == 1 && sequenceCount == 3 && sequence[2] == 2 );
+
+	// 信号量模式：任务完成后等待返回
+	context.treeStaged = false;
+	context.signalSemaphores = true;
+	context.batchSemaphore = b2CreateSemaphore( 0 );
+	context.treeSemaphore = b2CreateSemaphore( 0 );
+	b2AtomicStoreInt( &context.pendingCount, 2 );
+	b2ResetTaskBatch( &context );
+	b2AddTask( &context, b2_taskPairs, ExternalTaskFcn, &counters[0] );
+	b2AddTask( &context, b2_taskCollide, ExternalTaskFcn, &counters[1] );
+	b2StageDeferredTask( &context, b2_taskTreeRebuild, DeferredTaskFcn, &deferred );
+	batch = b2MakeTaskBatch( &context );
+	record = ExternalTaskRecord{};
+	record.inlineMode = true;
+	b2RunTaskBatchWithTree( ExternalEnqueue, ExternalFinish, &record, batch, &treeHandle );
+	ENSURE( treeHandle == NULL && deferredCalls == 2 );
+	b2WaitSemaphore( context.batchSemaphore );
+	b2WaitSemaphore( context.treeSemaphore );
+	b2DestroySemaphore( context.batchSemaphore );
+	b2DestroySemaphore( context.treeSemaphore );
+	return 0;
+}

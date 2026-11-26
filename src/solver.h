@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
+#include "core.h"
 #include "box2d/constants.h"
 #include "box2d/math_functions.h"
 #include "box2d/types.h"
+
+struct b2Semaphore;
 
 struct b2Softness { float biasRate;float massScale;float impulseScale; };
 
@@ -86,6 +89,12 @@ struct b2StepContext
 	int taskCount;
 	int joinTaskBase;
 	int joinTaskCount;
+	bool treeStaged;
+	bool signalSemaphores;
+	b2AtomicInt pendingCount;
+	b2AtomicInt treePending;
+	b2Semaphore* batchSemaphore;
+	b2Semaphore* treeSemaphore;
 	b2Task tasks[B2_STEP_TASK_CAPACITY];
 	b2Task joinTasks[B2_STEP_TASK_CAPACITY];
 	b2StepTask joinStepTasks[B2_STEP_TASK_CAPACITY];

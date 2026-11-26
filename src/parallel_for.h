@@ -14,6 +14,9 @@ void b2ResetTaskBatch( b2StepContext* stepContext );
 // 将一个任务加入当前批次。
 void b2AddTask( b2StepContext* stepContext, b2TaskType type, b2TaskCallbackFcn* fcn, void* context );
 
+// 将长时间运行的任务放入保留槽位，等待调用方在其他阶段接合。
+void b2StageDeferredTask( b2StepContext* stepContext, b2TaskType type, b2TaskCallbackFcn* fcn, void* context );
+
 // 生成当前批次的只读描述，包含本批任务与待接合的前批任务。
 b2TaskBatch b2MakeTaskBatch( const b2StepContext* stepContext );
 
@@ -21,3 +24,7 @@ b2TaskBatch b2MakeTaskBatch( const b2StepContext* stepContext );
 // 其余任务先入队，再按句柄等待完成。空句柄表示入队回调已同步执行任务。
 void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
 					 b2TaskBatch batch );
+
+// 与 b2RunTaskBatch 相同，但把延迟任务的句柄交回调用方以便后续接合。
+void b2RunTaskBatchWithTree( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
+							 b2TaskBatch batch, void** treeHandle );

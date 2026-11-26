@@ -3,12 +3,28 @@
 
 #include "parallel_for.h"
 
+#include "platform.h"
 #include "solver.h"
 
 static void b2RunStepTask( void* taskContext )
 {
 	b2StepTask* task = static_cast<b2StepTask*>( taskContext );
+	b2StepContext* stepContext = task->stepContext;
 	task->fcn( task->context );
+
+	if ( task->deferred )
+	{
+		if ( b2AtomicFetchAddInt( &stepContext->treePending, -1 ) == 1 && stepContext->signalSemaphores &&
+			 stepContext->treeSemaphore != NULL )
+		{
+			b2SignalSemaphore( stepContext->treeSemaphore );
+		}
+	}
+	else if ( b2AtomicFetchAddInt( &stepContext->pendingCount, -1 ) == 1 && stepContext->signalSemaphores &&
+			  stepContext->batchSemaphore != NULL )
+	{
+		b2SignalSemaphore( stepContext->batchSemaphore );
+	}
 }
 
 void b2ResetTaskBatch( b2StepContext* stepContext )
@@ -24,6 +40,7 @@ void b2ResetTaskBatch( b2StepContext* stepContext )
 	stepContext->joinTaskCount = stepContext->batchTaskCount;
 	stepContext->batchTaskBase = 1;
 	stepContext->batchTaskCount = 0;
+	stepContext->treeStaged = false;
 }
 
 void b2AddTask( b2StepContext* stepContext, b2TaskType type, b2TaskCallbackFcn* fcn, void* context )
@@ -42,18 +59,36 @@ void b2AddTask( b2StepContext* stepContext, b2TaskType type, b2TaskCallbackFcn* 
 	stepContext->taskCount += 1;
 }
 
+void b2StageDeferredTask( b2StepContext* stepContext, b2TaskType type, b2TaskCallbackFcn* fcn, void* context )
+{
+	B2_ASSERT( stepContext->treeStaged == false );
+
+	b2StepTask* stepTask = stepContext->stepTasks + 0;
+	stepTask->fcn = fcn;
+	stepTask->context = context;
+	stepTask->stepContext = stepContext;
+	stepTask->deferred = true;
+
+	stepContext->tasks[0] = b2Task{ b2RunStepTask, stepTask, type, true };
+	stepContext->treeStaged = true;
+	stepContext->taskCount += 1;
+	b2AtomicStoreInt( &stepContext->treePending, 1 );
+}
+
 b2TaskBatch b2MakeTaskBatch( const b2StepContext* stepContext )
 {
+	int base = stepContext->treeStaged ? 0 : stepContext->batchTaskBase;
+	int count = stepContext->batchTaskCount + ( stepContext->treeStaged ? 1 : 0 );
 	return b2TaskBatch{
-		stepContext->tasks + stepContext->batchTaskBase,
-		stepContext->batchTaskCount,
+		stepContext->tasks + base,
+		count,
 		stepContext->joinTasks + stepContext->joinTaskBase,
 		stepContext->joinTaskCount,
 	};
 }
 
-void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
-					 b2TaskBatch batch )
+void b2RunTaskBatchWithTree( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
+							 b2TaskBatch batch, void** treeHandle )
 {
 	if ( batch.count <= 0 )
 	{
@@ -61,7 +96,7 @@ void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn*
 	}
 
 	void* handles[B2_STEP_TASK_CAPACITY] = {};
-	void* joinHandle = NULL;
+	void* tree = NULL;
 	int lastIndex = batch.count - 1;
 	B2_ASSERT( lastIndex < B2_STEP_TASK_CAPACITY );
 
@@ -71,7 +106,7 @@ void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn*
 		void* handle = enqueue( task->fcn, task->context, userContext );
 		if ( task->deferred )
 		{
-			joinHandle = handle;
+			tree = handle;
 		}
 		else
 		{
@@ -92,9 +127,20 @@ void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn*
 				finish( handles[i], userContext );
 			}
 		}
-		if ( joinHandle != NULL )
-		{
-			finish( joinHandle, userContext );
-		}
 	}
+
+	if ( treeHandle != NULL )
+	{
+		*treeHandle = tree;
+	}
+	else if ( tree != NULL && finish != NULL )
+	{
+		finish( tree, userContext );
+	}
+}
+
+void b2RunTaskBatch( b2EnqueueTaskCallbackFcn* enqueue, b2FinishTaskCallbackFcn* finish, void* userContext,
+					 b2TaskBatch batch )
+{
+	b2RunTaskBatchWithTree( enqueue, finish, userContext, batch, NULL );
 }
