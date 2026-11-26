@@ -38,3 +38,6 @@ struct b2World;
 
 // 对活跃刚体的变换与速度做确定性哈希。
 uint64_t b2HashWorldState( b2World* world );
+
+// 对仿真状态做完整哈希，包含索引记账、接触与关节冲量、id 池和求解器集合计数。
+uint64_t b2HashWorldStateDeep( b2World* world );

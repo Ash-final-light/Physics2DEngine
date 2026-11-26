@@ -103,6 +103,10 @@ B2_API b2WorldDef b2DefaultWorldDef( void );
 B2_API b2WorldId b2CreateWorld( const b2WorldDef* def );
 B2_API void b2DestroyWorld( b2WorldId worldId );
 B2_API bool b2World_IsValid( b2WorldId id );
+
+/// 计算仿真状态的深层哈希。用于检测不同步，例如在回滚重仿真中。
+B2_API uint64_t b2World_GetStateHash( b2WorldId worldId );
+
 B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
 B2_API void* b2World_GetUserData( b2WorldId worldId );
 
