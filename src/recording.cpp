@@ -13,6 +13,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <limits.h>
 
 // 缓冲区辅助函数
 
@@ -821,4 +822,85 @@ bool b2Recording_SaveToFile( const b2Recording* recording, const char* path )
 	size_t written = fwrite( recording->buffer.data, 1, (size_t)recording->buffer.size, f );
 	int closeResult = fclose( f );
 	return (int)written == recording->buffer.size && closeResult == 0;
+}
+
+// Structural file validation. Operation payload semantics are checked by replay dispatch.
+static bool b2RecValidateFile( const uint8_t* data, int size )
+{
+    if ( size < (int)sizeof( b2RecHeader ) ) { return false; }
+    b2RecHeader hdr;
+    memcpy( &hdr, data, sizeof( hdr ) );
+    if ( hdr.magic != B2_REC_MAGIC || hdr.versionMajor != B2_REC_VERSION_MAJOR ||
+         hdr.versionMinor != B2_REC_VERSION_MINOR || hdr.pointerWidth != sizeof( void* ) || hdr.bigEndian != 0 ||
+         !b2IsValidFloat( hdr.lengthScale ) || hdr.lengthScale <= 0 ||
+         hdr.snapshotSize < 16 || hdr.snapshotSize > (uint64_t)( size - sizeof( hdr ) ) ) { return false; }
+    uint32_t snapshotHeader[4];
+    memcpy( snapshotHeader, data + sizeof( hdr ), sizeof( snapshotHeader ) );
+    if ( snapshotHeader[0] != 0x32534E42u || snapshotHeader[1] != 13u ||
+         ( ( snapshotHeader[3] & 2u ) != 0 ) != b2IsDoublePrecision() ) { return false; }
+    int cursor = (int)sizeof( hdr ) + (int)hdr.snapshotSize;
+    while ( cursor < size )
+    {
+        if ( size - cursor < 4 ) { return false; }
+        switch ( data[cursor] )
+        {
+#define B2_REC_OP( op, Name, RET, ... ) case op: break;
+#include "recording_ops.inl"
+#undef B2_REC_OP
+            default: return false;
+        }
+        int payload = data[cursor + 1] | (int)data[cursor + 2] << 8 | (int)data[cursor + 3] << 16;
+        if ( payload > size - cursor - 4 ) { return false; }
+        cursor += 4 + payload;
+    }
+    return true;
+}
+
+b2Recording* b2CreateRecordingFromFile( const char* path )
+{
+	if ( path == NULL )
+	{
+		return NULL;
+	}
+
+	FILE* f = fopen( path, "rb" );
+	if ( f == NULL )
+	{
+		return NULL;
+	}
+
+	if ( fseek( f, 0, SEEK_END ) != 0 )
+	{
+		fclose( f );
+		return NULL;
+	}
+
+	long fileSize = ftell( f );
+	// 小于固定头的内容不可能是录制，因此在此拒绝，而不是交回稍后才失败的畸形缓冲区
+	if ( fileSize < (long)sizeof( b2RecHeader ) || fileSize > INT_MAX )
+	{
+		fclose( f );
+		return NULL;
+	}
+	fseek( f, 0, SEEK_SET );
+
+	b2Recording* rec = b2CreateRecording( (int)fileSize );
+	size_t readSize = fread( rec->buffer.data, 1, (size_t)fileSize, f );
+	fclose( f );
+
+	if ( (long)readSize != fileSize )
+	{
+		b2DestroyRecording( rec );
+		return NULL;
+	}
+
+	// Reject incompatible headers and incomplete frames before returning ownership.
+	if ( !b2RecValidateFile( rec->buffer.data, (int)fileSize ) )
+	{
+		b2DestroyRecording( rec );
+		return NULL;
+	}
+
+	rec->buffer.size = (int)fileSize;
+	return rec;
 }

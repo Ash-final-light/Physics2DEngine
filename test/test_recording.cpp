@@ -1259,3 +1259,65 @@ int RecordingSaveFileTest( void )
 	b2DestroyRecording( empty ); b2DestroyRecording( rec ); b2DestroyWorld( world );
 	ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int RecordingLoadFileTest( void )
+{
+	int before = b2GetByteCount(); RecordingTempFile file;
+	b2WorldId world = MakeRecordingQueryWorld(); b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec ); b2World_Step( world, 0.1f, 4 ); b2World_StopRecording( world );
+	std::vector<uint8_t> expected( b2Recording_GetData( rec ), b2Recording_GetData( rec ) + b2Recording_GetSize( rec ) );
+	std::string path = file.path.string(); ENSURE( b2Recording_SaveToFile( rec, path.c_str() ) );
+	b2Recording* loaded = b2CreateRecordingFromFile( path.c_str() );
+	ENSURE( loaded != nullptr && b2Recording_GetSize( loaded ) == expected.size() );
+	ENSURE( b2Recording_GetData( loaded ) != b2Recording_GetData( rec ) );
+	b2DestroyRecording( rec ); b2DestroyWorld( world );
+	ENSURE( memcmp( expected.data(), b2Recording_GetData( loaded ), expected.size() ) == 0 );
+	b2DestroyRecording( loaded ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int RecordingLoadInvalidTest( void )
+{
+	int before = b2GetByteCount(); RecordingTempFile file;
+	std::string path = file.path.string();
+	ENSURE( b2CreateRecordingFromFile( nullptr ) == nullptr );
+	ENSURE( b2CreateRecordingFromFile( path.c_str() ) == nullptr );
+	b2WorldId world = MakeRecordingQueryWorld(); b2Recording* rec = b2CreateRecording( 0 );
+	b2World_StartRecording( world, rec ); b2World_Step( world, 0.1f, 4 ); b2World_StopRecording( world );
+	std::vector<uint8_t> valid( b2Recording_GetData( rec ), b2Recording_GetData( rec ) + b2Recording_GetSize( rec ) );
+	b2RecHeader hdr; memcpy( &hdr, valid.data(), sizeof( hdr ) );
+	int headerEnd = 32 + (int)hdr.snapshotSize;
+	auto rejected = [&]( const std::vector<uint8_t>& bytes ) {
+		std::ofstream out( file.path, std::ios::binary | std::ios::trunc );
+		out.write( (const char*)bytes.data(), bytes.size() ); out.close();
+		int allocated = b2GetByteCount(); b2Recording* invalid = b2CreateRecordingFromFile( path.c_str() );
+		if ( invalid != nullptr ) { b2DestroyRecording( invalid ); return false; }
+		return b2GetByteCount() == allocated;
+	};
+	int prefixes[] = { 0, 1, 31, 32, headerEnd - 1, (int)valid.size() - 1 };
+	for ( int prefix : prefixes ) ENSURE( rejected( std::vector<uint8_t>( valid.begin(), valid.begin() + prefix ) ) );
+	for ( int mode = 0; mode < 9; ++mode )
+	{
+		auto bytes = valid; b2RecHeader bad = hdr;
+		switch ( mode )
+		{
+			case 0: bad.magic = 0; break;
+			case 1: bad.versionMajor += 1; break;
+			case 2: bad.versionMinor += 1; break;
+			case 3: bad.pointerWidth = 1; break;
+			case 4: bad.bigEndian = 1; break;
+			case 5: bad.snapshotSize = 0; break;
+			case 6: bad.snapshotSize = UINT64_MAX; break;
+			case 7: bad.lengthScale = 0; break;
+			case 8: bad.lengthScale = std::numeric_limits<float>::quiet_NaN(); break;
+		}
+		memcpy( bytes.data(), &bad, sizeof( bad ) ); ENSURE( rejected( bytes ) );
+	}
+	auto bytes = valid; bytes[32] = 0; ENSURE( rejected( bytes ) );
+	bytes = valid; bytes[headerEnd] = 0xFF; ENSURE( rejected( bytes ) );
+	bytes = valid; bytes[headerEnd + 1] = bytes[headerEnd + 2] = bytes[headerEnd + 3] = 0xFF;
+	ENSURE( rejected( bytes ) );
+	ENSURE( b2Recording_SaveToFile( rec, path.c_str() ) );
+	b2Recording* loaded = b2CreateRecordingFromFile( path.c_str() ); ENSURE( loaded != nullptr );
+	b2DestroyRecording( loaded ); b2DestroyRecording( rec ); b2DestroyWorld( world );
+	ENSURE( b2GetByteCount() == before ); return 0;
+}

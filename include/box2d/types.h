@@ -1492,3 +1492,6 @@ B2_API void b2Joint_WakeBodies( b2JointId jointId );
 
 /// 将当前录制字节保存到二进制文件，无法完整写入时返回false。
 B2_API bool b2Recording_SaveToFile( const b2Recording* recording, const char* path );
+
+/// 从文件加载独立拥有的录制缓冲；无效或不兼容文件返回NULL。
+B2_API b2Recording* b2CreateRecordingFromFile( const char* path );
