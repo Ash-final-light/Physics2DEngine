@@ -137,7 +137,7 @@ static void b2FlushCandidatePairs( b2PairContext* context )
         }
         const b2Shape* a = context->world->shapes.data+pair->shapeIdA;
         const b2Shape* b = context->world->shapes.data+pair->shapeIdB;
-        if ( a->bodyId == b->bodyId || b2ShouldShapesCollide( a->filter, b->filter ) == false )
+        if ( a->sensorIndex!=B2_NULL_INDEX || b->sensorIndex!=B2_NULL_INDEX || a->bodyId == b->bodyId || b2ShouldShapesCollide( a->filter, b->filter ) == false )
         {
             continue;
         }

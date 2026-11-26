@@ -141,6 +141,8 @@ typedef struct b2ShapeDef
     b2SurfaceMaterial material;
     float density;
     b2Filter filter;
+    bool isSensor;
+    bool enableSensorEvents;
     bool enableContactEvents;
     bool enableHitEvents;
     bool invokeContactCreation;
@@ -203,6 +205,7 @@ typedef struct b2ChainDef
     int materialCount;
     b2Filter filter;
     bool isLoop;
+    bool enableSensorEvents;
     int internalValue;
 } b2ChainDef;
 
@@ -233,6 +236,50 @@ B2_API b2WorldId b2Shape_GetWorld( b2ShapeId shapeId );
 B2_API b2Filter b2Shape_GetFilter( b2ShapeId shapeId );
 B2_API void b2Shape_SetFilter( b2ShapeId shapeId, b2Filter filter );
 
+typedef struct b2SensorBeginTouchEvent
+{
+	/// 传感器形状的 id
+	b2ShapeId sensorShapeId;
+
+	/// 开始触摸传感器形状的形状 id
+	b2ShapeId visitorShapeId;
+} b2SensorBeginTouchEvent;
+
+/// 当形状停止与传感器形状重叠时生成结束触摸事件。通常此事件由仿真运动生成。
+/// 但也可由 API 交互生成：设置刚体变换、销毁刚体或形状，或更改过滤器。
+/// 若传感器被销毁，你也会得到结束事件。因此应始终使用 b2Shape_IsValid 确认形状 id 有效。
+typedef struct b2SensorEndTouchEvent
+{
+	/// 传感器形状的 id
+	/// @warning 此形状可能已被销毁
+	/// @see b2Shape_IsValid
+	b2ShapeId sensorShapeId;
+
+	/// 停止触摸传感器形状的形状 id
+	/// @warning 此形状可能已被销毁
+	/// @see b2Shape_IsValid
+	b2ShapeId visitorShapeId;
+
+} b2SensorEndTouchEvent;
+
+/// 传感器事件在世界中缓冲，并在时间步完成后作为开始/结束重叠事件数组可用。
+/// 注意：若刚体和/或形状被销毁，这些可能变得无效
+typedef struct b2SensorEvents
+{
+	/// 传感器开始触摸事件数组
+	b2SensorBeginTouchEvent* beginEvents;
+
+	/// 传感器结束触摸事件数组
+	b2SensorEndTouchEvent* endEvents;
+
+	/// 开始触摸事件数量
+	int beginCount;
+
+	/// 结束触摸事件数量
+	int endCount;
+} b2SensorEvents;
+B2_API b2SensorEvents b2World_GetSensorEvents(b2WorldId worldId);
+B2_API bool b2Shape_IsSensor(b2ShapeId shapeId);
 typedef struct b2ContactBeginTouchEvent
 {
 	/// 第一个形状的 id

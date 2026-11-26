@@ -12,6 +12,7 @@
 #include "container.h"
 #include "id_pool.h"
 #include "shape.h"
+#include "sensor.h"
 
 #include "box2d/constants.h"
 #include "box2d/types.h"
@@ -30,6 +31,10 @@ struct b2World
 	b2DynamicArray<b2ContactBeginTouchEvent> contactBeginEvents;
 	b2DynamicArray<b2ContactEndTouchEvent> contactEndEvents[2];
 	int endEventArrayIndex;
+	b2DynamicArray<b2Sensor> sensors;
+	b2DynamicArray<b2SensorTaskContext> sensorTaskContexts;
+	b2DynamicArray<b2SensorBeginTouchEvent> sensorBeginEvents;
+	b2DynamicArray<b2SensorEndTouchEvent> sensorEndEvents[2];
 	int recycledContactCount;
 	b2BroadPhase broadPhase;
 	b2ConstraintGraph constraintGraph;

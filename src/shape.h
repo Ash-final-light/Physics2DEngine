@@ -16,10 +16,12 @@ struct b2Shape
     float density;
     float aabbMargin;
     int proxyKey;
+    int sensorIndex;
     b2AABB aabb;
     b2Filter filter;
     void* userData;
     bool enableContactEvents;
+    bool enableSensorEvents;
     bool enableHitEvents;
     union
     {

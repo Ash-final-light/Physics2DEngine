@@ -169,6 +169,8 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     shape->filter = def->filter;
     shape->userData = def->userData;
     shape->enableContactEvents=def->enableContactEvents;
+    shape->enableSensorEvents=def->enableSensorEvents;
+    shape->sensorIndex=B2_NULL_INDEX;
     shape->enableHitEvents=def->enableHitEvents;
     shape->prevShapeId = B2_NULL_INDEX;
     shape->nextShapeId = body->headShapeId;
@@ -192,12 +194,19 @@ static b2ShapeId b2CreateShape( b2BodyId bodyId, const b2ShapeDef* def, const vo
     {
         b2CreateShapeProxy( world, shape, body->type, b2GetBodySim(world,body)->transform, def->invokeContactCreation );
     }
+    if(def->isSensor)
+    {
+        shape->sensorIndex=world->sensors.count;b2Sensor sensor={};sensor.shapeId=id;
+        b2Array_CreateN(sensor.hits,4);b2Array_CreateN(sensor.overlaps1,16);b2Array_CreateN(sensor.overlaps2,16);
+        b2Array_Push(world->sensors,sensor);
+    }
     return b2ShapeId{ id + 1, world->worldId, generation };
 }
 
 static void b2DestroyShapeInternal( b2World* world, b2Shape* shape, b2Body* body )
 {
     b2DestroyShapeContacts(world,shape);
+    if(shape->sensorIndex!=B2_NULL_INDEX) { b2DestroySensor(world,shape); }
     if ( shape->prevShapeId != B2_NULL_INDEX )
     {
         world->shapes.data[shape->prevShapeId].nextShapeId = shape->nextShapeId;
@@ -363,6 +372,7 @@ static void b2SetShapeGeometry( b2ShapeId id, const void* geometry, b2ShapeType 
     shape->type = type;
     b2World* world = b2_worlds + id.world0;
     b2DestroyShapeContacts(world,shape);
+    if(shape->sensorIndex!=B2_NULL_INDEX) { b2DestroySensor(world,shape); }
     b2Body* body = world->bodies.data + shape->bodyId;
     shape->aabbMargin = b2ComputeShapeMargin( shape );
     b2DestroyShapeProxy( shape, &world->broadPhase );
@@ -629,6 +639,7 @@ b2ChainId b2CreateChain( b2BodyId bodyId, const b2ChainDef* def )
     shapeDef.userData = def->userData;
     shapeDef.filter = def->filter;
     shapeDef.updateBodyMass = false;
+    shapeDef.enableSensorEvents=def->enableSensorEvents;
     for ( int i = 0; i < n; ++i )
     {
         b2ChainSegment segment;
@@ -831,6 +842,7 @@ void b2Shape_SetFilter( b2ShapeId id, b2Filter filter )
     b2World* world = b2_worlds+id.world0;
     b2Body* body = world->bodies.data+shape->bodyId;
     b2DestroyShapeContacts(world,shape);
+    if(shape->sensorIndex!=B2_NULL_INDEX) { b2DestroySensor(world,shape); }
     shape->filter = filter;
     b2DestroyShapeProxy( shape, &world->broadPhase );
     if ( (body->setIndex != b2_disabledSet) )
@@ -1000,4 +1012,9 @@ void b2Shape_EnableHitEvents(b2ShapeId id,bool flag)
 bool b2Shape_AreHitEventsEnabled(b2ShapeId id)
 {
     b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->enableHitEvents;
+}
+
+bool b2Shape_IsSensor(b2ShapeId id)
+{
+    b2Shape* shape=b2GetShapeFromId(id);return shape!=NULL && shape->sensorIndex!=B2_NULL_INDEX;
 }

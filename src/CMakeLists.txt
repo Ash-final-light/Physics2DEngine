@@ -1,4 +1,5 @@
 add_library(box2d
+	sensor.cpp
 	contact_solver.cpp
 	constraint_graph.cpp
 	island.cpp

@@ -11,6 +11,9 @@
 // Continuous collision uses a local frame centered on the fast body's previous center.
 struct b2ContinuousContext
 {
+    b2SensorHit sensorHits[8];
+    float sensorFractions[8];
+    int sensorCount;
     b2World* world;
     b2BodySim* fastBodySim;
     b2Shape* fastShape;
@@ -30,6 +33,8 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     b2BodySim* fastBodySim=continuousContext->fastBodySim;
     b2Shape* shape=world->shapes.data+(int)userData;
     if(shape->id==fastShape->id || shape->bodyId==fastBodySim->bodyId || !b2ShouldShapesCollide(fastShape->filter,shape->filter)) { return true; }
+    bool isSensor=shape->sensorIndex!=B2_NULL_INDEX;
+    if(isSensor && (!shape->enableSensorEvents || !fastShape->enableSensorEvents)) { return true; }
     b2Body* body=world->bodies.data+shape->bodyId;
     B2_ASSERT(body->type==b2_staticBody || (fastBodySim->flags&b2_isBullet));
     if(body->flags&b2_isBullet) { return true; }
@@ -65,6 +70,15 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     input.sweepA=b2MakeRelativeSweep(bodySim,continuousContext->base);input.sweepB=continuousContext->sweep;
     input.maxFraction=continuousContext->fraction;
     b2TOIOutput output=b2ComputeTimeOfImpact(&input);
+    if(isSensor)
+    {
+        if(output.fraction<=continuousContext->fraction && continuousContext->sensorCount<8)
+        {
+            int index=continuousContext->sensorCount++;continuousContext->sensorHits[index]={shape->id,fastShape->id};
+            continuousContext->sensorFractions[index]=output.fraction;
+        }
+        return true;
+    }
     float hitFraction=continuousContext->fraction;bool didHit=false;
     if(0.0f<output.fraction && output.fraction<continuousContext->fraction)
     { hitFraction=output.fraction;didHit=true; }
@@ -99,6 +113,7 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
         b2AABB box1=shape->aabb,box2=b2ComputeShapeAABB(shape,xf2);
         box2.lowerBound=b2Add(box2.lowerBound,base);box2.upperBound=b2Add(box2.upperBound,base);
         shape->aabb=box2;
+        if(shape->sensorIndex!=B2_NULL_INDEX) { continue; }
         b2AABB sweptBox=b2AABB_Union(box1,box2);
         b2DynamicTree_OverlapAABB(world->broadPhase.trees+b2_staticBody,sweptBox,UINT64_MAX,b2ContinuousQueryCallback,&context);
         if(fastBodySim->flags&b2_isBullet)
@@ -120,6 +135,15 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
         state->linearVelocity=b2Add(state->linearVelocity,dv);
     }
     fastBodySim->center0=fastBodySim->center;fastBodySim->rotation0=fastBodySim->transform.q;
+    for(int i=0;i<context.sensorCount;++i)
+    {
+        if(context.sensorFractions[i]<context.fraction)
+        {
+            b2SensorHit hit=context.sensorHits[i];b2Shape* sensorShape=world->shapes.data+hit.sensorId;
+            b2Shape* visitor=world->shapes.data+hit.visitorId;
+            b2Array_Push(world->sensors.data[sensorShape->sensorIndex].hits,b2Visitor{visitor->id,visitor->generation});
+        }
+    }
     // The existing proxy synchronization below recomputes bounds at the clipped transform.
 }
 
