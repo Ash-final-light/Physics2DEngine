@@ -406,3 +406,34 @@ B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxy
 
 /// 当前单精度世界中的投射结果。
 typedef b2CastOutput b2WorldCastOutput;
+
+typedef struct b2CollisionPlane
+{
+	/// 移动器与某形状之间的碰撞平面。
+	b2Plane plane;
+
+	/// 设为 FLT_MAX 可使平面尽可能刚硬。较低值可使平面碰撞变软。通常以米为单位。
+	float pushLimit;
+
+	/// 由 b2SolvePlanes 确定的对移动器的推移。通常以米为单位。
+	float push;
+
+	/// 指示 b2ClipVector 是否应对此平面裁剪。软碰撞应为 false。
+	bool clipVelocity;
+} b2CollisionPlane;
+
+/// b2SolvePlanes 返回的结果。
+typedef struct b2PlaneSolverResult
+{
+	/// 最终相对平移。
+	b2Vec2 delta;
+
+	/// 平面求解器使用的迭代次数。用于诊断。
+	int iterationCount;
+} b2PlaneSolverResult;
+
+/// 求解满足给定碰撞平面的移动器位置。
+/// @param targetDelta 相对用于生成碰撞平面的位置的期望平移
+/// @param planes 碰撞平面
+/// @param count 碰撞平面数量
+B2_API b2PlaneSolverResult b2SolvePlanes( b2Vec2 targetDelta, b2CollisionPlane* planes, int count );

@@ -594,3 +594,8 @@ B2_INLINE b2Transform b2InvMulWorldTransforms( b2WorldTransform A, b2WorldTransf
 	C.p = b2InvRotateVector( A.q, d );
 	return C;
 }
+
+B2_INLINE float b2PlaneSeparation( b2Plane plane, b2Vec2 point )
+{
+	return b2Dot( plane.normal, point ) - plane.offset;
+}
