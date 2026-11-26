@@ -105,3 +105,38 @@ int MoverPlanesTest(void)
  if(NoPlanesTest() || SolvePlaneTest() || PushLimitTest() || CornerTest() || WedgeTest()) { return 1; }
  return 0;
 }
+
+static int ClipVectorTest( void )
+{
+	b2CollisionPlane plane = MakePlane( b2Vec2{ 0.0f, 1.0f }, FLT_MAX );
+	plane.push = 0.5f;
+
+	b2Vec2 v = b2ClipVector( b2Vec2{ 1.0f, -1.0f }, &plane, 1 );
+	ENSURE_SMALL( v.x - 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( v.y, FLT_EPSILON );
+
+	// 分离速度原样穿过，不被改动
+	v = b2ClipVector( b2Vec2{ 1.0f, 1.0f }, &plane, 1 );
+	ENSURE_SMALL( v.x - 1.0f, FLT_EPSILON );
+	ENSURE_SMALL( v.y - 1.0f, FLT_EPSILON );
+
+	plane.clipVelocity = false;
+	v = b2ClipVector( b2Vec2{ 1.0f, -1.0f }, &plane, 1 );
+	ENSURE_SMALL( v.y + 1.0f, FLT_EPSILON );
+
+	// 零推力表示求解器从未碰到这个平面
+	plane.clipVelocity = true;
+	plane.push = 0.0f;
+	v = b2ClipVector( b2Vec2{ 1.0f, -1.0f }, &plane, 1 );
+	ENSURE_SMALL( v.y + 1.0f, FLT_EPSILON );
+
+	return 0;
+}
+
+int MoverClipVectorTest(void)
+{
+ if(ClipVectorTest()) { return 1; }
+ b2CollisionPlane planes[2]={MakePlane({0,1},FLT_MAX),MakePlane({1,0},FLT_MAX)};
+ b2SolvePlanes({-1,-1},planes,2);b2Vec2 v=b2ClipVector({-3,-4},planes,2);ENSURE_SMALL(b2Length(v),FLT_EPSILON);
+ v=b2ClipVector({3,4},planes,2);ENSURE(v.x==3 && v.y==4);return 0;
+}

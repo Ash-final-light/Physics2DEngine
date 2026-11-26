@@ -172,3 +172,5 @@ ctest --test-dir build-core -C RelWithDebInfo --output-on-failure --no-tests=err
 `b2Shape_ApplyWind` 按形状的当前朝向和相对风速积累风阻、升力及力矩。休眠形状可按 `wake` 参数保持休眠或唤醒受力。
 
 `b2SolvePlanes` 按碰撞平面迭代约束目标位移，记录各平面的推移，并支持有限推移上限产生软碰撞。
+
+`b2ClipVector` 使用平面求解器记录的有效推移裁剪角色速度；离开表面的速度和禁止裁剪的软碰撞平面保持其原有作用。

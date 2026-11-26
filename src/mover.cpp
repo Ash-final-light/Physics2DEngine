@@ -52,3 +52,21 @@ b2PlaneSolverResult b2SolvePlanes( b2Vec2 targetDelta, b2CollisionPlane* planes,
 		.iterationCount = iteration,
 	};
 }
+
+b2Vec2 b2ClipVector( b2Vec2 vector, const b2CollisionPlane* planes, int count )
+{
+	b2Vec2 v = vector;
+
+	for ( int planeIndex = 0; planeIndex < count; ++planeIndex )
+	{
+		const b2CollisionPlane* plane = planes + planeIndex;
+		if ( plane->push == 0.0f || plane->clipVelocity == false )
+		{
+			continue;
+		}
+
+		v = b2MulSub( v, b2MinFloat( 0.0f, b2Dot( v, plane->plane.normal ) ), plane->plane.normal );
+	}
+
+	return v;
+}

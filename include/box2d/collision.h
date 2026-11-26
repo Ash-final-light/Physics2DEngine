@@ -437,3 +437,5 @@ typedef struct b2PlaneSolverResult
 /// @param planes 碰撞平面
 /// @param count 碰撞平面数量
 B2_API b2PlaneSolverResult b2SolvePlanes( b2Vec2 targetDelta, b2CollisionPlane* planes, int count );
+
+B2_API b2Vec2 b2ClipVector(b2Vec2 vector,const b2CollisionPlane* planes,int count);
