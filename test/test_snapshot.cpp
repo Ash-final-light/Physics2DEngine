@@ -276,3 +276,46 @@ int WorldSnapshotContinueTest( void )
 	b2DestroyWorld( source );
 	return 0;
 }
+
+static bool SnapshotFilter(b2ShapeId,b2ShapeId,void*) { return true; }
+static void SnapshotPreSolve(b2ShapeId,b2ShapeId,b2Manifold*,void*) {}
+int WorldSnapshotRestoreTest(void)
+{
+ size_t before=b2GetByteCount();int marker=17;SnapshotIds ids={};
+ b2WorldId id=BuildSnapshotWriteScene(&marker,&ids);b2World_SetWorkerCount(id,4);
+ b2World* w=b2_worlds+id.index1-1;
+ b2World_SetCustomFilterCallback(id,SnapshotFilter,&marker);
+ b2World_SetPreSolveCallback(id,SnapshotPreSolve,nullptr,&marker);
+ int size=b2World_GetSnapshot(id,nullptr,0);auto image=(uint8_t*)malloc(size);ENSURE(image!=nullptr);
+ ENSURE(b2World_GetSnapshot(id,image,size)==size);uint64_t hash=b2World_GetStateHash(id);
+ b2WorldId expected=b2CreateWorldFromSnapshot(image,size,1);ENSURE(b2World_IsValid(expected));
+ for(int pass=0;pass<3;++pass)
+ {
+  b2World_Step(id,1.0f/60,4);b2BodyDef bd=b2DefaultBodyDef();b2BodyId extra=b2CreateBody(id,&bd);
+  ENSURE(b2World_RestoreFromSnapshot(id,image,size));
+  ENSURE(b2World_GetStateHash(id)==hash && b2World_IsValid(id));
+  ENSURE(b2Body_IsValid(ids.body) && b2Shape_IsValid(ids.shape) && b2Joint_IsValid(ids.joint) && b2Chain_IsValid(ids.chain));
+  ENSURE(!b2Body_IsValid(extra));ENSURE(b2World_GetUserData(id)==&marker && b2World_GetWorkerCount(id)==4);
+  ENSURE(w->customFilterFcn==SnapshotFilter && w->customFilterContext==&marker);
+  ENSURE(w->preSolveFcn==SnapshotPreSolve && w->preSolveContext==&marker);
+  ENSURE(b2Body_GetUserData(ids.body)==nullptr && b2Shape_GetUserData(ids.shape)==nullptr && b2Joint_GetUserData(ids.joint)==nullptr);
+ }
+ for(int i=0;i<8;++i)
+ {
+  b2World_Step(id,1.0f/60,4);b2World_Step(expected,1.0f/60,4);
+  ENSURE(b2World_GetStateHash(id)==b2World_GetStateHash(expected));
+ }
+ free(image);b2DestroyWorld(id);b2DestroyWorld(expected);ENSURE(b2GetByteCount()==before);return 0;
+}
+int WorldSnapshotRestoreInvalidTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldId id=BuildSnapshotWriteScene(nullptr);
+ int size=b2World_GetSnapshot(id,nullptr,0);auto image=(uint8_t*)malloc(size);ENSURE(image!=nullptr);
+ b2World_GetSnapshot(id,image,size);uint64_t hash=b2World_GetStateHash(id);
+ ENSURE(!b2World_RestoreFromSnapshot(id,nullptr,0));
+ image[0]^=255;ENSURE(!b2World_RestoreFromSnapshot(id,image,size));image[0]^=255;
+ b2World* w=b2_worlds+id.index1-1;w->locked=true;
+ ENSURE(!b2World_RestoreFromSnapshot(id,image,size));w->locked=false;
+ ENSURE(b2World_GetStateHash(id)==hash);
+ free(image);b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

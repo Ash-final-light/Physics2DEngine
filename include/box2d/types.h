@@ -115,6 +115,10 @@ B2_API int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity 
 /// 失败时返回无效世界 id。
 B2_API b2WorldId b2CreateWorldFromSnapshot( const uint8_t* image, int size, int workerCount );
 
+/// 将快照映像恢复到已有世界。世界 id、线程配置与回调保留；对象用户数据置空。
+/// 头校验失败时世界不变；载荷损坏后世界不可用，调用方必须销毁它。
+B2_API bool b2World_RestoreFromSnapshot( b2WorldId worldId, const uint8_t* image, int size );
+
 B2_API void b2World_SetUserData( b2WorldId worldId, void* userData );
 B2_API void* b2World_GetUserData( b2WorldId worldId );
 

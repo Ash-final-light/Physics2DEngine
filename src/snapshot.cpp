@@ -588,6 +588,35 @@ static void b2DesWorldConfig( b2SnapReader* r, b2World* world )
 	world->enableRestitutionPropagation = ( flags & 0x10u ) != 0;
 }
 
+static void b2FreeLiveSimElements( b2World* world )
+{
+	for ( int i = 0; i < world->chainShapes.count; ++i )
+	{
+		b2ChainShape* chain = world->chainShapes.data + i;
+		if ( chain->id != B2_NULL_INDEX && chain->shapeIndices != NULL )
+		{
+			b2Free( chain->shapeIndices, chain->segmentCount * (int)sizeof( int ) );
+			chain->shapeIndices = NULL;
+		}
+	}
+
+	for ( int i = 0; i < world->sensors.count; ++i )
+	{
+		b2Sensor* sensor = world->sensors.data + i;
+		b2Array_Destroy( sensor->hits );
+		b2Array_Destroy( sensor->overlaps1 );
+		b2Array_Destroy( sensor->overlaps2 );
+	}
+
+	for ( int i = 0; i < world->islands.count; ++i )
+	{
+		b2Island* island = world->islands.data + i;
+		b2Array_Destroy( island->bodies );
+		b2Array_Destroy( island->contacts );
+		b2Array_Destroy( island->joints );
+	}
+}
+
 static bool b2DeserializeIntoShell( b2SnapReader* r, b2World* world )
 {
 	b2DesWorldConfig( r, world );
@@ -829,6 +858,27 @@ b2WorldId b2CreateWorldFromSnapshot( const uint8_t* image, int size, int workerC
 	world->customFilterContext = NULL;
 	world->userData = NULL;
 	return id;
+}
+
+bool b2World_RestoreFromSnapshot( b2WorldId worldId, const uint8_t* image, int size )
+{
+	b2SnapReader reader;
+	if ( b2OpenSnapshotImage( image, size, &reader ) == false )
+	{
+		return false;
+	}
+
+	B2_ASSERT( 1 <= worldId.index1 && worldId.index1 <= B2_MAX_WORLDS );
+	b2World* world = b2_worlds + ( worldId.index1 - 1 );
+	B2_ASSERT( worldId.index1 == world->worldId + 1 );
+	B2_ASSERT( worldId.generation == world->generation );
+	if ( world->locked )
+	{
+		return false;
+	}
+
+	b2FreeLiveSimElements( world );
+	return b2DeserializeIntoShell( &reader, world );
 }
 
 int b2World_GetSnapshot( b2WorldId worldId, uint8_t* image, int capacity )

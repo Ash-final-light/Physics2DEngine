@@ -43,6 +43,8 @@ int SIMDMathTest( void );
 int SIMDContact4Test( void );
 int SIMDContact8Test( void );
 int SIMDFallbackTest( void );
+int WorldSnapshotRestoreTest( void );
+int WorldSnapshotRestoreInvalidTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -975,6 +977,10 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"SIMDContact8Test")==0) { ran=1; RUN_TEST(SIMDContact8Test); }
 
 	if(filter==NULL || strcmp(filter,"SIMDFallbackTest")==0) { ran=1; RUN_TEST(SIMDFallbackTest); }
+
+	if(filter==NULL || strcmp(filter,"WorldSnapshotRestoreTest")==0) { ran=1; RUN_TEST(WorldSnapshotRestoreTest); }
+
+	if(filter==NULL || strcmp(filter,"WorldSnapshotRestoreInvalidTest")==0) { ran=1; RUN_TEST(WorldSnapshotRestoreInvalidTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{
