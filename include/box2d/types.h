@@ -977,7 +977,7 @@ typedef struct b2DistanceJointDef
 } b2DistanceJointDef;
 B2_API b2DistanceJointDef b2DefaultDistanceJointDef(void);
 
-typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5 } b2JointType;
+typedef enum b2JointType { b2_distanceJoint, b2_revoluteJoint=6, b2_prismaticJoint=5, b2_wheelJoint=8 } b2JointType;
 
 B2_API b2JointId b2CreateDistanceJoint(b2WorldId worldId,const b2DistanceJointDef* def);
 B2_API b2JointType b2Joint_GetType(b2JointId jointId);
@@ -1144,3 +1144,21 @@ B2_API float b2PrismaticJoint_GetTargetMotorSpeed( b2JointId jointId );
 B2_API float b2PrismaticJoint_GetCurrentMotorForce( b2JointId jointId );
 B2_API void b2PrismaticJoint_SetMaxMotorForce( b2JointId jointId, float force );
 B2_API float b2PrismaticJoint_GetMaxMotorForce( b2JointId jointId );
+
+typedef struct b2WheelJointDef
+{
+	b2JointDef base;
+	bool enableSpring;
+	float hertz;
+	float dampingRatio;
+	int internalValue;
+} b2WheelJointDef;
+B2_API b2WheelJointDef b2DefaultWheelJointDef(void);
+B2_API b2JointId b2CreateWheelJoint(b2WorldId worldId,const b2WheelJointDef* def);
+
+B2_API void b2WheelJoint_EnableSpring( b2JointId jointId, bool enableSpring );
+B2_API bool b2WheelJoint_IsSpringEnabled( b2JointId jointId );
+B2_API void b2WheelJoint_SetSpringHertz( b2JointId jointId, float hertz );
+B2_API float b2WheelJoint_GetSpringHertz( b2JointId jointId );
+B2_API void b2WheelJoint_SetSpringDampingRatio( b2JointId jointId, float dampingRatio );
+B2_API float b2WheelJoint_GetSpringDampingRatio( b2JointId jointId );

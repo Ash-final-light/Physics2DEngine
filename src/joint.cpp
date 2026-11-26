@@ -481,6 +481,10 @@ void b2PrepareJoint( b2JointSim* joint, b2StepContext* context )
 			b2PreparePrismaticJoint( joint, context );
 			break;
 
+		case b2_wheelJoint:
+			b2PrepareWheelJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -502,6 +506,10 @@ void b2WarmStartJoint( b2JointSim* joint, b2StepContext* context )
 			b2WarmStartPrismaticJoint( joint, context );
 			break;
 
+		case b2_wheelJoint:
+			b2WarmStartWheelJoint( joint, context );
+			break;
+
 		default:
 			B2_ASSERT( false );
 	}
@@ -521,6 +529,10 @@ void b2SolveJoint( b2JointSim* joint, b2StepContext* context, bool useBias )
 
 		case b2_prismaticJoint:
 			b2SolvePrismaticJoint( joint, context, useBias );
+			break;
+
+		case b2_wheelJoint:
+			b2SolveWheelJoint( joint, context, useBias );
 			break;
 
 		default:
@@ -641,6 +653,46 @@ b2JointId b2CreatePrismaticJoint( b2WorldId worldId, const b2PrismaticJointDef* 
 		.world0 = world->worldId,
 		.generation = pair.joint->generation,
 	};
+
+
+	return jointId;
+}
+
+b2WheelJointDef b2DefaultWheelJointDef( void )
+{
+	b2WheelJointDef def = {};
+	def.base = b2DefaultJointDef();
+	def.enableSpring = true;
+	def.hertz = 1.0f;
+	def.dampingRatio = 0.7f;
+	def.internalValue = B2_SECRET_COOKIE;
+	return def;
+}
+b2JointId b2CreateWheelJoint( b2WorldId worldId, const b2WheelJointDef* def )
+{
+	B2_CHECK_DEF( def );
+	if (!(b2IsValidFloat( def->hertz ))) { return b2_nullJointId; }
+	if (!(b2IsValidFloat( def->dampingRatio ))) { return b2_nullJointId; }
+
+	b2World* world=b2GetWorldForJointDef(worldId,&def->base);if(world==nullptr) { return b2_nullJointId; }
+
+	B2_ASSERT( world->locked == false );
+
+	if ( world->locked )
+	{
+		return b2JointId{};
+	}
+
+	b2JointPair pair = b2CreateJoint( world, &def->base, b2_wheelJoint );
+
+	b2JointSim* joint = pair.jointSim;
+
+	joint->wheelJoint = b2WheelJoint{};
+	joint->wheelJoint.hertz = def->hertz;
+	joint->wheelJoint.dampingRatio = def->dampingRatio;
+	joint->wheelJoint.enableSpring = def->enableSpring;
+
+	b2JointId jointId = { joint->jointId + 1, world->worldId, pair.joint->generation };
 
 
 	return jointId;

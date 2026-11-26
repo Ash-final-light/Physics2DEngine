@@ -232,3 +232,20 @@ int PrismaticJointMotorTest(void)
  b2DestroyJoint(j);b2Body_SetLinearVelocity(b,{0,0});def.maxMotorForce=1;def.motorSpeed=10;b2JointId first={};for(int i=0;i<26;++i) { b2JointId next=b2CreatePrismaticJoint(id,&def);ENSURE(next.index1>0);if(i==0) { first=next; } }b2World* world=b2_worlds+id.index1-1;ENSURE(world->constraintGraph.colors[B2_OVERFLOW_INDEX].jointSims.count>0);b2World_Step(id,0.01f,1);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x-0.26f,0.0001f);b2Vec2 error=PrismaticErrors(first);ENSURE_SMALL(error.x,0.0001f);ENSURE_SMALL(error.y,0.0001f);
  b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
 }
+
+static float JointAxisTranslation(b2JointId j)
+{
+ b2BodyId a=b2Joint_GetBodyA(j),b=b2Joint_GetBodyB(j);b2Transform fa=b2Joint_GetLocalFrameA(j),fb=b2Joint_GetLocalFrameB(j);b2Rot q=b2MulRot(b2Body_GetRotation(a),fa.q);
+ return b2Dot(b2RotateVector(q,{1,0}),b2SubPos(b2Body_GetWorldPoint(b,fb.p),b2Body_GetWorldPoint(a,fa.p)));
+}
+int WheelJointSuspensionTest(void)
+{
+ size_t before=b2GetByteCount();b2WorldDef wd=b2DefaultWorldDef();wd.gravity=b2Vec2_zero;b2WorldId id=b2CreateWorld(&wd);b2BodyDef bd=b2DefaultBodyDef();bd.position={100,200};b2BodyId a=b2CreateBody(id,&bd);bd.type=b2_dynamicBody;bd.enableSleep=false;bd.position={100,202};bd.angularVelocity=3;b2BodyId b=b2CreateBody(id,&bd);b2ShapeDef sd=b2DefaultShapeDef();b2Circle c={{0,0},1};b2CreateCircleShape(b,&sd,&c);
+ b2WheelJointDef def=b2DefaultWheelJointDef();ENSURE(def.enableSpring && def.hertz==1 && def.dampingRatio==0.7f);def.base.bodyIdA=a;def.base.bodyIdB=b;def.base.localFrameA.q={0,1};b2JointId j=b2CreateWheelJoint(id,&def);ENSURE(b2Joint_IsValid(j) && b2Joint_GetType(j)==b2_wheelJoint && b2WheelJoint_IsSpringEnabled(j));ENSURE(b2WheelJoint_GetSpringHertz(j)==1 && b2WheelJoint_GetSpringDampingRatio(j)==0.7f);
+ for(int i=0;i<240;++i) { b2World_Step(id,1.0f/60,4);ENSURE(b2AbsFloat(PrismaticErrors(j).x)<0.01f); }ENSURE_SMALL(JointAxisTranslation(j),0.005f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-3,0.0001f);
+ b2WheelJoint_EnableSpring(j,false);ENSURE(!b2WheelJoint_IsSpringEnabled(j));b2Body_SetLinearVelocity(b,{1,2});b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).x,0.0001f);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y-2,0.0001f);
+ b2WheelJoint_SetSpringHertz(j,0);b2WheelJoint_EnableSpring(j,true);b2World_EnableWarmStarting(id,false);b2World_Step(id,0.1f,4);ENSURE_SMALL(b2Body_GetLinearVelocity(b).y-2,0.0001f);
+ b2WheelJoint_SetSpringHertz(j,2);b2WheelJoint_SetSpringDampingRatio(j,1);b2World_SetGravity(id,{0,-10});b2Body_SetTransform(b,{100,198},b2Rot_identity);b2Body_SetLinearVelocity(b,{0,0});for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }float soft=-JointAxisTranslation(j);ENSURE(soft>0.001f && soft<0.2f);
+ b2WheelJoint_SetSpringHertz(j,4);for(int i=0;i<180;++i) { b2World_Step(id,1.0f/60,4); }float stiff=-JointAxisTranslation(j);ENSURE(stiff>0 && stiff<0.6f*soft);ENSURE_SMALL(PrismaticErrors(j).x,0.01f);ENSURE_SMALL(b2Body_GetAngularVelocity(b)-3,0.0001f);
+ b2DestroyWorld(id);ENSURE(b2GetByteCount()==before);return 0;
+}

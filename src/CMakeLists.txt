@@ -1,4 +1,5 @@
 add_library(box2d
+	wheel_joint.cpp
 	prismatic_joint.cpp
 	revolute_joint.cpp
 	distance_joint.cpp
