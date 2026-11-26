@@ -1495,3 +1495,25 @@ B2_API bool b2Recording_SaveToFile( const b2Recording* recording, const char* pa
 
 /// 从文件加载独立拥有的录制缓冲；无效或不兼容文件返回NULL。
 B2_API b2Recording* b2CreateRecordingFromFile( const char* path );
+
+typedef struct b2Replay b2Replay;
+
+/// 描述录制的静态元数据，在播放器打开文件时一次性解析。
+/// @ingroup replay
+typedef struct b2ReplayInfo
+{
+	int frameCount;	   ///< 已录制步进总数
+	int workerCount;   ///< 回放世界使用的工作线程数
+	float timeStep;	   ///< 已录制步进的 dt
+	int subStepCount;  ///< 已录制子步
+	float lengthScale; ///< 录制时生效的每米长度单位
+	b2AABB bounds;	   ///< 录制期间累积的世界边界，不可用时为零外延
+} b2ReplayInfo;
+
+B2_API b2Replay* b2CreateReplay( const void* data, int size, int workerCount );
+B2_API void b2DestroyReplay( b2Replay* player );
+B2_API bool b2Replay_StepFrame( b2Replay* player );
+B2_API b2WorldId b2Replay_GetWorldId( const b2Replay* player );
+B2_API int b2Replay_GetFrame( const b2Replay* player );
+B2_API b2ReplayInfo b2Replay_GetInfo( const b2Replay* player );
+B2_API bool b2Replay_IsAtEnd( const b2Replay* player );

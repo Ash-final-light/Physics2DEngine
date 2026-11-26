@@ -43,6 +43,7 @@ add_library(box2d
 	state_hash.cpp
 	snapshot.cpp
 	recording.cpp
+	replay.cpp
 )
 add_library(box2d::box2d ALIAS box2d)
 

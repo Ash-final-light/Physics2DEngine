@@ -89,3 +89,35 @@ B2_ID_INLINE uint64_t b2StoreJointId( b2JointId id )
 {
 	return ( (uint64_t)id.index1 << 32 ) | ( (uint64_t)id.world0 ) << 16 | (uint64_t)id.generation;
 }
+
+static const b2WorldId b2_nullWorldId = {};
+
+B2_ID_INLINE b2WorldId b2LoadWorldId( uint32_t x )
+{
+	b2WorldId id = { (uint16_t)( x >> 16 ), (uint16_t)( x ) };
+	return id;
+}
+
+B2_ID_INLINE b2BodyId b2LoadBodyId( uint64_t x )
+{
+	b2BodyId id = { (int32_t)( x >> 32 ), (uint16_t)( x >> 16 ), (uint16_t)( x ) };
+	return id;
+}
+
+B2_ID_INLINE b2ShapeId b2LoadShapeId( uint64_t x )
+{
+	b2ShapeId id = { (int32_t)( x >> 32 ), (uint16_t)( x >> 16 ), (uint16_t)( x ) };
+	return id;
+}
+
+B2_ID_INLINE b2ChainId b2LoadChainId( uint64_t x )
+{
+	b2ChainId id = { (int32_t)( x >> 32 ), (uint16_t)( x >> 16 ), (uint16_t)( x ) };
+	return id;
+}
+
+B2_ID_INLINE b2JointId b2LoadJointId( uint64_t x )
+{
+	b2JointId id = { (int32_t)( x >> 32 ), (uint16_t)( x >> 16 ), (uint16_t)( x ) };
+	return id;
+}

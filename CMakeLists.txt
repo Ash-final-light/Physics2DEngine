@@ -89,6 +89,7 @@ if(BUILD_TESTING)
 		test/test_state_hash.cpp
 		test/test_snapshot.cpp
 		test/test_recording.cpp
+		test/test_replay.cpp
 		test/contact_solver_scalar4.cpp
 		test/test_hull.cpp
 		test/toolchain_c.c
