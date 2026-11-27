@@ -1568,3 +1568,8 @@ B2_API void b2Replay_DrawFrameQueries( b2Replay* player, b2DebugDraw* draw, int 
 B2_API int b2Replay_GetFrameQueryCount( const b2Replay* player );
 B2_API b2ReplayQueryInfo b2Replay_GetFrameQuery( const b2Replay* player, int index );
 B2_API b2ReplayQueryHit b2Replay_GetFrameQueryHit( const b2Replay* player, int queryIndex, int hitIndex );
+
+/// Number of body creation ordinals, including destroyed slots.
+B2_API int b2Replay_GetBodyCount( const b2Replay* player );
+/// Body at creation ordinal; destroyed or out-of-range slots return a null ID.
+B2_API b2BodyId b2Replay_GetBodyId( const b2Replay* player, int index );

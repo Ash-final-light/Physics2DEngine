@@ -404,3 +404,50 @@ int ReplayQueryDivergenceTest( void )
     ENSURE( b2Replay_GetDivergeFrame( player ) == 1 && b2Replay_GetFrameQueryCount( player ) == 7 );
     b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int ReplayBodyEnumerationTest( void )
+{
+    int before = b2GetByteCount();
+    b2WorldDef wd = b2DefaultWorldDef(); b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); bd.name = "seed"; b2BodyId seed = b2CreateBody( world, &bd );
+    b2Recording* rec = b2CreateRecording( 1 ); b2World_StartRecording( world, rec );
+    b2World_Step( world, 1.0f / 60.0f, 4 ); bd.name = "first"; b2BodyId first = b2CreateBody( world, &bd );
+    b2World_Step( world, 1.0f / 60.0f, 4 ); b2DestroyBody( first ); bd.name = "replacement";
+    b2BodyId replacement = b2CreateBody( world, &bd );
+    ENSURE( replacement.index1 == first.index1 && replacement.generation != first.generation );
+    b2World_Step( world, 1.0f / 60.0f, 4 ); b2DestroyBody( seed );
+    b2World_Step( world, 1.0f / 60.0f, 4 ); b2World_StopRecording( world ); b2DestroyWorld( world );
+    int workers[] = { 1, 4 };
+    for ( int worker : workers ) {
+        b2Replay* player = b2CreateReplay( b2Recording_GetData( rec ), b2Recording_GetSize( rec ), worker );
+        ENSURE( player != nullptr ); b2Replay_SetKeyframePolicy( player, 1024 * 1024, 1 );
+        ENSURE( b2Replay_GetBodyCount( player ) == 1 );
+        b2BodyId replaySeed = b2Replay_GetBodyId( player, 0 );
+        ENSURE( b2Body_IsValid( replaySeed ) && strcmp( b2Body_GetName( replaySeed ), "seed" ) == 0 );
+        ENSURE( b2Replay_StepFrame( player ) && b2Replay_GetBodyCount( player ) == 2 );
+        b2BodyId replayFirst = b2Replay_GetBodyId( player, 1 );
+        ENSURE( b2Body_IsValid( replayFirst ) && strcmp( b2Body_GetName( replayFirst ), "first" ) == 0 );
+        ENSURE( b2Replay_StepFrame( player ) && b2Replay_GetBodyCount( player ) == 3 );
+        ENSURE( b2Replay_GetBodyId( player, 1 ).index1 == 0 && !b2Body_IsValid( replayFirst ) );
+        b2BodyId replayReplacement = b2Replay_GetBodyId( player, 2 );
+        ENSURE( b2Body_IsValid( replayReplacement ) && replayReplacement.index1 == replayFirst.index1 );
+        ENSURE( replayReplacement.generation != replayFirst.generation );
+        ENSURE( strncmp( b2Body_GetName( replayReplacement ), "replacement", B2_NAME_LENGTH ) == 0 );
+        ENSURE( strlen( b2Body_GetName( replayReplacement ) ) == B2_NAME_LENGTH );
+        while ( b2Replay_StepFrame( player ) ) {}
+        ENSURE( b2Replay_GetBodyId( player, 0 ).index1 == 0 && b2Replay_GetBodyCount( player ) == 3 );
+        int targets[] = { 1, 4, 2, 0, 3, 1, 2 };
+        for ( int target : targets ) {
+            b2Replay_SeekFrame( player, target ); ENSURE( !b2Replay_HasDiverged( player ) );
+            ENSURE( b2Replay_GetBodyCount( player ) == ( target == 0 ? 1 : target == 1 ? 2 : 3 ) );
+            ENSURE( ( b2Replay_GetBodyId( player, 0 ).index1 == 0 ) == ( target >= 3 ) );
+            if ( target >= 2 ) { ENSURE( b2Replay_GetBodyId( player, 1 ).index1 == 0 ); ENSURE( B2_ID_EQUALS( b2Replay_GetBodyId( player, 2 ), replayReplacement ) ); }
+            else if ( target == 1 ) { ENSURE( B2_ID_EQUALS( b2Replay_GetBodyId( player, 1 ), replayFirst ) ); }
+        }
+        ENSURE( b2Replay_GetBodyId( player, -1 ).index1 == 0 && b2Replay_GetBodyId( player, 99 ).index1 == 0 );
+        b2Replay_Restart( player ); ENSURE( b2Replay_GetBodyCount( player ) == 1 );
+        ENSURE( B2_ID_EQUALS( b2Replay_GetBodyId( player, 0 ), replaySeed ) ); b2DestroyReplay( player );
+    }
+    ENSURE( b2Replay_GetBodyCount( nullptr ) == 0 && b2Replay_GetBodyId( nullptr, 0 ).index1 == 0 );
+    b2DestroyRecording( rec ); ENSURE( b2GetByteCount() == before ); return 0;
+}

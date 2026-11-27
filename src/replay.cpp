@@ -2706,3 +2706,17 @@ b2ReplayQueryHit b2Replay_GetFrameQueryHit( const b2Replay* player, int queryInd
 	hit.fraction = h->fraction;
 	return hit;
 }
+
+int b2Replay_GetBodyCount( const b2Replay* player )
+{
+	return player != NULL ? player->bodyIdCount : 0;
+}
+
+b2BodyId b2Replay_GetBodyId( const b2Replay* player, int index )
+{
+	if ( player == NULL || index < 0 || index >= player->bodyIdCount )
+	{
+		return b2_nullBodyId;
+	}
+	return player->bodyIds[index];
+}

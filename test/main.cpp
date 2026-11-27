@@ -93,6 +93,7 @@ int ReplaySeekMutationTest( void );
 int ReplayQueryInspectionTest( void );
 int ReplayQueryDrawTest( void );
 int ReplayQueryDivergenceTest( void );
+int ReplayBodyEnumerationTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1125,6 +1126,8 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"ReplayQueryDrawTest")==0) { ran=1; RUN_TEST(ReplayQueryDrawTest); }
 
 	if(filter==NULL || strcmp(filter,"ReplayQueryDivergenceTest")==0) { ran=1; RUN_TEST(ReplayQueryDivergenceTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayBodyEnumerationTest")==0) { ran=1; RUN_TEST(ReplayBodyEnumerationTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{
