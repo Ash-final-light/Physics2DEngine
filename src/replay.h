@@ -17,6 +17,32 @@ typedef struct b2RecRecordedHit
 	bool userReturnB;
 } b2RecRecordedHit;
 
+typedef enum b2RecQueryKind
+{
+	B2_RECQ_OVERLAP_AABB,
+	B2_RECQ_OVERLAP_SHAPE,
+	B2_RECQ_CAST_RAY,
+	B2_RECQ_CAST_SHAPE,
+	B2_RECQ_COLLIDE_MOVER,
+	B2_RECQ_CAST_RAY_CLOSEST,
+	B2_RECQ_CAST_MOVER
+} b2RecQueryKind;
+
+typedef struct b2RecDrawQuery
+{
+	int kind;
+	b2QueryFilter filter;
+	b2AABB aabb;
+	b2ShapeProxy proxy;
+	b2Capsule mover;
+	b2Pos origin;
+	b2Vec2 translation;
+	float castFraction;
+	int hitStart;
+	int hitCount;
+} b2RecDrawQuery;
+
+
 typedef struct b2RecReader
 {
 	const uint8_t* data;
@@ -67,6 +93,8 @@ struct b2Replay
     int divergeFrame;
     bool atEnd;
     b2RecReader rdr;
+    b2RecDrawQuery* frameQueries; int frameQueryCount, frameQueryCap;
+    b2RecRecordedHit* frameHits; int frameHitCount, frameHitCap;
     const uint8_t* frame0Image;
     int frame0Size;
 	// 按创建顺序的活动刚体，由创建/销毁操作跟踪以驱动查看器大纲。

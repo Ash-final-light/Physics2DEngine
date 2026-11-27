@@ -1662,6 +1662,36 @@ static bool b2RecReplayOverlapTrampoline( b2ShapeId id, void* ctx )
 	return h->userReturnB;
 }
 
+static void b2RecGrowFrameQueries( b2Replay* player )
+{
+	b2RecGrow( (void**)&player->frameQueries, &player->frameQueryCap, player->frameQueryCount + 1, player->frameQueryCount,
+			   (int)sizeof( b2RecDrawQuery ) );
+}
+
+static void b2RecGrowFrameHits( b2Replay* player, int need )
+{
+	b2RecGrow( (void**)&player->frameHits, &player->frameHitCap, player->frameHitCount + need, player->frameHitCount,
+			   (int)sizeof( b2RecRecordedHit ) );
+}
+
+static b2RecDrawQuery* b2RecStashQueryBegin( b2Replay* player, int kind, const b2RecRecordedHit* hits, int hitCount )
+{
+	b2RecGrowFrameQueries( player );
+	b2RecDrawQuery* q = &player->frameQueries[player->frameQueryCount];
+	memset( q, 0, sizeof( *q ) );
+	q->kind = kind;
+	q->hitStart = player->frameHitCount;
+	q->hitCount = hitCount;
+	b2RecGrowFrameHits( player, hitCount );
+	for ( int i = 0; i < hitCount; ++i )
+	{
+		player->frameHits[player->frameHitCount + i] = hits[i];
+	}
+	player->frameHitCount += hitCount;
+	player->frameQueryCount++;
+	return q;
+}
+
 static void b2RecDispatch_QueryOverlapAABB( const b2RecArgs_QueryOverlapAABB* a, b2RecReader* rdr )
 {
 	uint32_t n = b2RecR_U32( rdr );
@@ -1683,6 +1713,13 @@ static void b2RecDispatch_QueryOverlapAABB( const b2RecArgs_QueryOverlapAABB* a,
 	if ( rc.cursor != (int)n )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_OVERLAP_AABB, rdr->hits, (int)n );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->aabb = a->aabb;
+	}
 }
 
 static void b2RecDispatch_QueryOverlapShape( const b2RecArgs_QueryOverlapShape* a, b2RecReader* rdr )
@@ -1706,6 +1743,13 @@ static void b2RecDispatch_QueryOverlapShape( const b2RecArgs_QueryOverlapShape* 
 	if ( rc.cursor != (int)n )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_OVERLAP_SHAPE, rdr->hits, (int)n );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->proxy = a->proxy;
+	}
 }
 
 // 射线检测分派器
@@ -1753,6 +1797,13 @@ static void b2RecDispatch_QueryCastRay( const b2RecArgs_QueryCastRay* a, b2RecRe
 	if ( rc.cursor != (int)n )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_CAST_RAY, rdr->hits, (int)n );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->translation = a->translation;
+	}
 }
 
 static void b2RecDispatch_QueryCastShape( const b2RecArgs_QueryCastShape* a, b2RecReader* rdr )
@@ -1779,6 +1830,14 @@ static void b2RecDispatch_QueryCastShape( const b2RecArgs_QueryCastShape* a, b2R
 	if ( rc.cursor != (int)n )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_CAST_SHAPE, rdr->hits, (int)n );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->proxy = a->proxy;
+		q->translation = a->translation;
+	}
 }
 
 // CollideMover 分派器
@@ -1824,6 +1883,13 @@ static void b2RecDispatch_QueryCollideMover( const b2RecArgs_QueryCollideMover* 
 	if ( rc.cursor != (int)n )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_COLLIDE_MOVER, rdr->hits, (int)n );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->mover = a->mover;
+	}
 }
 
 // CastRayClosest 分派器
@@ -1842,6 +1908,19 @@ static void b2RecDispatch_QueryCastRayClosest( const b2RecArgs_QueryCastRayClose
 		rdr->diverged = true;
 	}
 
+	if ( rdr->owner )
+	{
+		// 将最近结果暂存为单个池化命中，以便共享绘制循环渲染其点
+		b2RecRecordedHit h = {};
+		h.id = b2RecMakeShapeId( rdr, rec.shapeId );
+		h.point = rec.point;
+		h.normal = rec.normal;
+		h.fraction = rec.fraction;
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_CAST_RAY_CLOSEST, &h, rec.hit ? 1 : 0 );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->translation = a->translation;
+	}
 }
 
 // CastMover 分派器
@@ -1855,6 +1934,15 @@ static void b2RecDispatch_QueryCastMover( const b2RecArgs_QueryCastMover* a, b2R
 	if ( b2RecF32Differs( got, rec ) )
 		rdr->diverged = true;
 
+	if ( rdr->owner )
+	{
+		b2RecDrawQuery* q = b2RecStashQueryBegin( rdr->owner, B2_RECQ_CAST_MOVER, NULL, 0 );
+		q->filter = a->filter;
+		q->origin = a->origin;
+		q->mover = a->mover;
+		q->translation = a->translation;
+		q->castFraction = rec;
+	}
 }
 
 static void b2RecDispatch_StateHash( const b2RecArgs_StateHash* a, b2RecReader* rdr )
@@ -2061,6 +2149,8 @@ b2Replay* b2CreateReplay( const void* data, int size, int workerCount )
 	player->rdr.hits = NULL;
 	player->rdr.hitCap = 0;
 	player->rdr.owner = player;
+    player->frameQueries = NULL; player->frameQueryCount = 0; player->frameQueryCap = 0;
+    player->frameHits = NULL; player->frameHitCount = 0; player->frameHitCap = 0;
     player->bodyIds = NULL; player->bodyIdCount = 0; player->bodyIdCap = 0;
     player->frame0BodyIds = NULL; player->frame0BodyIdCount = 0;
     player->keyframes = NULL; player->keyframeCount = 0; player->keyframeCapacity = 0;
@@ -2185,7 +2275,8 @@ bool b2Replay_StepFrame( b2Replay* player )
 	// 运行本帧的 Step，然后消耗其后的记录（StateHash、查询、任何帧间修改器）直到下一步。
 	// 一帧的查询和哈希录在其 Step 之后，因此把它们与该 Step 分组，使其与计算时的世界状态配对。
 	// 在下一步之前停止，才能精确前进一帧。
-	bool stepped = false;
+	player->frameQueryCount = 0; player->frameHitCount = 0;
+    bool stepped = false;
 	for ( ;; )
 	{
 		// 窥视下一操作码而不消耗。下一帧的 Step 结束本帧。
@@ -2231,6 +2322,8 @@ void b2DestroyReplay( b2Replay* player )
     b2Free( player->frame0BodyIds, player->frame0BodyIdCount * (int)sizeof( b2BodyId ) );
     for ( int i = 0; i < player->keyframeCount; ++i ) { b2FreeKeyframe( player->keyframes + i ); }
     b2Free( player->keyframes, player->keyframeCapacity * (int)sizeof( b2RecKeyframe ) );
+    b2Free( player->frameQueries, player->frameQueryCap * (int)sizeof( b2RecDrawQuery ) );
+    b2Free( player->frameHits, player->frameHitCap * (int)sizeof( b2RecRecordedHit ) );
     b2SetLengthUnitsPerMeter( player->previousLengthScale );
     b2Free( player, (int)sizeof( b2Replay ) );
 }
@@ -2281,6 +2374,7 @@ void b2Replay_Restart( b2Replay* player )
 	player->frame = 0;
 	player->divergeFrame = -1;
 	player->atEnd = false;
+    player->frameQueryCount = 0; player->frameHitCount = 0;
     player->bodyIdCount = player->frame0BodyIdCount;
     if ( player->frame0BodyIdCount > 0 ) { memcpy( player->bodyIds, player->frame0BodyIds, player->frame0BodyIdCount * (int)sizeof( b2BodyId ) ); }
 
@@ -2410,4 +2504,205 @@ void b2Replay_SeekFrame( b2Replay* player, int targetFrame )
 	while ( player->frame < targetFrame && b2Replay_StepFrame( player ) )
 	{
 	}
+}
+
+static void b2RecDrawHitAABBs( const b2Replay* player, const b2RecDrawQuery* q, b2DebugDraw* draw )
+{
+	if ( draw->DrawPolygonFcn == NULL )
+	{
+		return;
+	}
+	for ( int hi = q->hitStart; hi < q->hitStart + q->hitCount; ++hi )
+	{
+		b2ShapeId id = player->frameHits[hi].id;
+		if ( b2Shape_IsValid( id ) == false )
+		{
+			continue;
+		}
+		b2AABB b = b2Shape_GetBounds( id );
+		b2Vec2 lower = b.lowerBound;
+		b2Vec2 upper = b.upperBound;
+		b2Vec2 vs[4] = { lower, { upper.x, lower.y }, upper, { lower.x, upper.y } };
+		draw->DrawPolygonFcn( b2WorldTransform_identity, vs, 4, b2_colorMagenta, draw->context );
+	}
+}
+
+void b2Replay_DrawFrameQueries( b2Replay* player, b2DebugDraw* draw, int queryIndex )
+{
+	if ( player == NULL || draw == NULL )
+		return;
+
+	// queryIndex < 0 绘制全部查询，否则只绘制查看器中选中的那一个
+	for ( int qi = 0; qi < player->frameQueryCount; ++qi )
+	{
+		if ( queryIndex >= 0 && qi != queryIndex )
+		{
+			continue;
+		}
+
+		const b2RecDrawQuery* q = &player->frameQueries[qi];
+
+		switch ( q->kind )
+		{
+			case B2_RECQ_CAST_RAY:
+			case B2_RECQ_CAST_RAY_CLOSEST:
+			{
+				// 射线原点到终点
+				b2Pos origin = q->origin;
+				b2Pos end = b2OffsetPos( origin, q->translation );
+				if ( draw->DrawLineFcn )
+				{
+					draw->DrawLineFcn( origin, end, b2_colorYellow, draw->context );
+				}
+				// 每个命中的点 + 短法线
+				for ( int hi = q->hitStart; hi < q->hitStart + q->hitCount; ++hi )
+				{
+					const b2RecRecordedHit* h = &player->frameHits[hi];
+					b2Pos point = h->point;
+					if ( draw->DrawPointFcn )
+					{
+						draw->DrawPointFcn( point, 4.0f, b2_colorYellow, draw->context );
+					}
+					if ( draw->DrawLineFcn )
+					{
+						b2Pos np = b2OffsetPos( point, b2MulSV( 0.2f, h->normal ) );
+						draw->DrawLineFcn( point, np, b2_colorLightYellow, draw->context );
+					}
+				}
+				break;
+			}
+			case B2_RECQ_CAST_SHAPE:
+			{
+				// 形状投射：沿扫掠路径绘制每个命中点
+				for ( int hi = q->hitStart; hi < q->hitStart + q->hitCount; ++hi )
+				{
+					const b2RecRecordedHit* h = &player->frameHits[hi];
+					b2Pos point = h->point;
+					if ( draw->DrawPointFcn )
+					{
+						draw->DrawPointFcn( point, 4.0f, b2_colorSkyBlue, draw->context );
+					}
+					if ( draw->DrawLineFcn )
+					{
+						b2Pos np = b2OffsetPos( point, b2MulSV( 0.2f, h->normal ) );
+						draw->DrawLineFcn( point, np, b2_colorLightSkyBlue, draw->context );
+					}
+				}
+				break;
+			}
+			case B2_RECQ_CAST_MOVER:
+			{
+				// 移动胶囊相对查询原点
+				if ( draw->DrawSolidCapsuleFcn )
+				{
+					b2Pos c1 = b2OffsetPos( q->origin, q->mover.center1 );
+					b2Pos c2 = b2OffsetPos( q->origin, q->mover.center2 );
+					draw->DrawSolidCapsuleFcn( c1, c2, q->mover.radius, b2_colorLightSkyBlue, draw->context );
+				}
+				break;
+			}
+			case B2_RECQ_OVERLAP_AABB:
+			{
+				// 查询盒相对查询原点
+				b2Vec2 lower = q->aabb.lowerBound;
+				b2Vec2 upper = q->aabb.upperBound;
+				b2Vec2 vs[4] = { lower, { upper.x, lower.y }, upper, { lower.x, upper.y } };
+				if ( draw->DrawPolygonFcn )
+				{
+					draw->DrawPolygonFcn( b2WorldTransform{ q->origin, b2Rot_identity }, vs, 4, b2_colorLimeGreen,
+										  draw->context );
+				}
+				b2RecDrawHitAABBs( player, q, draw );
+				break;
+			}
+			case B2_RECQ_OVERLAP_SHAPE:
+			{
+				// 代理点相对查询原点
+				if ( q->proxy.count == 1 )
+				{
+					if ( draw->DrawCircleFcn )
+					{
+						draw->DrawCircleFcn( b2OffsetPos( q->origin, q->proxy.points[0] ), q->proxy.radius, b2_colorLimeGreen,
+											 draw->context );
+					}
+				}
+				else if ( q->proxy.count >= 2 && draw->DrawPolygonFcn )
+				{
+					draw->DrawPolygonFcn( b2WorldTransform{ q->origin, b2Rot_identity }, q->proxy.points, q->proxy.count,
+										  b2_colorLimeGreen, draw->context );
+				}
+				b2RecDrawHitAABBs( player, q, draw );
+				break;
+			}
+			case B2_RECQ_COLLIDE_MOVER:
+			{
+				// 移动胶囊和碰撞平面相对查询原点
+				if ( draw->DrawSolidCapsuleFcn )
+				{
+					b2Pos c1 = b2OffsetPos( q->origin, q->mover.center1 );
+					b2Pos c2 = b2OffsetPos( q->origin, q->mover.center2 );
+					draw->DrawSolidCapsuleFcn( c1, c2, q->mover.radius, b2_colorTan, draw->context );
+				}
+				// 每个命中的平面点和法线
+				for ( int hi = q->hitStart; hi < q->hitStart + q->hitCount; ++hi )
+				{
+					const b2RecRecordedHit* h = &player->frameHits[hi];
+					if ( h->plane.hit && draw->DrawLineFcn )
+					{
+						b2Pos point = b2OffsetPos( q->origin, h->plane.point );
+						b2Pos np = b2OffsetPos( point, b2MulSV( 0.2f, h->plane.plane.normal ) );
+						draw->DrawLineFcn( point, np, b2_colorOrange, draw->context );
+					}
+				}
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
+
+int b2Replay_GetFrameQueryCount( const b2Replay* player )
+{
+	return player != NULL ? player->frameQueryCount : 0;
+}
+
+b2ReplayQueryInfo b2Replay_GetFrameQuery( const b2Replay* player, int index )
+{
+	b2ReplayQueryInfo info = {};
+	if ( player == NULL || index < 0 || index >= player->frameQueryCount )
+	{
+		return info;
+	}
+
+	const b2RecDrawQuery* q = &player->frameQueries[index];
+	info.type = (b2ReplayQueryType)q->kind;
+	info.filter = q->filter;
+	info.aabb = q->aabb;
+	info.origin = q->origin;
+	info.translation = q->translation;
+	info.hitCount = q->hitCount;
+	return info;
+}
+
+b2ReplayQueryHit b2Replay_GetFrameQueryHit( const b2Replay* player, int queryIndex, int hitIndex )
+{
+	b2ReplayQueryHit hit = {};
+	if ( player == NULL || queryIndex < 0 || queryIndex >= player->frameQueryCount )
+	{
+		return hit;
+	}
+
+	const b2RecDrawQuery* q = &player->frameQueries[queryIndex];
+	if ( hitIndex < 0 || hitIndex >= q->hitCount )
+	{
+		return hit;
+	}
+
+	const b2RecRecordedHit* h = &player->frameHits[q->hitStart + hitIndex];
+	hit.shapeId = h->id;
+	hit.point = h->point;
+	hit.normal = h->normal;
+	hit.fraction = h->fraction;
+	return hit;
 }

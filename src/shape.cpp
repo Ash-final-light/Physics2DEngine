@@ -1737,3 +1737,9 @@ void b2FreeChainData( b2ChainShape* chain )
 	b2Free( chain->shapeIndices, chain->segmentCount * sizeof( int ) );
 	chain->shapeIndices = NULL;
 }
+
+b2AABB b2Shape_GetBounds( b2ShapeId shapeId )
+{
+    b2Shape* shape = b2GetShapeFromId( shapeId );
+    return shape != NULL ? shape->aabb : b2AABB{};
+}

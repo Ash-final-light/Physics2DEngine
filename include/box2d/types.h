@@ -684,6 +684,7 @@ B2_API bool b2Shape_TestPoint(b2ShapeId shapeId,b2Pos point);
 B2_API b2WorldCastOutput b2Shape_CastRay(b2ShapeId shapeId,b2Pos origin,b2Vec2 translation);
 
 B2_API b2Pos b2Shape_GetClosestPoint(b2ShapeId shapeId,b2Pos target);
+B2_API b2AABB b2Shape_GetBounds( b2ShapeId shapeId );
 
 typedef struct b2ExplosionDef
 {
@@ -1530,3 +1531,40 @@ B2_API int b2Replay_GetKeyframeInterval( const b2Replay* player );
 B2_API size_t b2Replay_GetKeyframeBytes( const b2Replay* player );
 
 B2_API void b2Replay_SeekFrame( b2Replay* player, int targetFrame );
+
+typedef enum b2ReplayQueryType
+{
+	b2_replayQueryOverlapAABB,
+	b2_replayQueryOverlapShape,
+	b2_replayQueryCastRay,
+	b2_replayQueryCastShape,
+	b2_replayQueryCollideMover,
+	b2_replayQueryCastRayClosest,
+	b2_replayQueryCastMover,
+} b2ReplayQueryType;
+
+/// 回放帧期间录制的空间查询，供检查。
+/// @ingroup replay
+typedef struct b2ReplayQueryInfo
+{
+	b2ReplayQueryType type; ///< 查询类型
+	b2QueryFilter filter;	///< 查询过滤器
+	b2AABB aabb;			///< 重叠 AABB，相对原点
+	b2Pos origin;			///< 查询原点
+	b2Vec2 translation;		///< 射线与投射平移
+	int hitCount;			///< 已录制结果数量
+} b2ReplayQueryInfo;
+
+/// 已录制空间查询的一个结果。
+/// @ingroup replay
+typedef struct b2ReplayQueryHit
+{
+	b2ShapeId shapeId; ///< 命中的形状
+	b2Pos point;	   ///< 形状表面上的命中点
+	b2Vec2 normal;	   ///< 命中点处的单位法向量
+	float fraction;	   ///< 查询平移分数
+} b2ReplayQueryHit;
+B2_API void b2Replay_DrawFrameQueries( b2Replay* player, b2DebugDraw* draw, int queryIndex );
+B2_API int b2Replay_GetFrameQueryCount( const b2Replay* player );
+B2_API b2ReplayQueryInfo b2Replay_GetFrameQuery( const b2Replay* player, int index );
+B2_API b2ReplayQueryHit b2Replay_GetFrameQueryHit( const b2Replay* player, int queryIndex, int hitIndex );

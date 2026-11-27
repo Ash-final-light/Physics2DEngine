@@ -90,6 +90,9 @@ int ReplayKeyframeTest( void );
 int ReplayKeyframeBudgetTest( void );
 int ReplaySeekTest( void );
 int ReplaySeekMutationTest( void );
+int ReplayQueryInspectionTest( void );
+int ReplayQueryDrawTest( void );
+int ReplayQueryDivergenceTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1116,6 +1119,12 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"ReplaySeekTest")==0) { ran=1; RUN_TEST(ReplaySeekTest); }
 
 	if(filter==NULL || strcmp(filter,"ReplaySeekMutationTest")==0) { ran=1; RUN_TEST(ReplaySeekMutationTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayQueryInspectionTest")==0) { ran=1; RUN_TEST(ReplayQueryInspectionTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayQueryDrawTest")==0) { ran=1; RUN_TEST(ReplayQueryDrawTest); }
+
+	if(filter==NULL || strcmp(filter,"ReplayQueryDivergenceTest")==0) { ran=1; RUN_TEST(ReplayQueryDivergenceTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

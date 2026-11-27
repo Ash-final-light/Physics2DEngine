@@ -300,3 +300,107 @@ int ReplaySeekMutationTest( void )
     }
     ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+static bool ReplayPlane( b2ShapeId, const b2PlaneResult*, void* context ) { *(int*)context += 1; return true; }
+
+static std::vector<uint8_t> MakeQueryReplayFixture( void )
+{
+    b2WorldDef wd = b2DefaultWorldDef(); b2WorldId world = b2CreateWorld( &wd );
+    b2BodyDef bd = b2DefaultBodyDef(); b2ShapeDef sd = b2DefaultShapeDef(); b2Circle circle = { { 0, 0 }, 0.75f };
+    for ( int i = 0; i < 2; ++i ) { bd.position = { 3.0f * i, 0 }; b2CreateCircleShape( b2CreateBody( world, &bd ), &sd, &circle ); }
+    b2Recording* rec = b2CreateRecording( 1 ); b2World_StartRecording( world, rec );
+    for ( int i = 0; i < 3; ++i ) {
+        b2World_Step( world, 1.0f / 60.0f, 4 ); int hits = 0; b2QueryFilter filter = b2DefaultQueryFilter();
+        b2Vec2 center = {}; b2ShapeProxy proxy = b2MakeProxy( &center, 1, 5 );
+        b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), filter, ReplayOverlap, &hits );
+        b2World_OverlapShape( world, b2Vec2_zero, &proxy, filter, ReplayOverlap, &hits );
+        b2World_CastRay( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), filter, ReplayCast, &hits );
+        proxy.radius = 0.25f;
+        b2World_CastShape( world, ( b2Pos{ -2, 0 } ), &proxy, ( b2Vec2{ 7, 0 } ), filter, ReplayCast, &hits );
+        b2Capsule mover = { { 0, -0.2f }, { 0, 0.2f }, 0.3f };
+        b2World_CollideMover( world, ( b2Pos{ 0, 0.8f } ), &mover, filter, ReplayPlane, &hits );
+        b2World_CastRayClosest( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), filter );
+        b2World_CastMover( world, ( b2Pos{ -2, 0 } ), &mover, ( b2Vec2{ 7, 0 } ), filter );
+    }
+    b2World_StopRecording( world );
+    std::vector<uint8_t> bytes( b2Recording_GetData( rec ), b2Recording_GetData( rec ) + b2Recording_GetSize( rec ) );
+    b2DestroyWorld( world ); b2DestroyRecording( rec ); return bytes;
+}
+
+int ReplayQueryInspectionTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeQueryReplayFixture();
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    b2Replay_SetKeyframePolicy( player, 1024 * 1024, 1 );
+    int expectedHits[] = { 2, 2, 2, 2, 1, 1, 0 };
+    for ( int frame = 0; frame < 3; ++frame ) {
+        ENSURE( b2Replay_StepFrame( player ) && !b2Replay_HasDiverged( player ) );
+        ENSURE( b2Replay_GetFrameQueryCount( player ) == 7 );
+        for ( int i = 0; i < 7; ++i ) {
+            b2ReplayQueryInfo info = b2Replay_GetFrameQuery( player, i );
+            ENSURE( (int)info.type == i && info.hitCount == expectedHits[i] );
+            if ( info.hitCount > 0 ) {
+                b2ReplayQueryHit hit = b2Replay_GetFrameQueryHit( player, i, 0 );
+                ENSURE( b2Shape_IsValid( hit.shapeId ) );
+                ENSURE( hit.shapeId.world0 == b2Replay_GetWorldId( player ).index1 - 1 );
+            }
+        }
+    }
+    b2Replay_SeekFrame( player, 1 ); ENSURE( b2Replay_GetFrameQueryCount( player ) == 7 );
+    b2Replay_SeekFrame( player, 0 ); ENSURE( b2Replay_GetFrameQueryCount( player ) == 0 );
+    ENSURE( b2Replay_GetFrameQuery( player, 99 ).hitCount == 0 );
+    ENSURE( b2Replay_GetFrameQueryHit( player, 99, 0 ).shapeId.index1 == 0 );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+struct ReplayDrawCounts { int polygons, lines, circles, capsules, points; b2Vec2 lower, upper; };
+static void ReplayDrawPolygon( b2WorldTransform, const b2Vec2* vertices, int count, b2HexColor color, void* context )
+{
+    auto* counts = (ReplayDrawCounts*)context; counts->polygons++;
+    if ( color == b2_colorMagenta && count == 4 ) { counts->lower = vertices[0]; counts->upper = vertices[2]; }
+}
+static void ReplayDrawLine( b2Pos, b2Pos, b2HexColor, void* context ) { ((ReplayDrawCounts*)context)->lines++; }
+static void ReplayDrawCircle( b2Pos, float, b2HexColor, void* context ) { ((ReplayDrawCounts*)context)->circles++; }
+static void ReplayDrawCapsule( b2Pos, b2Pos, float, b2HexColor, void* context ) { ((ReplayDrawCounts*)context)->capsules++; }
+static void ReplayDrawPoint( b2Pos, float, b2HexColor, void* context ) { ((ReplayDrawCounts*)context)->points++; }
+
+int ReplayQueryDrawTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeQueryReplayFixture();
+    b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    ENSURE( b2Replay_StepFrame( player ) ); ReplayDrawCounts counts = {}; b2DebugDraw draw = {};
+    draw.context = &counts; draw.DrawPolygonFcn = ReplayDrawPolygon; draw.DrawLineFcn = ReplayDrawLine;
+    draw.DrawCircleFcn = ReplayDrawCircle; draw.DrawSolidCapsuleFcn = ReplayDrawCapsule; draw.DrawPointFcn = ReplayDrawPoint;
+    b2Replay_DrawFrameQueries( player, &draw, -1 );
+    ENSURE( counts.polygons > 0 && counts.lines > 0 && counts.circles > 0 && counts.capsules == 2 && counts.points > 0 );
+    counts = {}; b2Replay_DrawFrameQueries( player, &draw, 0 );
+    ENSURE( counts.polygons == 3 );
+    b2ShapeId lastHit = b2Replay_GetFrameQueryHit( player, 0, 1 ).shapeId;
+    b2AABB bounds = b2Shape_GetBounds( lastHit );
+    b2Pos center = b2Body_GetPosition( b2Shape_GetBody( lastHit ) );
+    ENSURE( bounds.lowerBound.x < center.x && bounds.upperBound.x > center.x );
+    ENSURE( bounds.lowerBound.y < center.y && bounds.upperBound.y > center.y );
+    ENSURE( counts.lower.x == bounds.lowerBound.x && counts.lower.y == bounds.lowerBound.y );
+    ENSURE( counts.upper.x == bounds.upperBound.x && counts.upper.y == bounds.upperBound.y );
+    counts = {}; b2Replay_DrawFrameQueries( player, &draw, 2 );
+    ENSURE( counts.lines >= 2 && counts.points == 2 && counts.polygons == 0 && counts.capsules == 0 );
+    counts = {}; b2Replay_DrawFrameQueries( player, &draw, 99 ); ENSURE( counts.lines == 0 && counts.polygons == 0 );
+    b2DebugDraw empty = {}; b2Replay_DrawFrameQueries( player, &empty, -1 );
+    b2Replay_DrawFrameQueries( nullptr, &draw, -1 ); b2Replay_DrawFrameQueries( player, nullptr, -1 );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int ReplayQueryDivergenceTest( void )
+{
+    int before = b2GetByteCount(); auto bytes = MakeQueryReplayFixture(); b2RecHeader header;
+    memcpy( &header, bytes.data(), sizeof( header ) ); int offset = 32 + (int)header.snapshotSize; bool changed = false;
+    while ( offset + 4 <= (int)bytes.size() ) {
+        int size = bytes[offset+1] | (int)bytes[offset+2] << 8 | (int)bytes[offset+3] << 16;
+        if ( bytes[offset] == 0xE2 ) { bytes[offset + 48] ^= 1; changed = true; break; }
+        offset += 4 + size;
+    }
+    ENSURE( changed ); b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
+    ENSURE( b2Replay_StepFrame( player ) && b2Replay_HasDiverged( player ) );
+    ENSURE( b2Replay_GetDivergeFrame( player ) == 1 && b2Replay_GetFrameQueryCount( player ) == 7 );
+    b2DestroyReplay( player ); ENSURE( b2GetByteCount() == before ); return 0;
+}
