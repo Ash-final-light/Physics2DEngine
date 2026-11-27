@@ -61,3 +61,41 @@ int SharedDeterminismTest( void )
     }
     return 0;
 }
+
+#include "human.h"
+int SharedHumanTest( void )
+{
+    int before = b2GetByteCount(); uint32_t seed = g_randomSeed;
+    b2WorldDef wd = b2DefaultWorldDef(); b2WorldId world = b2CreateWorld( &wd ); Human human = {};
+    int tag = 42; CreateHuman( &human, world, ( b2Pos{ 0, 10 } ), 1, 0.5f, 2, 0.7f, 1, &tag, true );
+    ENSURE( human.isSpawned && b2World_GetCounters( world ).bodyCount == bone_count );
+    ENSURE( b2World_GetCounters( world ).jointCount == bone_count - 1 );
+    for ( int i = 0; i < bone_count; ++i ) {
+        ENSURE( b2Body_IsValid( human.bones[i].bodyId ) && b2Body_GetUserData( human.bones[i].bodyId ) == &tag );
+        if ( i > 0 ) ENSURE( b2Joint_IsValid( human.bones[i].jointId ) );
+    }
+    Human_SetVelocity( &human, ( b2Vec2{ 2, 3 } ) );
+    for ( const Bone& bone : human.bones ) ENSURE( b2Body_GetLinearVelocity( bone.bodyId ).x == 2 );
+    Human_ApplyRandomAngularImpulse( &human, 1 );
+    ENSURE( b2Body_GetAngularVelocity( human.bones[bone_torso].bodyId ) != 0 );
+    Human_SetJointFrictionTorque( &human, 0 ); Human_SetJointSpringHertz( &human, 0 );
+    for ( int i = 1; i < bone_count; ++i ) {
+        ENSURE( !b2RevoluteJoint_IsMotorEnabled( human.bones[i].jointId ) );
+        ENSURE( !b2RevoluteJoint_IsSpringEnabled( human.bones[i].jointId ) );
+    }
+    Human_SetJointFrictionTorque( &human, 2 ); Human_SetJointSpringHertz( &human, 3 ); Human_SetJointDampingRatio( &human, 0.5f );
+    for ( int i = 1; i < bone_count; ++i ) {
+        ENSURE( b2RevoluteJoint_IsMotorEnabled( human.bones[i].jointId ) );
+        ENSURE( b2RevoluteJoint_GetSpringHertz( human.bones[i].jointId ) == 3 );
+        ENSURE( b2RevoluteJoint_GetSpringDampingRatio( human.bones[i].jointId ) == 0.5f );
+    }
+    Human_EnableSensorEvents( &human, true ); b2ShapeId torsoShape;
+    ENSURE( b2Body_GetShapes( human.bones[bone_torso].bodyId, &torsoShape, 1 ) == 1 && b2Shape_AreSensorEventsEnabled( torsoShape ) );
+    Human_EnableSensorEvents( &human, false ); ENSURE( !b2Shape_AreSensorEventsEnabled( torsoShape ) );
+    float mass = b2Body_GetMass( human.bones[bone_torso].bodyId );
+    Human_SetScale( &human, 1.5f ); ENSURE( human.scale == 1.5f && b2Body_GetMass( human.bones[bone_torso].bodyId ) > mass );
+    for ( int i = 0; i < 5; ++i ) b2World_Step( world, 1.0f / 60.0f, 4 );
+    DestroyHuman( &human ); ENSURE( !human.isSpawned && b2World_GetCounters( world ).bodyCount == 0 && b2World_GetCounters( world ).jointCount == 0 );
+    for ( const Bone& bone : human.bones ) ENSURE( bone.bodyId.index1 == 0 && bone.jointId.index1 == 0 );
+    b2DestroyWorld( world ); g_randomSeed = seed; ENSURE( b2GetByteCount() == before ); return 0;
+}

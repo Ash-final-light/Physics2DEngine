@@ -3,6 +3,8 @@
 
 #pragma once
 
+#define B2_IS_NULL( id ) ( ( id ).index1 == 0 )
+
 #include <stdint.h>
 
 typedef struct b2WorldId

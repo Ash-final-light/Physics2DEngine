@@ -100,6 +100,7 @@ int PrecisionConfigurationTest( void );
 int SharedUtilitiesTest( void );
 int AwakeBodyCountTest( void );
 int SharedDeterminismTest( void );
+int SharedHumanTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1146,6 +1147,8 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"AwakeBodyCountTest")==0) { ran=1; RUN_TEST(AwakeBodyCountTest); }
 
 	if(filter==NULL || strcmp(filter,"SharedDeterminismTest")==0) { ran=1; RUN_TEST(SharedDeterminismTest); }
+
+	if(filter==NULL || strcmp(filter,"SharedHumanTest")==0) { ran=1; RUN_TEST(SharedHumanTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{
