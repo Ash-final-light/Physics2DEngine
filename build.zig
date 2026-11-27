@@ -91,6 +91,8 @@ fn compileBox2d(b: *Build, target: ResolvedTarget, optimize: OptimizeMode, optio
 
     if (options.disable_simd) {
         module.addCMacro("BOX2D_DISABLE_SIMD", "");
+    } else if (target.result.os.tag == .emscripten) {
+        try box2d_flags_arr.appendSlice(b.allocator, &[_][]const u8{ "-msimd128", "-msse2" });
     }
 
     const linkage: std.builtin.LinkMode = if (options.shared) .dynamic else .static;

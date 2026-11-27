@@ -266,3 +266,5 @@ Windows 可运行 `build_vs2022.bat` 或 `build_vs2022.bat Debug`；脚本固定
 Swift Package 使用 C17/C++20，可执行 `swift test` 验证版本和世界步进。该配置保留确定性浮点选项；未安装 Swift 工具链的平台不会由 CMake 测试替代 Swift 验收。
 
 Zig 配置使用清单声明的版本和 translate-c 依赖，`zig build -Dc_unit_tests=true -Dzig_unit_tests=true` 构建当前内核及调用测试；C 源按 C17、内核和内部测试按 C++20 编译。共享配置只构建公开 C 消费者。
+
+Emscripten 环境激活后运行 `build_emscripten.sh`。构建使用独立 `build-emscripten`，无界面内核和测试统一使用 pthread；启用 SIMD 时统一传递 simd128/SSE2 选项。
