@@ -262,3 +262,5 @@ Windows 可运行 `build_vs2022.bat` 或 `build_vs2022.bat Debug`；脚本固定
 使用 `cmake --install <build> --config RelWithDebInfo --prefix <prefix>` 安装。消费者可用 `find_package(box2d 3.2 CONFIG REQUIRED)`，链接 `box2d::box2d`；也支持 `add_subdirectory` 嵌入，嵌入时仅创建内核目标。
 
 安装也包含 `lib/pkgconfig/box2d.pc`。元数据相对 `.pc` 自身定位安装根目录；精度和 Windows 动态库导入宏与当前构建一致。静态库将 C++ 运行库列为普通链接依赖，共享库将其列为私有依赖。
+
+Swift Package 使用 C17/C++20，可执行 `swift test` 验证版本和世界步进。该配置保留确定性浮点选项；未安装 Swift 工具链的平台不会由 CMake 测试替代 Swift 验收。
