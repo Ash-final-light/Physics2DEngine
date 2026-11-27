@@ -55,3 +55,8 @@ if(MSVC AND NOT BOX2D_DISABLE_SIMD AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang
 elseif(MINGW AND NOT BOX2D_DISABLE_SIMD AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
  set_source_files_properties(contact_solver_w8.cpp PROPERTIES COMPILE_OPTIONS "-Wa,-muse-unaligned-vector-move")
 endif()
+
+set_target_properties(box2d PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_INLINES_HIDDEN YES)
+if(WIN32 AND BUILD_SHARED_LIBS)
+ target_compile_definitions(box2d INTERFACE BOX2D_DLL)
+endif()
