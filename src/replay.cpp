@@ -2720,3 +2720,24 @@ b2BodyId b2Replay_GetBodyId( const b2Replay* player, int index )
 	}
 	return player->bodyIds[index];
 }
+
+bool b2ValidateRecording( const void* data, int size, int workerCount )
+{
+	b2Replay* player = b2CreateReplay( data, size, workerCount );
+	if ( player == NULL )
+	{
+		return false;
+	}
+
+	while ( b2Replay_StepFrame( player ) )
+	{
+		if ( player->rdr.diverged )
+		{
+			break;
+		}
+	}
+
+	bool ok = player->rdr.ok && player->rdr.diverged == false;
+	b2DestroyReplay( player );
+	return ok;
+}

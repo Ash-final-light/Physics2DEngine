@@ -1573,3 +1573,6 @@ B2_API b2ReplayQueryHit b2Replay_GetFrameQueryHit( const b2Replay* player, int q
 B2_API int b2Replay_GetBodyCount( const b2Replay* player );
 /// Body at creation ordinal; destroyed or out-of-range slots return a null ID.
 B2_API b2BodyId b2Replay_GetBodyId( const b2Replay* player, int index );
+
+/// Replay all frames; return false on malformed data or any state/query divergence.
+B2_API bool b2ValidateRecording( const void* data, int size, int workerCount );

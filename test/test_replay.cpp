@@ -451,3 +451,46 @@ int ReplayBodyEnumerationTest( void )
     ENSURE( b2Replay_GetBodyCount( nullptr ) == 0 && b2Replay_GetBodyId( nullptr, 0 ).index1 == 0 );
     b2DestroyRecording( rec ); ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+int RecordingIntegrityTest( void )
+{
+    int before = b2GetByteCount(); float original = b2GetLengthUnitsPerMeter();
+    b2SetLengthUnitsPerMeter( 2 );
+    auto empty = MakeReplayFixture( 0 ); auto normal = MakeReplayFixture( 40 ); auto queries = MakeQueryReplayFixture();
+    std::vector<uint64_t> hashes; auto mutations = MakeMutableReplayFixture( &hashes );
+    b2SetLengthUnitsPerMeter( 3 ); int allocated = b2GetByteCount();
+    int workers[] = { 0, 1, 4 };
+    for ( int worker : workers ) {
+        for ( const auto* bytes : { &empty, &normal, &queries, &mutations } ) {
+            ENSURE( b2ValidateRecording( bytes->data(), (int)bytes->size(), worker ) );
+            ENSURE( b2GetByteCount() == allocated && b2GetLengthUnitsPerMeter() == 3 );
+        }
+    }
+    b2SetLengthUnitsPerMeter( original ); ENSURE( b2GetByteCount() == before ); return 0;
+}
+
+int RecordingIntegrityInvalidTest( void )
+{
+    int before = b2GetByteCount(); auto good = MakeReplayFixture( 5 ); auto queries = MakeQueryReplayFixture();
+    ENSURE( !b2ValidateRecording( nullptr, 0, 0 ) );
+    for ( int which = 0; which < 5; ++which ) {
+        auto bytes = which == 4 ? queries : good;
+        if ( which == 0 ) bytes[0] = 0;
+        if ( which == 1 ) bytes[4]++;
+        if ( which == 2 ) bytes.pop_back();
+        if ( which >= 3 ) {
+            b2RecHeader header; memcpy( &header, bytes.data(), sizeof( header ) );
+            int offset = 32 + (int)header.snapshotSize; bool changed = false;
+            while ( offset + 4 <= (int)bytes.size() ) {
+                int size = bytes[offset+1] | (int)bytes[offset+2] << 8 | (int)bytes[offset+3] << 16;
+                if ( which == 3 && bytes[offset] == 0xF1 ) { bytes[offset + 8] ^= 1; changed = true; break; }
+                if ( which == 4 && bytes[offset] == 0xE2 ) { bytes[offset + 48] ^= 1; changed = true; break; }
+                offset += 4 + size;
+            }
+            ENSURE( changed );
+        }
+        ENSURE( !b2ValidateRecording( bytes.data(), (int)bytes.size(), 4 ) );
+        ENSURE( b2GetByteCount() == before );
+    }
+    return 0;
+}
