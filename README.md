@@ -264,3 +264,5 @@ Windows 可运行 `build_vs2022.bat` 或 `build_vs2022.bat Debug`；脚本固定
 安装也包含 `lib/pkgconfig/box2d.pc`。元数据相对 `.pc` 自身定位安装根目录；精度和 Windows 动态库导入宏与当前构建一致。静态库将 C++ 运行库列为普通链接依赖，共享库将其列为私有依赖。
 
 Swift Package 使用 C17/C++20，可执行 `swift test` 验证版本和世界步进。该配置保留确定性浮点选项；未安装 Swift 工具链的平台不会由 CMake 测试替代 Swift 验收。
+
+Zig 配置使用清单声明的版本和 translate-c 依赖，`zig build -Dc_unit_tests=true -Dzig_unit_tests=true` 构建当前内核及调用测试；C 源按 C17、内核和内部测试按 C++20 编译。共享配置只构建公开 C 消费者。
