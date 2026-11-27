@@ -148,3 +148,6 @@ B2_API float b2GetMilliseconds( uint64_t ticks );
 
 /// 获取自初始计数值起经过的毫秒数，并将传入值重置为当前计数值。
 B2_API float b2GetMillisecondsAndReset( uint64_t* ticks );
+
+#define B2_HASH_INIT 5381
+B2_API uint32_t b2Hash( uint32_t hash, const uint8_t* data, int count );

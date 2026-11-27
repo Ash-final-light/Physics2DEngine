@@ -65,6 +65,7 @@ void b2CreateShapeProxy( b2World* world, b2Shape* shape, b2BodyType type, b2Worl
 void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* broadPhase );
 
 void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform );
+void b2SyncShapeProxy( b2World* world, b2Shape* shape );
 
 
 inline bool b2ShouldShapesCollide( b2Filter a, b2Filter b )

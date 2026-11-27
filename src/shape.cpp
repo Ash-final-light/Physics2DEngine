@@ -882,9 +882,8 @@ void b2DestroyShapeProxy( b2Shape* shape, b2BroadPhase* bp )
 }
 
 
-void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform )
+void b2SyncShapeProxy( b2World* world, b2Shape* shape )
 {
-    b2UpdateShapeAABB( shape, transform );
     b2AABB* fat = world->fatAABBs.data + shape->id;
     if ( b2AABB_Contains( *fat, shape->aabb ) == false )
     {
@@ -1742,4 +1741,10 @@ b2AABB b2Shape_GetBounds( b2ShapeId shapeId )
 {
     b2Shape* shape = b2GetShapeFromId( shapeId );
     return shape != NULL ? shape->aabb : b2AABB{};
+}
+
+void b2MoveShapeProxy( b2World* world, b2Shape* shape, b2WorldTransform transform )
+{
+    b2UpdateShapeAABB( shape, transform );
+    b2SyncShapeProxy( world, shape );
 }

@@ -8,6 +8,7 @@
 #include "platform.h"
 #include "simd.h"
 #include "aabb.h"
+#include "island.h"
 #include "box2d/math_functions.h"
 
 #include <bit>
@@ -160,7 +161,13 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
             b2Array_Push(world->sensors.data[sensorShape->sensorIndex].hits,b2Visitor{visitor->id,visitor->generation});
         }
     }
-    // The existing proxy synchronization below recomputes bounds at the clipped transform.
+    // A clipped TOI needs speculative bounds at its interpolated transform.
+    // Without a TOI, preserve the tight box computed in the sweep above.
+    if(context.fraction<1.0f)
+    {
+        for(int shapeId=fastBody->headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
+        { b2UpdateShapeAABB(world->shapes.data+shapeId,fastBodySim->transform); }
+    }
 }
 
 static void b2IntegrateBodyVelocity( b2World* world, b2BodySim* sim, b2BodyState* state, float h )
@@ -288,6 +295,12 @@ static void b2SolverRangeTask(int startIndex,int endIndex,int workerIndex,void* 
 
 void b2BeginSolve(b2World* world,b2StepContext* context)
 {
+ if(world->splitIslandId!=B2_NULL_INDEX)
+ {
+  uint64_t splitTicks=b2GetTicks();int splitId=world->splitIslandId;
+  b2SplitIsland(world,splitId);world->splitIslandId=B2_NULL_INDEX;
+  world->profile.splitIslands=b2GetMilliseconds(splitTicks);
+ }
  uint64_t ticks=b2GetTicks();
  b2SolverSet* set=world->solverSets.data+b2_awakeSet;
  B2_ASSERT(set->bodySims.count==set->bodyStates.count);
@@ -370,6 +383,7 @@ void b2EndSolve(b2StepContext* context)
     int bulletCount=0;int* bulletIndices=NULL;
     if(world->enableContinuous && set->bodySims.count>0)
     { bulletIndices=static_cast<int*>(b2StackAlloc(&world->stack,set->bodySims.count*sizeof(int),"bullets")); }
+    world->splitIslandId=B2_NULL_INDEX;float splitSleepTime=0.0f;
     for(int i=0;i<set->bodySims.count;++i)
     {
         b2BodySim* sim=set->bodySims.data+i;
@@ -385,6 +399,10 @@ void b2EndSolve(b2StepContext* context)
         world->bodyMoveEvents.data[i]=b2BodyMoveEvent{body->userData,sim->transform,b2BodyId{body->id+1,world->worldId,body->generation},false};
         if(!world->enableSleep || (body->flags&b2_enableSleep)==0 || sleepVelocity>body->sleepThreshold) { body->sleepTime=0; }
         else { body->sleepTime+=timeStep; }
+        b2Island* bodyIsland=world->islands.data+body->islandId;
+        if(body->sleepTime>=B2_TIME_TO_SLEEP && bodyIsland->constraintRemoveCount>0 &&
+           (body->sleepTime>splitSleepTime || (body->sleepTime==splitSleepTime && body->islandId>world->splitIslandId)))
+        { world->splitIslandId=body->islandId;splitSleepTime=body->sleepTime; }
         body->flags&=~b2_bodyTransientFlags;body->flags|=state->flags&b2_isSpeedCapped;
         state->flags&=~b2_bodyTransientFlags;
         sim->flags&=~(b2_isFast|b2_bodyTransientFlags);
@@ -402,7 +420,11 @@ void b2EndSolve(b2StepContext* context)
         if(!deferBullet)
         {
             for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
-            { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
+            {
+                b2Shape* shape=world->shapes.data+shapeId;
+                if(sim->flags&b2_isFast) { b2SyncShapeProxy(world,shape); }
+                else { b2MoveShapeProxy(world,shape,sim->transform); }
+            }
         }
     }
     world->profile.transforms=b2GetMillisecondsAndReset(&ticks);
@@ -414,7 +436,7 @@ void b2EndSolve(b2StepContext* context)
         int index=bulletIndices[i];b2SolveContinuous(world,index,timeStep);
         b2BodySim* sim=set->bodySims.data+index;
         for(int shapeId=world->bodies.data[sim->bodyId].headShapeId;shapeId!=B2_NULL_INDEX;shapeId=world->shapes.data[shapeId].nextShapeId)
-        { b2MoveShapeProxy(world,world->shapes.data+shapeId,sim->transform); }
+        { b2SyncShapeProxy(world,world->shapes.data+shapeId); }
     }
     if(bulletIndices!=NULL) { b2StackFree(&world->stack,bulletIndices); }
     if(bulletCount>0) { world->profile.bullets=b2GetMilliseconds(ticks); }

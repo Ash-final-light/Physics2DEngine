@@ -360,11 +360,9 @@ static b2TaskBatch b2StartStep( b2World* world, float timeStep, int subStepCount
 	context->phase = 1;
 	context->stepTicks=b2GetTicks();
 	context->pairTicks=context->stepTicks;
- for(int i=0;i<world->contacts.count;++i)
- {
-  b2Contact* contact=world->contacts.data+i;
-  if(contact->contactId!=B2_NULL_INDEX && !b2AABB_Overlaps(world->fatAABBs.data[contact->shapeIdA],world->fatAABBs.data[contact->shapeIdB])) { b2DestroyContact(world,contact); }
- }
+ // Disjoint contacts are retired by b2EndCollide after new broad-phase pairs
+ // are created. Retiring them here would reuse their IDs in the same step,
+ // changing deterministic contact ordering.
  return b2ContinueStepInternal(world);
 }
 
@@ -384,7 +382,7 @@ static b2TaskBatch b2ContinueStepInternal( b2World* world )
     context->phase=4;context->collideTicks=b2GetTicks();b2BeginCollide(context);break;
    case 4:
     b2EndCollide(context);world->profile.collide=b2GetMilliseconds(context->collideTicks);
-    { uint64_t ticks=b2GetTicks();b2SplitContactIslands(world);world->profile.splitIslands=b2GetMilliseconds(ticks); }
+    // Split only the deterministic candidate selected during the previous finalize.
     context->phase=5;context->solveTicks=b2GetTicks();b2BeginSolve(world,context);break;
    case 5:
     if(b2ContinueSolve(context)==false)

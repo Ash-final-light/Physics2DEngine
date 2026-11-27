@@ -47,6 +47,7 @@ b2Island* b2CreateIsland( b2World* world, int setIndex )
 
 void b2DestroyIsland( b2World* world, int islandId )
 {
+    if(world->splitIslandId==islandId) { world->splitIslandId=B2_NULL_INDEX; }
 
 	// 假定岛为空
 	b2Island* island = b2Array_Get( world->islands, islandId );

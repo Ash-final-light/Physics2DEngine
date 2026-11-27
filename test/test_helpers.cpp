@@ -39,3 +39,25 @@ int AwakeBodyCountTest( void )
     b2DestroyBody( b ); ENSURE( b2World_GetAwakeBodyCount( world ) == 0 );
     b2DestroyWorld( world ); ENSURE( b2GetByteCount() == before ); return 0;
 }
+
+#include "determinism.h"
+int SharedDeterminismTest( void )
+{
+    const uint8_t text[] = { 'a', 'b', 'c' };
+    ENSURE( b2Hash( B2_HASH_INIT, text, 3 ) == 193485963u );
+    ENSURE( b2Hash( b2Hash( B2_HASH_INIT, text, 1 ), text + 1, 2 ) == 193485963u );
+    int before = b2GetByteCount(); int workers[] = { 1, 4 };
+    for ( int worker : workers ) {
+        b2WorldDef wd = b2DefaultWorldDef(); wd.workerCount = worker; b2WorldId world = b2CreateWorld( &wd );
+        FallingHingeData data = CreateFallingHinges( world );
+        ENSURE( data.bodyCount == 80 && b2World_GetCounters( world ).bodyCount == 81 && b2World_GetCounters( world ).jointCount == 40 );
+        for ( int i = 0; i < 1000; ++i ) {
+            b2World_Step( world, 1.0f / 60.0f, 4 ); if ( UpdateFallingHinges( world, &data ) ) break;
+        }
+        printf( "Falling hinges workers=%d sleepStep=%d hash=0x%08X\n", worker, data.sleepStep, data.hash );
+        b2DestroyWorld( world ); int sleepStep = data.sleepStep; uint32_t hash = data.hash;
+        DestroyFallingHinges( &data ); ENSURE( data.bodyIds == nullptr );
+        ENSURE( b2GetByteCount() == before ); ENSURE( sleepStep == EXPECTED_SLEEP_STEP ); ENSURE( hash == EXPECTED_HASH );
+    }
+    return 0;
+}

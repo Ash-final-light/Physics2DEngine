@@ -219,6 +219,7 @@ fn buildCTests(b: *Build, target: ResolvedTarget, optimize: OptimizeMode, box2d_
                 "test/test_precision.cpp",
                 "test/test_helpers.cpp",
                 "shared/utils.cpp",
+                "shared/determinism.cpp",
                 "test/test_replay.cpp",
                 "test/contact_solver_scalar4.cpp",
                 "test/test_hull.cpp",
