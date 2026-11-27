@@ -217,6 +217,8 @@ fn buildCTests(b: *Build, target: ResolvedTarget, optimize: OptimizeMode, box2d_
                 "test/test_snapshot.cpp",
                 "test/test_recording.cpp",
                 "test/test_precision.cpp",
+                "test/test_helpers.cpp",
+                "shared/utils.cpp",
                 "test/test_replay.cpp",
                 "test/contact_solver_scalar4.cpp",
                 "test/test_hull.cpp",
@@ -237,6 +239,7 @@ fn buildCTests(b: *Build, target: ResolvedTarget, optimize: OptimizeMode, box2d_
     }
     test_module.addIncludePath(b.path("include"));
     test_module.addIncludePath(b.path("test"));
+    test_module.addIncludePath(b.path("shared"));
 
     const test_exe = b.addExecutable(.{
         .name = "c_test",

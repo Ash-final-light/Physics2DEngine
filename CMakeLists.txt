@@ -72,6 +72,9 @@ endif()
 
 include(GNUInstallDirs)
 add_subdirectory(src)
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
+ add_subdirectory(shared)
+endif()
 
 if(PROJECT_IS_TOP_LEVEL)
 add_executable(toolchain_check
@@ -129,6 +132,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 		test/test_state_hash.cpp
 		test/test_snapshot.cpp
 		test/test_recording.cpp
+		test/test_helpers.cpp
 		test/test_precision.cpp
 		test/test_replay.cpp
 		test/contact_solver_scalar4.cpp
@@ -139,7 +143,7 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 		"${CMAKE_CURRENT_SOURCE_DIR}/test"
 		"${CMAKE_CURRENT_SOURCE_DIR}/src"
 	)
-	target_link_libraries(unit_tests PRIVATE box2d)
+	target_link_libraries(unit_tests PRIVATE box2d shared)
 	add_test(NAME unit_tests COMMAND unit_tests)
 	endif()
 endif()
