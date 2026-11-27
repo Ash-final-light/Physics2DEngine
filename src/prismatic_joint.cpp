@@ -635,8 +635,8 @@ void b2DrawPrismaticJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform
 
 	b2PrismaticJoint* joint = &base->prismaticJoint;
 
-	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
-	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+	b2WorldTransform frameA = b2MulWorldTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulWorldTransforms( transformB, base->localFrameB );
 	b2Vec2 axisA = b2RotateVector( frameA.q, b2Vec2{ 1.0f, 0.0f } );
 
 	draw->DrawLineFcn( frameA.p, frameB.p, b2_colorDimGray, draw->context );

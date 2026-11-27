@@ -21,7 +21,7 @@ int WorldStateHashTest( void )
 
 	b2BodyDef bodyDef = b2DefaultBodyDef();
 	bodyDef.type = b2_dynamicBody;
-	bodyDef.position = b2Vec2{ 1.0f, 2.0f };
+	bodyDef.position = b2Pos{ 1.0f, 2.0f };
 	bodyDef.gravityScale = 0.0f;
 	b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
 	ENSURE( b2Body_IsValid( bodyId ) );
@@ -32,16 +32,16 @@ int WorldStateHashTest( void )
 	ENSURE( base != empty );
 	ENSURE( b2HashWorldState( world ) == base );
 
-	b2Body_SetTransform( bodyId, b2Vec2{ 5.0f, 2.0f }, b2Rot_identity );
+	b2Body_SetTransform( bodyId, b2Pos{ 5.0f, 2.0f }, b2Rot_identity );
 	uint64_t moved = b2HashWorldState( world );
 	ENSURE( moved != base );
 
-	b2Body_SetTransform( bodyId, b2Vec2{ 1.0f, 2.0f }, b2Rot{ 0.96891242f, 0.24740396f } );
+	b2Body_SetTransform( bodyId, b2Pos{ 1.0f, 2.0f }, b2Rot{ 0.96891242f, 0.24740396f } );
 	uint64_t rotated = b2HashWorldState( world );
 	ENSURE( rotated != base );
 	ENSURE( rotated != moved );
 
-	b2Body_SetTransform( bodyId, b2Vec2{ 1.0f, 2.0f }, b2Rot_identity );
+	b2Body_SetTransform( bodyId, b2Pos{ 1.0f, 2.0f }, b2Rot_identity );
 	b2Body_SetLinearVelocity( bodyId, b2Vec2{ 3.0f, 5.0f } );
 	uint64_t linear = b2HashWorldState( world );
 	ENSURE( linear != base );
@@ -62,13 +62,13 @@ int WorldStateHashFreeSlotTest( void )
 
 	b2BodyDef staticDef = b2DefaultBodyDef();
 	staticDef.type = b2_staticBody;
-	staticDef.position = b2Vec2{ 0.0f, 0.0f };
+	staticDef.position = b2Pos{ 0.0f, 0.0f };
 	b2BodyId staticId = b2CreateBody( worldId, &staticDef );
 	ENSURE( b2Body_IsValid( staticId ) );
 
 	b2BodyDef dynamicDef = b2DefaultBodyDef();
 	dynamicDef.type = b2_dynamicBody;
-	dynamicDef.position = b2Vec2{ 1.0f, 2.0f };
+	dynamicDef.position = b2Pos{ 1.0f, 2.0f };
 	dynamicDef.gravityScale = 0.0f;
 	b2BodyId dynamicId = b2CreateBody( worldId, &dynamicDef );
 	ENSURE( b2Body_IsValid( dynamicId ) );
@@ -99,12 +99,12 @@ int WorldStateHashDeepTest( void )
 
 	b2BodyDef staticDef = b2DefaultBodyDef();
 	staticDef.type = b2_staticBody;
-	staticDef.position = b2Vec2{ 0.0f, 0.0f };
+	staticDef.position = b2Pos{ 0.0f, 0.0f };
 	b2BodyId staticId = b2CreateBody( worldId, &staticDef );
 
 	b2BodyDef dynamicDef = b2DefaultBodyDef();
 	dynamicDef.type = b2_dynamicBody;
-	dynamicDef.position = b2Vec2{ 2.0f, 0.0f };
+	dynamicDef.position = b2Pos{ 2.0f, 0.0f };
 	dynamicDef.gravityScale = 0.0f;
 	b2BodyId dynamicId = b2CreateBody( worldId, &dynamicDef );
 
@@ -135,7 +135,7 @@ static void BuildDeepHashContactWorld( b2WorldId worldId )
 {
 	b2BodyDef groundDef = b2DefaultBodyDef();
 	groundDef.type = b2_staticBody;
-	groundDef.position = b2Vec2{ 0.0f, -1.0f };
+	groundDef.position = b2Pos{ 0.0f, -1.0f };
 	b2BodyId groundId = b2CreateBody( worldId, &groundDef );
 	b2Polygon groundBox = b2MakeBox( 10.0f, 1.0f );
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -143,7 +143,7 @@ static void BuildDeepHashContactWorld( b2WorldId worldId )
 
 	b2BodyDef ballDef = b2DefaultBodyDef();
 	ballDef.type = b2_dynamicBody;
-	ballDef.position = b2Vec2{ 0.0f, 4.0f };
+	ballDef.position = b2Pos{ 0.0f, 4.0f };
 	b2BodyId ballId = b2CreateBody( worldId, &ballDef );
 	b2Circle circle = { b2Vec2_zero, 0.5f };
 	b2CreateCircleShape( ballId, &shapeDef, &circle );

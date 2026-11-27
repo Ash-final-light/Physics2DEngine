@@ -100,6 +100,9 @@ B2_API b2TaskBatch b2World_BeginStep( b2WorldId worldId, float timeStep, int sub
 B2_API b2TaskBatch b2World_ContinueStep( b2WorldId worldId );
 
 B2_API b2WorldDef b2DefaultWorldDef( void );
+#if defined( BOX2D_DOUBLE_PRECISION )
+#define b2CreateWorld b2CreateWorldDoublePrecision
+#endif
 B2_API b2WorldId b2CreateWorld( const b2WorldDef* def );
 B2_API void b2DestroyWorld( b2WorldId worldId );
 B2_API bool b2World_IsValid( b2WorldId id );

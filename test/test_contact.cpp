@@ -323,7 +323,7 @@ static void TestPreSolve(b2ShapeId a,b2ShapeId b,b2Manifold* manifold,void* cont
 }
 static bool TestPreContinuous(b2ShapeId a,b2ShapeId b,b2Pos point,b2Vec2 normal,void* context)
 {
-    PreSolveState* state=static_cast<PreSolveState*>(context);state->valid&=b2Shape_IsValid(a)&&b2Shape_IsValid(b)&&b2IsValidVec2(point)&&b2IsValidVec2(normal);++state->calls;return state->allow;
+    PreSolveState* state=static_cast<PreSolveState*>(context);state->valid&=b2Shape_IsValid(a)&&b2Shape_IsValid(b)&&b2IsValidPos(point)&&b2IsValidVec2(normal);++state->calls;return state->allow;
 }
 
 int PreSolveCallbackTest(void)

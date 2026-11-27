@@ -37,8 +37,31 @@ typedef struct b2Transform
 
 static const b2Transform b2Transform_identity = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };
 
+#if defined( BOX2D_DOUBLE_PRECISION )
+
+/// 世界位置。大世界模式下为双精度，使坐标在远离原点时仍保持准确。
+typedef struct b2Pos
+{
+	double x, y;
+} b2Pos;
+
+/// 世界变换，平移为双精度、旋转为单精度。旋转是局部的，不需要额外范围，
+/// 与 Jolt 的 DMat44 划分方式相同。
+typedef struct b2WorldTransform
+{
+	b2Pos p;
+	b2Rot q;
+} b2WorldTransform;
+
+#else
+
+/// 单精度下的别名。
 typedef b2Vec2 b2Pos;
+
+/// 单精度下的别名。
 typedef b2Transform b2WorldTransform;
+
+#endif
 
 static const b2Pos b2Pos_zero = { 0.0f, 0.0f };
 static const b2WorldTransform b2WorldTransform_identity = { { 0.0f, 0.0f }, { 1.0f, 0.0f } };

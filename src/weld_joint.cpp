@@ -305,8 +305,8 @@ void b2DrawWeldJoint( b2DebugDraw* draw, b2JointSim* base, b2WorldTransform tran
 {
 	B2_ASSERT( base->type == b2_weldJoint );
 
-	b2WorldTransform frameA = b2MulTransforms( transformA, base->localFrameA );
-	b2WorldTransform frameB = b2MulTransforms( transformB, base->localFrameB );
+	b2WorldTransform frameA = b2MulWorldTransforms( transformA, base->localFrameA );
+	b2WorldTransform frameB = b2MulWorldTransforms( transformB, base->localFrameB );
 
 	b2Polygon box = b2MakeBox( 0.25f * drawScale, 0.125f * drawScale );
 	draw->DrawPolygonFcn( frameA, box.vertices, 4, b2_colorDarkOrange, draw->context );

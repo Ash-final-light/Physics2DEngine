@@ -7,6 +7,7 @@
 #include "shape.h"
 #include "platform.h"
 #include "simd.h"
+#include "aabb.h"
 #include "box2d/math_functions.h"
 
 #include <bit>
@@ -52,7 +53,7 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
 	// 沿链条形状快速平行运动时提前退出。
 	if ( shape->type == b2_chainSegmentShape )
 	{
-		b2Transform transform = b2Transform{b2Sub(bodySim->transform.p,continuousContext->base),bodySim->transform.q};
+		b2Transform transform = b2Transform{b2SubPos(bodySim->transform.p,continuousContext->base),bodySim->transform.q};
 		b2Vec2 p1 = b2TransformPoint( transform, shape->chainSegment.segment.point1 );
 		b2Vec2 p2 = b2TransformPoint( transform, shape->chainSegment.segment.point2 );
 		b2Vec2 e = b2Sub( p2, p1 );
@@ -104,7 +105,7 @@ static bool b2ContinuousQueryCallback(int proxyId,uint64_t userData,void* contex
     if(didHit && (shape->enablePreSolveEvents || fastShape->enablePreSolveEvents) && world->preContinuousFcn!=NULL)
     {
         b2ShapeId idA={shape->id+1,world->worldId,shape->generation},idB={fastShape->id+1,world->worldId,fastShape->generation};
-        didHit=world->preContinuousFcn(idA,idB,b2Add(continuousContext->base,output.point),output.normal,world->preSolveContext);
+        didHit=world->preContinuousFcn(idA,idB,b2OffsetPos(continuousContext->base,output.point),output.normal,world->preSolveContext);
     }
     if(didHit) { continuousContext->fraction=hitFraction; }
     return true;
@@ -125,8 +126,8 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
         b2Shape* shape=world->shapes.data+shapeId;context.fastShape=shape;
         b2Vec2 centroid=b2GetShapeCentroid(shape);
         context.centroid1=b2TransformPoint(xf1,centroid);context.centroid2=b2TransformPoint(xf2,centroid);
-        b2AABB box1=shape->aabb,box2=b2ComputeShapeAABB(shape,xf2);
-        box2.lowerBound=b2Add(box2.lowerBound,base);box2.upperBound=b2Add(box2.upperBound,base);
+        b2AABB box1=shape->aabb,box2=b2ComputeShapeAABB(shape,b2MakeWorldTransform(xf2));
+        box2=b2OffsetAABB(box2,base);
         shape->aabb=box2;
         if(shape->sensorIndex!=B2_NULL_INDEX) { continue; }
         b2AABB sweptBox=b2AABB_Union(box1,box2);
@@ -140,8 +141,8 @@ static void b2SolveContinuous(b2World* world,int bodySimIndex,float dt)
     if(context.fraction<1.0f)
     {
         b2Rot q=b2NLerp(sweep.q1,sweep.q2,context.fraction);b2Vec2 c=b2Lerp(sweep.c1,sweep.c2,context.fraction);
-        fastBodySim->transform.q=q;fastBodySim->transform.p=b2Add(base,b2Sub(c,b2RotateVector(q,sweep.localCenter)));
-        fastBodySim->center=b2Add(base,c);fastBodySim->flags|=b2_hadTimeOfImpact;
+        fastBodySim->transform.q=q;fastBodySim->transform.p=b2OffsetPos(base,b2Sub(c,b2RotateVector(q,sweep.localCenter)));
+        fastBodySim->center=b2OffsetPos(base,c);fastBodySim->flags|=b2_hadTimeOfImpact;
         world->bodyMoveEvents.data[bodySimIndex].transform=fastBodySim->transform;
         b2BodyState* state=awake->bodyStates.data+bodySimIndex;
         float timeLoss=(1.0f-context.fraction)*dt;
@@ -190,8 +191,8 @@ static void b2ReportHitEvents(b2World* world)
         b2Shape* a=world->shapes.data+contact->shapeIdA;b2Shape* b=world->shapes.data+contact->shapeIdB;
         b2Body* bodyA=world->bodies.data+a->bodyId;b2Body* bodyB=world->bodies.data+b->bodyId;
         event.normal=sim->manifold.normal;
-        if(bodyA->type!=b2_staticBody && bodyB->type==b2_staticBody) { event.point=b2Add(b2GetBodySim(world,bodyB)->center,best->anchorB); }
-        else { event.point=b2Add(b2GetBodySim(world,bodyA)->center,best->anchorA); }
+        if(bodyA->type!=b2_staticBody && bodyB->type==b2_staticBody) { event.point=b2OffsetPos(b2GetBodySim(world,bodyB)->center,best->anchorB); }
+        else { event.point=b2OffsetPos(b2GetBodySim(world,bodyA)->center,best->anchorA); }
         event.shapeIdA={a->id+1,world->worldId,a->generation};event.shapeIdB={b->id+1,world->worldId,b->generation};
         event.contactId={contact->contactId+1,world->worldId,0,contact->generation};b2Array_Push(world->contactHitEvents,event);
     }
@@ -373,9 +374,9 @@ void b2EndSolve(b2StepContext* context)
     {
         b2BodySim* sim=set->bodySims.data+i;
         b2BodyState* state=set->bodyStates.data+i;
-        sim->center=b2Add(sim->center,state->deltaPosition);
+        sim->center=b2OffsetPos(sim->center,state->deltaPosition);
         sim->transform.q=b2NormalizeRot(b2MulRot(state->deltaRotation,sim->transform.q));
-        sim->transform.p=b2Sub(sim->center,b2RotateVector(sim->transform.q,sim->localCenter));
+        sim->transform.p=b2OffsetPos(sim->center,b2Neg(b2RotateVector(sim->transform.q,sim->localCenter)));
         float maxVelocity=b2Length(state->linearVelocity)+b2AbsFloat(state->angularVelocity)*sim->maxExtent;
         float maxDeltaPosition=b2Length(state->deltaPosition)+b2AbsFloat(state->deltaRotation.s)*sim->maxExtent;
         float sleepVelocity=b2MaxFloat(maxVelocity,0.5f/timeStep*maxDeltaPosition);

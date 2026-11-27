@@ -321,13 +321,13 @@ bool b2UpdateContact( b2World* world, b2ContactSim* sim, b2Shape* a, b2WorldTran
         sim->rollingResistance=b2MaxFloat(a->material.rollingResistance,b->material.rollingResistance)*maxRadius;
     }
     b2Manifold old = sim->manifold;
-    b2Transform relative = b2InvMulTransforms(transformA,transformB);
+    b2Transform relative = b2InvMulWorldTransforms(transformA,transformB);
     b2ManifoldFcn* function = b2_contactRegistry[a->type][b->type].fcn;
     b2LocalManifold local = function(a,b,relative,&sim->cache);
     sim->manifold = b2Manifold{};
     sim->manifold.normal = b2RotateVector(transformA.q,local.normal);
     sim->manifold.pointCount = local.pointCount;
-    b2Vec2 originDelta = b2Sub(transformA.p,transformB.p);
+    b2Vec2 originDelta = b2SubPos(transformA.p,transformB.p);
     for ( int i = 0; i < local.pointCount; ++i )
     {
         b2ManifoldPoint* point = sim->manifold.points+i;
@@ -389,7 +389,7 @@ if ( ( hadTimeOfImpact == false || wasTouching ) && recycleDistance > 0.0f &&
 	b2Rot cachedQA = contactSim->cachedRotationA;
 	b2Rot cachedQB = contactSim->cachedRotationB;
 	b2Transform xfc = contactSim->cachedRelativePose;
-	b2Transform xf = b2InvMulTransforms( transformA, transformB );
+	b2Transform xf = b2InvMulWorldTransforms( transformA, transformB );
 
 	float cosA = b2RelativeCos( transformA.q, cachedQA );
 	float cosB = b2RelativeCos( transformB.q, cachedQB );
@@ -412,7 +412,7 @@ if ( ( hadTimeOfImpact == false || wasTouching ) && recycleDistance > 0.0f &&
 		b2Vec2 normal = contactSim->manifold.normal;
 
 		// 尽量减少舍入
-		b2Vec2 dc = b2Sub( bodySimB->center, bodySimA->center );
+		b2Vec2 dc = b2SubPos( bodySimB->center, bodySimA->center );
 
 		for ( int i = 0; i < contactSim->manifold.pointCount; ++i )
 		{
@@ -456,10 +456,10 @@ void b2UpdateContacts( b2World* world )
         current->invMassB=simB->invMass;current->invIB=simB->invInertia;
         if(b2TryRecycleContact(world,current,simA,simB,wasTouching)) { ++world->recycledContactCount;continue; }
         current->cachedRotationA=simA->transform.q;current->cachedRotationB=simB->transform.q;
-        current->cachedRelativePose=b2InvMulTransforms(simA->transform,simB->transform);
+        current->cachedRelativePose=b2InvMulWorldTransforms(simA->transform,simB->transform);
         current->simFlags|=b2_simRelativeTransformValid;
         bool touching = b2UpdateContact(world,b2GetContactSim(world,contact),a,b2GetBodySim(world,bodyA)->transform,
-            b2Sub(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2Sub(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
+            b2SubPos(b2GetBodySim(world,bodyA)->center,b2GetBodySim(world,bodyA)->transform.p),b,b2GetBodySim(world,bodyB)->transform,b2SubPos(b2GetBodySim(world,bodyB)->center,b2GetBodySim(world,bodyB)->transform.p));
         for(int p=0;p<current->manifold.pointCount;++p) { current->manifold.points[p].baseSeparation=current->manifold.points[p].separation; }
         if ( touching ) { contact->flags |= b2_contactTouchingFlag; }
         else { contact->flags &= ~b2_contactTouchingFlag; }

@@ -96,6 +96,7 @@ int ReplayQueryDivergenceTest( void );
 int ReplayBodyEnumerationTest( void );
 int RecordingIntegrityTest( void );
 int RecordingIntegrityInvalidTest( void );
+int PrecisionConfigurationTest( void );
 int TimerTest( void );
 int ParallelBroadPhaseTest( void );
 int MutexTest( void );
@@ -1134,6 +1135,8 @@ int main( int argc, char** argv )
 	if(filter==NULL || strcmp(filter,"RecordingIntegrityTest")==0) { ran=1; RUN_TEST(RecordingIntegrityTest); }
 
 	if(filter==NULL || strcmp(filter,"RecordingIntegrityInvalidTest")==0) { ran=1; RUN_TEST(RecordingIntegrityInvalidTest); }
+
+	if(filter==NULL || strcmp(filter,"PrecisionConfigurationTest")==0) { ran=1; RUN_TEST(PrecisionConfigurationTest); }
 
 	if ( filter == NULL || strcmp( filter, "BroadPhaseTreeTypesTest" ) == 0 )
 	{

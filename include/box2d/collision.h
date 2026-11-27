@@ -405,7 +405,24 @@ B2_API uint64_t b2DynamicTree_GetUserData( const b2DynamicTree* tree, int proxyI
 B2_API b2AABB b2DynamicTree_GetProxyBounds( const b2DynamicTree* tree, int proxyId );
 
 /// 当前单精度世界中的投射结果。
+#if defined( BOX2D_DOUBLE_PRECISION )
+
+/// 世界空间投射输出。命中点为世界位置。法线仍为浮点方向。
+typedef struct b2WorldCastOutput
+{
+	b2Vec2 normal;	///< 命中点处的表面法线
+	b2Pos point;	///< 世界空间中的表面命中点
+	float fraction; ///< 碰撞时输入平移的分数
+	int iterations; ///< 使用的迭代次数
+	bool hit;		///< 投射是否命中？
+} b2WorldCastOutput;
+
+#else
+
+/// 单精度下的别名。
 typedef b2CastOutput b2WorldCastOutput;
+
+#endif
 
 typedef struct b2CollisionPlane
 {

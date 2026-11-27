@@ -585,8 +585,8 @@ int StepPhaseTest( void )
 		b2World_Step( full.worldId, 1.0f / 60.0f, 4 );
 		b2TaskBatch next = RunStagedStep( staged.worldId, 1.0f / 60.0f, 4 );
 		ENSURE( next.count == 0 && next.joinCount == 0 );
-		b2Vec2 p1 = b2Body_GetPosition( full.bodyId );
-		b2Vec2 p2 = b2Body_GetPosition( staged.bodyId );
+		b2Pos p1 = b2Body_GetPosition( full.bodyId );
+		b2Pos p2 = b2Body_GetPosition( staged.bodyId );
 		ENSURE_SMALL( p1.x - p2.x, 0.000001f );
 		ENSURE_SMALL( p1.y - p2.y, 0.000001f );
 		b2Vec2 v1 = b2Body_GetLinearVelocity( full.bodyId );
@@ -785,8 +785,8 @@ int StepOrderTest( void )
 		b2World_Step( full.worldId, 1.0f / 60.0f, 4 );
 		RunStagedStep( staged.worldId, 1.0f / 60.0f, 4 );
 	}
-	b2Vec2 p1 = b2Body_GetPosition( full.bodyId );
-	b2Vec2 p2 = b2Body_GetPosition( staged.bodyId );
+	b2Pos p1 = b2Body_GetPosition( full.bodyId );
+	b2Pos p2 = b2Body_GetPosition( staged.bodyId );
 	ENSURE_SMALL( p1.x - p2.x, 0.000001f );
 	ENSURE_SMALL( p1.y - p2.y, 0.000001f );
 

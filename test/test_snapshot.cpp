@@ -79,7 +79,7 @@ static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = 
 	b2ShapeDef shapeDef = b2DefaultShapeDef();
 
 	b2BodyDef groundDef = b2DefaultBodyDef();
-	groundDef.position = b2Vec2{ 0.0f, -1.0f };
+	groundDef.position = b2Pos{ 0.0f, -1.0f };
 	b2BodyId groundId = b2CreateBody( worldId, &groundDef );
 	b2Body_SetUserData( groundId, userData );
 	b2Polygon groundBox = b2MakeBox( 10.0f, 1.0f );
@@ -91,7 +91,7 @@ static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = 
 	{
 		b2BodyDef bodyDef = b2DefaultBodyDef();
 		bodyDef.type = b2_dynamicBody;
-		bodyDef.position = b2Vec2{ 0.0f, 0.5f + (float)i * 1.1f };
+		bodyDef.position = b2Pos{ 0.0f, 0.5f + (float)i * 1.1f };
 		b2BodyId bodyId = b2CreateBody( worldId, &bodyDef );
 		b2Body_SetUserData( bodyId, userData );
 		b2Polygon box = b2MakeBox( 0.4f, 0.4f );
@@ -105,9 +105,9 @@ static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = 
 
 	b2BodyDef jointBodyDef = b2DefaultBodyDef();
 	jointBodyDef.type = b2_dynamicBody;
-	jointBodyDef.position = b2Vec2{ 4.0f, 2.0f };
+	jointBodyDef.position = b2Pos{ 4.0f, 2.0f };
 	b2BodyId jointBodyA = b2CreateBody( worldId, &jointBodyDef );
-	jointBodyDef.position = b2Vec2{ 6.0f, 2.0f };
+	jointBodyDef.position = b2Pos{ 6.0f, 2.0f };
 	b2BodyId jointBodyB = b2CreateBody( worldId, &jointBodyDef );
 
 	b2DistanceJointDef jointDef = b2DefaultDistanceJointDef();
@@ -118,7 +118,7 @@ static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = 
 	b2JointId jointId = b2CreateDistanceJoint( worldId, &jointDef );
 
 	b2BodyDef chainBodyDef = b2DefaultBodyDef();
-	chainBodyDef.position = b2Vec2{ -8.0f, 0.0f };
+	chainBodyDef.position = b2Pos{ -8.0f, 0.0f };
 	b2BodyId chainBodyId = b2CreateBody( worldId, &chainBodyDef );
 	b2Vec2 points[3] = { b2Vec2{ -1.0f, 0.0f }, b2Vec2{ 0.0f, 0.0f }, b2Vec2{ 1.0f, 0.0f } };
 	b2SurfaceMaterial chainMaterial = b2DefaultSurfaceMaterial();
@@ -133,7 +133,7 @@ static b2WorldId BuildSnapshotWriteScene( void* userData, SnapshotIds* outIds = 
 	b2ChainId chainId = b2CreateChain( chainBodyId, &chainDef );
 
 	b2BodyDef sensorBodyDef = b2DefaultBodyDef();
-	sensorBodyDef.position = b2Vec2{ 0.0f, 5.0f };
+	sensorBodyDef.position = b2Pos{ 0.0f, 5.0f };
 	b2BodyId sensorBodyId = b2CreateBody( worldId, &sensorBodyDef );
 	b2ShapeDef sensorDef = b2DefaultShapeDef();
 	sensorDef.isSensor = true;

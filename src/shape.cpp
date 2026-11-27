@@ -1347,7 +1347,7 @@ bool b2Shape_TestPoint( b2ShapeId shapeId, b2Pos point )
 
 b2WorldCastOutput b2Shape_CastRay( b2ShapeId shapeId, b2Pos origin, b2Vec2 translation )
 {
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidVec2( translation ) );
 
 	b2World* world = b2_worlds + shapeId.world0;

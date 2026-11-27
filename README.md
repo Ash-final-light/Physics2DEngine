@@ -252,3 +252,5 @@ C 消费者包含 `box2d/box2d.h`，通过 `box2d::box2d` 链接 C++20 内核。
 `-DBUILD_SHARED_LIBS=ON` 构建动态库。动态库配置运行公开 C17 消费者，静态配置继续执行内部测试；Windows 消费者通过目标继承 `BOX2D_DLL`。
 
 静态库通过 CMake 目标传递 C++ 运行库依赖：Apple 为 libc++，其他 Unix/MinGW 为 libstdc++；MSVC 使用对象中的 CRT 默认库指令。C17 消费者显式使用 C 链接驱动运行验证。其他平台的链接配置尚未在本机执行。
+
+`BOX2D_DOUBLE_PRECISION=ON` 使用双精度世界位置和单精度局部几何。消费者通过 CMake 目标继承宏；不同精度的世界创建符号分别链接，防止混用 ABI。

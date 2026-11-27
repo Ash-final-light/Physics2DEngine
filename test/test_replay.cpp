@@ -75,7 +75,7 @@ int ReplayMutationTest( void )
 	{
 		b2World_Step( world, 1.0f / 60.0f, 4 );
 		int hits = 0;
-		b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -10, -10 }, { 10, 10 } } ), b2DefaultQueryFilter(), ReplayOverlap, &hits );
+		b2World_OverlapAABB( world, b2Pos_zero, ( b2AABB{ { -10, -10 }, { 10, 10 } } ), b2DefaultQueryFilter(), ReplayOverlap, &hits );
 		b2World_CastRay( world, ( b2Pos{ -10, 3 } ), ( b2Vec2{ 20, 0 } ), b2DefaultQueryFilter(), ReplayCast, &hits );
 	}
 	b2DestroyJoint( joints[1] ); b2DestroyChain( chain );
@@ -312,8 +312,8 @@ static std::vector<uint8_t> MakeQueryReplayFixture( void )
     for ( int i = 0; i < 3; ++i ) {
         b2World_Step( world, 1.0f / 60.0f, 4 ); int hits = 0; b2QueryFilter filter = b2DefaultQueryFilter();
         b2Vec2 center = {}; b2ShapeProxy proxy = b2MakeProxy( &center, 1, 5 );
-        b2World_OverlapAABB( world, b2Vec2_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), filter, ReplayOverlap, &hits );
-        b2World_OverlapShape( world, b2Vec2_zero, &proxy, filter, ReplayOverlap, &hits );
+        b2World_OverlapAABB( world, b2Pos_zero, ( b2AABB{ { -2, -2 }, { 5, 2 } } ), filter, ReplayOverlap, &hits );
+        b2World_OverlapShape( world, b2Pos_zero, &proxy, filter, ReplayOverlap, &hits );
         b2World_CastRay( world, ( b2Pos{ -2, 0 } ), ( b2Vec2{ 7, 0 } ), filter, ReplayCast, &hits );
         proxy.radius = 0.25f;
         b2World_CastShape( world, ( b2Pos{ -2, 0 } ), &proxy, ( b2Vec2{ 7, 0 } ), filter, ReplayCast, &hits );
@@ -396,7 +396,7 @@ int ReplayQueryDivergenceTest( void )
     memcpy( &header, bytes.data(), sizeof( header ) ); int offset = 32 + (int)header.snapshotSize; bool changed = false;
     while ( offset + 4 <= (int)bytes.size() ) {
         int size = bytes[offset+1] | (int)bytes[offset+2] << 8 | (int)bytes[offset+3] << 16;
-        if ( bytes[offset] == 0xE2 ) { bytes[offset + 48] ^= 1; changed = true; break; }
+        if ( bytes[offset] == 0xE2 ) { bytes[offset + 48 + sizeof(b2Pos) - 8] ^= 1; changed = true; break; }
         offset += 4 + size;
     }
     ENSURE( changed ); b2Replay* player = b2CreateReplay( bytes.data(), (int)bytes.size(), 1 ); ENSURE( player != nullptr );
@@ -484,7 +484,7 @@ int RecordingIntegrityInvalidTest( void )
             while ( offset + 4 <= (int)bytes.size() ) {
                 int size = bytes[offset+1] | (int)bytes[offset+2] << 8 | (int)bytes[offset+3] << 16;
                 if ( which == 3 && bytes[offset] == 0xF1 ) { bytes[offset + 8] ^= 1; changed = true; break; }
-                if ( which == 4 && bytes[offset] == 0xE2 ) { bytes[offset + 48] ^= 1; changed = true; break; }
+                if ( which == 4 && bytes[offset] == 0xE2 ) { bytes[offset + 48 + sizeof(b2Pos) - 8] ^= 1; changed = true; break; }
                 offset += 4 + size;
             }
             ENSURE( changed );

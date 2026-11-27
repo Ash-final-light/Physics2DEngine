@@ -74,3 +74,7 @@ endif()
 if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
  target_link_libraries(box2d PUBLIC m)
 endif()
+
+if(BOX2D_DOUBLE_PRECISION)
+ target_compile_definitions(box2d PUBLIC BOX2D_DOUBLE_PRECISION)
+endif()

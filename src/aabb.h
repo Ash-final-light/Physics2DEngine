@@ -8,6 +8,7 @@
 
 b2CastOutput b2AABB_RayCast( b2AABB a, b2Vec2 p1, b2Vec2 p2 );
 
+
 static inline b2AABB b2OffsetAABB( b2AABB box, b2Pos origin )
 {
 	b2AABB result;

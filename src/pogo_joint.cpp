@@ -82,8 +82,9 @@ float b2PogoJoint_GetCurrentLength( b2JointId jointId )
 {
 	b2World* world = b2_worlds + jointId.world0;
 	b2JointSim* jointSim = b2GetJointSimCheckType( jointId, b2_pogoJoint );
-	b2Transform transformA = b2GetBodySim( world, world->bodies.data + jointSim->bodyIdA )->transform;
-	b2Transform transformB = b2GetBodySim( world, world->bodies.data + jointSim->bodyIdB )->transform;
+	b2WorldTransform worldA = b2GetBodySim( world, world->bodies.data + jointSim->bodyIdA )->transform;
+	b2Transform transformA = b2ToRelativeTransform( worldA, worldA.p );
+	b2Transform transformB = b2ToRelativeTransform( b2GetBodySim( world, world->bodies.data + jointSim->bodyIdB )->transform, worldA.p );
 	b2Vec2 axis = b2RotateVector( transformB.q, b2RotateVector( jointSim->localFrameB.q, b2_pogoAxis ) );
 	b2Vec2 pA = b2TransformPoint( transformA, jointSim->localFrameA.p );
 	b2Vec2 pB = b2TransformPoint( transformB, jointSim->localFrameB.p );

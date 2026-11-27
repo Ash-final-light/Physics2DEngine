@@ -82,7 +82,7 @@ static void b2RemoveBodyFromIsland( b2World* world, b2Body* body )
 b2BodyId b2CreateBody( b2WorldId worldId, const b2BodyDef* def )
 {
     B2_CHECK_DEF(def);
-    if(def->type<b2_staticBody || def->type>=b2_bodyTypeCount || b2IsValidVec2(def->position)==false ||
+    if(def->type<b2_staticBody || def->type>=b2_bodyTypeCount || b2IsValidPos(def->position)==false ||
        b2IsValidRot(def->rotation)==false || b2IsValidVec2(def->linearVelocity)==false ||
        b2IsValidFloat(def->angularVelocity)==false || b2IsValidFloat(def->linearDamping)==false || def->linearDamping<0.0f ||
        b2IsValidFloat(def->angularDamping)==false || def->angularDamping<0.0f || b2IsValidFloat(def->gravityScale)==false ||
@@ -309,12 +309,12 @@ b2WorldTransform b2Body_GetTransform( b2BodyId bodyId )
 
 b2Vec2 b2Body_GetLocalPoint( b2BodyId bodyId, b2Pos worldPoint )
 {
-	return b2InvTransformPoint( b2GetBodyTransformFromId( bodyId ), worldPoint );
+	return b2InvTransformWorldPoint( b2GetBodyTransformFromId( bodyId ), worldPoint );
 }
 
 b2Pos b2Body_GetWorldPoint( b2BodyId bodyId, b2Vec2 localPoint )
 {
-	return b2TransformPoint( b2GetBodyTransformFromId( bodyId ), localPoint );
+	return b2TransformWorldPoint( b2GetBodyTransformFromId( bodyId ), localPoint );
 }
 
 b2Vec2 b2Body_GetLocalVector( b2BodyId bodyId, b2Vec2 worldVector )
@@ -329,7 +329,7 @@ b2Vec2 b2Body_GetWorldVector( b2BodyId bodyId, b2Vec2 localVector )
 
 void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 {
-	if ( b2IsValidVec2( position ) == false || b2IsValidRot( rotation ) == false ||
+	if ( b2IsValidPos( position ) == false || b2IsValidRot( rotation ) == false ||
 		 b2Body_IsValid( bodyId ) == false )
 	{
 		return;
@@ -344,7 +344,7 @@ void b2Body_SetTransform( b2BodyId bodyId, b2Pos position, b2Rot rotation )
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p = position;
 	b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.q = rotation;
     b2GetBodySim(world,body)->rotation0=rotation;
-	b2GetBodySim(b2_worlds+bodyId.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+bodyId.world0,body)->transform, b2GetBodySim(b2_worlds+bodyId.world0,body)->localCenter );
+	b2GetBodySim(b2_worlds+bodyId.world0,body)->center = b2TransformWorldPoint( b2GetBodySim(b2_worlds+bodyId.world0,body)->transform, b2GetBodySim(b2_worlds+bodyId.world0,body)->localCenter );
     b2GetBodySim(b2_worlds+bodyId.world0,body)->center0 = b2GetBodySim(b2_worlds+bodyId.world0,body)->center;
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
     {
@@ -363,7 +363,7 @@ b2AABB b2Body_ComputeBounds( b2BodyId bodyId )
     if ( body->headShapeId == B2_NULL_INDEX )
     {
         b2Pos position = b2GetBodySim(b2_worlds+bodyId.world0,body)->transform.p;
-        return b2AABB{ position, position };
+        return b2AABB{ { b2RoundDownFloat(position.x), b2RoundDownFloat(position.y) }, { b2RoundUpFloat(position.x), b2RoundUpFloat(position.y) } };
     }
     b2Shape* shape = world->shapes.data + body->headShapeId;
     b2AABB bounds = shape->aabb;
@@ -444,11 +444,11 @@ void b2UpdateBodyMassData( b2World* world, b2Body* body )
     }
     b2Pos oldCenter = b2GetBodySim(world,body)->center;
     b2GetBodySim(world,body)->localCenter = localCenter;
-    b2GetBodySim(world,body)->center = b2TransformPoint( b2GetBodySim(world,body)->transform, localCenter );
+    b2GetBodySim(world,body)->center = b2TransformWorldPoint( b2GetBodySim(world,body)->transform, localCenter );
     b2GetBodySim(world,body)->center0 = b2GetBodySim(world,body)->center;
     if ( (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
-        b2Vec2 delta = b2CrossSV( b2GetBodyState(world,body)->angularVelocity, b2Sub( b2GetBodySim(world,body)->center, oldCenter ) );
+        b2Vec2 delta = b2CrossSV( b2GetBodyState(world,body)->angularVelocity, b2SubPos( b2GetBodySim(world,body)->center, oldCenter ) );
         b2GetBodyState(world,body)->linearVelocity = b2Add( b2GetBodyState(world,body)->linearVelocity, delta );
     }
     for ( int id = body->headShapeId; id != B2_NULL_INDEX; id = world->shapes.data[id].nextShapeId )
@@ -512,11 +512,11 @@ void b2Body_SetMassData( b2BodyId id, b2MassData data )
     body->inertia = data.rotationalInertia;
     b2GetBodySim(b2_worlds+id.world0,body)->localCenter = data.center;
     b2Pos oldCenter = b2GetBodySim(b2_worlds+id.world0,body)->center;
-    b2GetBodySim(b2_worlds+id.world0,body)->center = b2TransformPoint( b2GetBodySim(b2_worlds+id.world0,body)->transform, data.center );
+    b2GetBodySim(b2_worlds+id.world0,body)->center = b2TransformWorldPoint( b2GetBodySim(b2_worlds+id.world0,body)->transform, data.center );
     b2GetBodySim(b2_worlds+id.world0,body)->center0 = b2GetBodySim(b2_worlds+id.world0,body)->center;
     if ( body->type != b2_staticBody && (body->setIndex == b2_awakeSet) && (body->setIndex != b2_disabledSet) )
     {
-        b2Vec2 delta = b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2Sub( b2GetBodySim(b2_worlds+id.world0,body)->center, oldCenter ) );
+        b2Vec2 delta = b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2SubPos( b2GetBodySim(b2_worlds+id.world0,body)->center, oldCenter ) );
         b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, delta );
     }
     b2GetBodySim(b2_worlds+id.world0,body)->invMass = body->mass > 0.0f ? 1.0f / body->mass : 0.0f;
@@ -651,7 +651,7 @@ b2Vec2 b2Body_GetWorldPointVelocity( b2BodyId id, b2Pos point )
     {
         return b2Vec2_zero;
     }
-    return b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2Sub( point, b2GetBodySim(b2_worlds+id.world0,body)->center ) ) );
+    return b2Add( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2CrossSV( b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity, b2SubPos( point, b2GetBodySim(b2_worlds+id.world0,body)->center ) ) );
 }
 
 
@@ -722,7 +722,7 @@ static b2Body* b2GetBodyForExternalAction( b2BodyId id, bool wake )
 
 void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
 {
-    if ( b2IsValidVec2( force ) == false || b2IsValidVec2( point ) == false )
+    if ( b2IsValidVec2( force ) == false || b2IsValidPos( point ) == false )
     {
         return;
     }
@@ -731,7 +731,7 @@ void b2Body_ApplyForce( b2BodyId id, b2Vec2 force, b2Pos point, bool wake )
     if ( body != NULL )
     {
         b2GetBodySim(b2_worlds+id.world0,body)->force = b2Add( b2GetBodySim(b2_worlds+id.world0,body)->force, force );
-        b2GetBodySim(b2_worlds+id.world0,body)->torque += b2Cross( b2Sub( point, b2GetBodySim(b2_worlds+id.world0,body)->center ), force );
+        b2GetBodySim(b2_worlds+id.world0,body)->torque += b2Cross( b2SubPos( point, b2GetBodySim(b2_worlds+id.world0,body)->center ), force );
     }
 }
 
@@ -785,7 +785,7 @@ static void b2LimitBodyVelocity( b2BodyState* state, float maximum )
 
 void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool wake )
 {
-    if ( b2IsValidVec2( impulse ) == false || b2IsValidVec2( point ) == false )
+    if ( b2IsValidVec2( impulse ) == false || b2IsValidPos( point ) == false )
     {
         return;
     }
@@ -794,7 +794,7 @@ void b2Body_ApplyLinearImpulse( b2BodyId id, b2Vec2 impulse, b2Pos point, bool w
     if ( body != NULL )
     {
         b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity = b2MulAdd( b2GetBodyState(b2_worlds+id.world0,body)->linearVelocity, b2GetBodySim(b2_worlds+id.world0,body)->invMass, impulse );
-        b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity += b2GetBodySim(b2_worlds+id.world0,body)->invInertia*b2Cross( b2Sub(point,b2GetBodySim(b2_worlds+id.world0,body)->center), impulse );
+        b2GetBodyState(b2_worlds+id.world0,body)->angularVelocity += b2GetBodySim(b2_worlds+id.world0,body)->invInertia*b2Cross( b2SubPos(point,b2GetBodySim(b2_worlds+id.world0,body)->center), impulse );
         b2LimitBodyVelocity( b2GetBodyState(b2_worlds+id.world0,body), b2_worlds[id.world0].maxLinearSpeed );
     }
 }
@@ -832,7 +832,7 @@ void b2Body_ApplyAngularImpulse( b2BodyId id, float impulse, bool wake )
 
 void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float timeStep, bool wake )
 {
-    if ( b2Body_IsValid(id)==false || b2IsValidTransform(target)==false || b2IsValidFloat(timeStep)==false || timeStep<=0.0f )
+    if ( b2Body_IsValid(id)==false || b2IsValidWorldTransform(target)==false || b2IsValidFloat(timeStep)==false || timeStep<=0.0f )
     {
         return;
     }
@@ -842,7 +842,7 @@ void b2Body_SetTargetTransform( b2BodyId id, b2WorldTransform target, float time
     {
         return;
     }
-    b2Vec2 delta=b2Sub(b2TransformPoint(target,b2GetBodySim(b2_worlds+id.world0,body)->localCenter),b2GetBodySim(b2_worlds+id.world0,body)->center);
+    b2Vec2 delta=b2SubPos(b2TransformWorldPoint(target,b2GetBodySim(b2_worlds+id.world0,body)->localCenter),b2GetBodySim(b2_worlds+id.world0,body)->center);
     float inverseTime=1.0f/timeStep;
     b2Vec2 velocity=b2MulSV(inverseTime,delta);
     float angularVelocity=inverseTime*b2RelativeAngle(b2GetBodySim(b2_worlds+id.world0,body)->transform.q,target.q);

@@ -829,7 +829,7 @@ b2TreeStats b2World_OverlapAABB( b2WorldId worldId, b2Pos origin, b2AABB aabb, b
 		return treeStats;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidAABB( aabb ) );
 
 
@@ -936,7 +936,7 @@ b2TreeStats b2World_OverlapShape( b2WorldId worldId, b2Pos origin, const b2Shape
 		return treeStats;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 
 
 
@@ -1045,7 +1045,7 @@ b2TreeStats b2World_CastRay( b2WorldId worldId, b2Pos origin, b2Vec2 translation
 		return treeStats;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidVec2( translation ) );
 
 
@@ -1126,7 +1126,7 @@ b2RayResult b2World_CastRayClosest( b2WorldId worldId, b2Pos origin, b2Vec2 tran
 		return result;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidVec2( translation ) );
 
 	b2RayCastInput input = { b2ToVec2( origin ), translation, 1.0f };
@@ -1234,7 +1234,7 @@ b2TreeStats b2World_CastShape( b2WorldId worldId, b2Pos origin, const b2ShapePro
 		return treeStats;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidVec2( translation ) );
 
 
@@ -1397,7 +1397,7 @@ void b2World_Explode( b2WorldId worldId, const b2ExplosionDef* explosionDef )
 	float falloff = explosionDef->falloff;
 	float impulsePerLength = explosionDef->impulsePerLength;
 
-	if (!b2IsValidVec2(position)) { return; }
+	if (!b2IsValidPos(position)) { return; }
 	if (!b2IsValidFloat(radius) || radius < 0.0f) { return; }
 	if (!b2IsValidFloat(falloff) || falloff < 0.0f) { return; }
 	if (!b2IsValidFloat(impulsePerLength)) { return; }
@@ -1470,7 +1470,7 @@ static float MoverCastCallback( const b2BoxCastInput* input, int proxyId, uint64
 float b2World_CastMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mover, b2Vec2 translation,
 						 b2QueryFilter filter )
 {
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 	B2_ASSERT( b2IsValidVec2( translation ) );
 	B2_ASSERT( mover->radius > 2.0f * B2_LINEAR_SLOP );
 
@@ -1582,7 +1582,7 @@ void b2World_CollideMover( b2WorldId worldId, b2Pos origin, const b2Capsule* mov
 		return;
 	}
 
-	B2_ASSERT( b2IsValidVec2( origin ) );
+	B2_ASSERT( b2IsValidPos( origin ) );
 
 
 

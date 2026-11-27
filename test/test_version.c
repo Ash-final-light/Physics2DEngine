@@ -11,7 +11,11 @@ int VersionCTest( void )
 		return 1;
 	}
 
+#if defined( BOX2D_DOUBLE_PRECISION )
+	if ( b2IsDoublePrecision() != true )
+#else
 	if ( b2IsDoublePrecision() != false )
+#endif
 	{
 		return 1;
 	}

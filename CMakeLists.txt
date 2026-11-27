@@ -33,6 +33,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
  endif()
 endif()
 
+option(BOX2D_DOUBLE_PRECISION "Store world positions in double precision" OFF)
+
 option(BOX2D_DISABLE_SIMD "Disable SIMD instructions" OFF)
 if(BOX2D_DISABLE_SIMD)
  add_compile_definitions(BOX2D_DISABLE_SIMD)
@@ -94,6 +96,7 @@ if(BUILD_TESTING)
 		test/test_state_hash.cpp
 		test/test_snapshot.cpp
 		test/test_recording.cpp
+		test/test_precision.cpp
 		test/test_replay.cpp
 		test/contact_solver_scalar4.cpp
 		test/test_hull.cpp

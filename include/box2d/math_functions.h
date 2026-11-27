@@ -616,3 +616,27 @@ B2_INLINE b2Pos b2LerpPos( b2Pos a, b2Pos b, float t )
 {
 	return B2_LITERAL( b2Pos ){ ( 1.0f - t ) * a.x + t * b.x, ( 1.0f - t ) * a.y + t * b.y };
 }
+
+B2_API bool b2IsValidPos( b2Pos p );
+B2_API bool b2IsValidWorldTransform( b2WorldTransform t );
+
+B2_INLINE b2Pos b2ToPos( b2Vec2 v )
+{
+	return B2_LITERAL( b2Pos ){ v.x, v.y };
+}
+
+B2_INLINE b2WorldTransform b2MulWorldTransforms( b2WorldTransform A, b2Transform B )
+{
+	b2WorldTransform C;
+	C.q = b2MulRot( A.q, B.q );
+	C.p = b2OffsetPos( A.p, b2RotateVector( A.q, B.p ) );
+	return C;
+}
+
+B2_INLINE b2WorldTransform b2MakeWorldTransform( b2Transform t )
+{
+	b2WorldTransform w;
+	w.p = b2ToPos( t.p );
+	w.q = t.q;
+	return w;
+}

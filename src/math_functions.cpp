@@ -156,3 +156,28 @@ b2CosSin b2ComputeCosSin( float radians )
 	b2CosSin cs = { c * invMag, s * invMag };
 	return cs;
 }
+
+bool b2IsValidPos( b2Pos p )
+{
+	if ( isnan( p.x ) || isnan( p.y ) )
+	{
+		return false;
+	}
+
+	if ( isinf( p.x ) || isinf( p.y ) )
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool b2IsValidWorldTransform( b2WorldTransform t )
+{
+	if ( b2IsValidPos( t.p ) == false )
+	{
+		return false;
+	}
+
+	return b2IsValidRot( t.q );
+}

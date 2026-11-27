@@ -62,7 +62,7 @@ int WorldOverlapShapeTest(void)
 struct RayHits { int count;int mode;int skipIndex;bool valid;b2ShapeId shape;b2Pos point;b2Vec2 normal;float fraction; };
 static float CollectRay(b2ShapeId shape,b2Pos point,b2Vec2 normal,float fraction,void* context)
 {
-    RayHits* hits=static_cast<RayHits*>(context);++hits->count;hits->valid&=b2Shape_IsValid(shape)&&b2IsValidVec2(point)&&b2IsValidVec2(normal)&&fraction>=0&&fraction<=1;
+    RayHits* hits=static_cast<RayHits*>(context);++hits->count;hits->valid&=b2Shape_IsValid(shape)&&b2IsValidPos(point)&&b2IsValidVec2(normal)&&fraction>=0&&fraction<=1;
     if(hits->mode==3 && shape.index1==hits->skipIndex) { return -1; }
     hits->shape=shape;hits->point=point;hits->normal=normal;hits->fraction=fraction;
     if(hits->mode==0) { return 1; }if(hits->mode==2) { return 0; }return fraction;
@@ -243,7 +243,7 @@ struct DrawStats { int circles,polygons,capsules,lines,points,strings,bounds,tra
 static void DrawCircle(b2WorldTransform xf,b2Vec2 local,float radius,b2HexColor color,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->circles;s->center=b2TransformWorldPoint(xf,local);s->color=color;s->valid&=radius>0; }
 static void DrawPolygon(b2WorldTransform,const b2Vec2*,int count,float,b2HexColor,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->polygons;s->valid&=count>=3; }
 static void DrawCapsule(b2Pos,b2Pos,float,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->capsules; }
-static void DrawLine(b2Pos a,b2Pos b,b2HexColor,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->lines;s->valid&=b2IsValidVec2(a)&&b2IsValidVec2(b); }
+static void DrawLine(b2Pos a,b2Pos b,b2HexColor,void* ctx) { DrawStats* s=(DrawStats*)ctx;++s->lines;s->valid&=b2IsValidPos(a)&&b2IsValidPos(b); }
 static void DrawPoint(b2Pos,float,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->points; }
 static void DrawString(b2Pos,const char*,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->strings; }
 static void DrawBounds(b2AABB,b2HexColor,void* ctx) { ++((DrawStats*)ctx)->bounds; }
