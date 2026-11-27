@@ -258,3 +258,5 @@ C 消费者包含 `box2d/box2d.h`，通过 `box2d::box2d` 链接 C++20 内核。
 `BOX2D_SANITIZE=ON` 在 MSVC Debug 开启 AddressSanitizer，并为 CTest 配置运行库路径；Unix/Apple 配置 AddressSanitizer 和 UBSan。`BOX2D_COMPILE_WARNING_AS_ERROR=ON` 将编译警告视作错误。
 
 Windows 可运行 `build_vs2022.bat` 或 `build_vs2022.bat Debug`；脚本固定工作目录到仓库并使用 VS2022/x64。也可依次使用 `cmake --preset windows`、`cmake --build --preset windows-relwithdebinfo` 和 `ctest --preset windows-relwithdebinfo`。
+
+使用 `cmake --install <build> --config RelWithDebInfo --prefix <prefix>` 安装。消费者可用 `find_package(box2d 3.2 CONFIG REQUIRED)`，链接 `box2d::box2d`；也支持 `add_subdirectory` 嵌入，嵌入时仅创建内核目标。

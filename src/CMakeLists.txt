@@ -47,8 +47,11 @@ add_library(box2d
 )
 add_library(box2d::box2d ALIAS box2d)
 
-target_include_directories(box2d PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../include")
-target_compile_features(box2d PUBLIC cxx_std_20)
+target_include_directories(box2d PUBLIC
+ $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+ $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+target_compile_features(box2d PRIVATE cxx_std_20)
 
 if(MSVC AND NOT BOX2D_DISABLE_SIMD AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_ARCHITECTURE_ID MATCHES "^(x64|X86)$")
  set_source_files_properties(contact_solver_w8.cpp PROPERTIES COMPILE_OPTIONS "/arch:AVX2")
@@ -78,3 +81,16 @@ endif()
 if(BOX2D_DOUBLE_PRECISION)
  target_compile_definitions(box2d PUBLIC BOX2D_DOUBLE_PRECISION)
 endif()
+
+set_target_properties(box2d PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+install(TARGETS box2d EXPORT box2dConfig
+ LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+ RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../include/box2d" DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(EXPORT box2dConfig NAMESPACE box2d:: DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/box2d")
+export(EXPORT box2dConfig NAMESPACE box2d:: FILE "${PROJECT_BINARY_DIR}/box2dConfig.cmake")
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file("${PROJECT_BINARY_DIR}/box2dConfigVersion.cmake"
+ VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
+install(FILES "${PROJECT_BINARY_DIR}/box2dConfigVersion.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/box2d")

@@ -59,14 +59,17 @@ if(BOX2D_SANITIZE)
  endif()
 endif()
 
+include(GNUInstallDirs)
 add_subdirectory(src)
 
+if(PROJECT_IS_TOP_LEVEL)
 add_executable(toolchain_check
 	test/toolchain_c.c
 	test/toolchain_cpp.cpp
 )
+endif()
 
-if(BUILD_TESTING)
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 	add_executable(api_compat test/api_compat.c)
 	set_target_properties(api_compat PROPERTIES C_STANDARD 17 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE C)
 	target_link_libraries(api_compat PRIVATE box2d)
@@ -130,7 +133,7 @@ if(BUILD_TESTING)
 	endif()
 endif()
 
-if(BUILD_TESTING AND MSVC AND BOX2D_SANITIZE)
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING AND MSVC AND BOX2D_SANITIZE)
  get_filename_component(BOX2D_COMPILER_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
  set_tests_properties(box2d.c_api PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${BOX2D_COMPILER_BIN}")
  if(TARGET unit_tests)
