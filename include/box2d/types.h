@@ -1579,3 +1579,5 @@ B2_API b2BodyId b2Replay_GetBodyId( const b2Replay* player, int index );
 
 /// Replay all frames; return false on malformed data or any state/query divergence.
 B2_API bool b2ValidateRecording( const void* data, int size, int workerCount );
+
+B2_API int b2World_GetAwakeBodyCount( b2WorldId worldId );

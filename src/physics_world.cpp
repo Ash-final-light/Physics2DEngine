@@ -2134,3 +2134,10 @@ void b2World_StopRecording( b2WorldId worldId )
 
 	b2StopRecordingInternal( world );
 }
+
+int b2World_GetAwakeBodyCount( b2WorldId worldId )
+{
+	b2World* world = b2GetWorldFromId( worldId );
+	b2SolverSet* awakeSet = b2Array_Get( world->solverSets, b2_awakeSet );
+	return awakeSet->bodySims.count;
+}

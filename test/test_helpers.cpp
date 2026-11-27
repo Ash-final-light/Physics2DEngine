@@ -22,3 +22,20 @@ int SharedUtilitiesTest( void )
     }
     g_randomSeed = saved; return 0;
 }
+
+int AwakeBodyCountTest( void )
+{
+    int before = b2GetByteCount(); b2WorldDef wd = b2DefaultWorldDef(); wd.gravity = { 0, 0 };
+    b2WorldId world = b2CreateWorld( &wd ); ENSURE( b2World_GetAwakeBodyCount( world ) == 0 );
+    b2BodyDef bd = b2DefaultBodyDef(); b2CreateBody( world, &bd );
+    ENSURE( b2World_GetAwakeBodyCount( world ) == 0 );
+    bd.type = b2_dynamicBody; b2BodyId a = b2CreateBody( world, &bd );
+    bd.isAwake = false; b2BodyId b = b2CreateBody( world, &bd );
+    ENSURE( b2World_GetAwakeBodyCount( world ) == 1 );
+    b2Body_SetAwake( b, true ); ENSURE( b2World_GetAwakeBodyCount( world ) == 2 );
+    b2Body_SetAwake( a, false ); ENSURE( b2World_GetAwakeBodyCount( world ) == 1 );
+    b2Body_Disable( b ); ENSURE( b2World_GetAwakeBodyCount( world ) == 0 );
+    b2Body_Enable( b ); ENSURE( b2World_GetAwakeBodyCount( world ) == 1 );
+    b2DestroyBody( b ); ENSURE( b2World_GetAwakeBodyCount( world ) == 0 );
+    b2DestroyWorld( world ); ENSURE( b2GetByteCount() == before ); return 0;
+}
