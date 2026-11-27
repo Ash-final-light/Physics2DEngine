@@ -47,7 +47,7 @@ add_executable(toolchain_check
 
 if(BUILD_TESTING)
 	add_executable(api_compat test/api_compat.c)
-	set_target_properties(api_compat PROPERTIES C_STANDARD 17 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX)
+	set_target_properties(api_compat PROPERTIES C_STANDARD 17 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE C)
 	target_link_libraries(api_compat PRIVATE box2d)
 	add_test(NAME box2d.c_api COMMAND api_compat)
 	if(NOT BUILD_SHARED_LIBS)

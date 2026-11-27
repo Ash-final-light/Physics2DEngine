@@ -60,3 +60,17 @@ set_target_properties(box2d PROPERTIES CXX_VISIBILITY_PRESET hidden VISIBILITY_I
 if(WIN32 AND BUILD_SHARED_LIBS)
  target_compile_definitions(box2d INTERFACE BOX2D_DLL)
 endif()
+
+# C consumers of the static C++ implementation need the C++ runtime.
+set(BOX2D_CXX_RUNTIME "")
+if(APPLE)
+ set(BOX2D_CXX_RUNTIME "c++")
+elseif((UNIX OR MINGW) AND NOT MSVC)
+ set(BOX2D_CXX_RUNTIME "stdc++")
+endif()
+if(NOT BUILD_SHARED_LIBS AND BOX2D_CXX_RUNTIME)
+ target_link_libraries(box2d INTERFACE ${BOX2D_CXX_RUNTIME})
+endif()
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+ target_link_libraries(box2d PUBLIC m)
+endif()
