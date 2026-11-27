@@ -271,7 +271,7 @@ int BodyTypesTest( void )
     b2Body_ApplyLinearImpulseToCenter(bodies[b2_staticBody],{1000.0f,0.0f},true);
     b2World_Step(world,1.0f,2);
     ENSURE(b2Body_GetPosition(bodies[b2_staticBody]).x==0.0f);
-    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_kinematicBody]).x-(10.0f*b2_kinematicBody+2.0f),0.00001f);
+    ENSURE_SMALL(b2Body_GetPosition(bodies[b2_kinematicBody]).x-(10.0f*(float)b2_kinematicBody+2.0f),0.00001f);
     ENSURE(b2Body_GetPosition(bodies[b2_kinematicBody]).y==0.0f);
     ENSURE_SMALL(b2Body_GetPosition(bodies[b2_dynamicBody]).y+7.5f,0.00001f);
     bd.type=(b2BodyType)b2_bodyTypeCount;

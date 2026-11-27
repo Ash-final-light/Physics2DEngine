@@ -68,8 +68,8 @@ int HashSetInsertTest( void )
 	ENSURE( b2ContainsKey( &set, 999 ) == false );
 
 	uint64_t pair = B2_SHAPE_PAIR_KEY( 5, 10 );
-	ENSURE( pair == B2_SHAPE_PAIR_KEY( 10, 5 ) );
-	ENSURE( pair != B2_SHAPE_PAIR_KEY( 1, 2 ) );
+	ENSURE( pair == ( B2_SHAPE_PAIR_KEY( 10, 5 ) ) );
+	ENSURE( pair != ( B2_SHAPE_PAIR_KEY( 1, 2 ) ) );
 	ENSURE( b2AddKey( &set, pair ) == false );
 	ENSURE( b2AddKey( &set, B2_SHAPE_PAIR_KEY( 10, 5 ) ) == true );
 	ENSURE( b2AddKey( &set, B2_SHAPE_PAIR_KEY( 1, 2 ) ) == false );

@@ -194,7 +194,7 @@ int ContactRecycleTest(void)
     b2World_SetContactRecycleDistance(id,0);ENSURE(b2World_GetContactRecycleDistance(id)==0);
     b2Body_SetTransform(b,{1.561f,0},b2Rot_identity);b2UpdateContacts(world);sim=b2GetContactSim(world,contact);
     ENSURE_SMALL(b2Length(sim->cachedRelativePose.p)-1.561f,0.00001f);
-    b2ContactId old={contact->contactId+1,id.index1-1,0,contact->generation};
+    b2ContactId old={contact->contactId+1,(uint16_t)(id.index1-1),0,contact->generation};
     b2Filter filter=b2DefaultFilter();filter.maskBits=0;b2Shape_SetFilter(sa,filter);
     ENSURE(!b2Contact_IsValid(old));ENSURE(world->broadPhase.pairSet.count==0);
     b2Shape_SetFilter(sa,b2DefaultFilter());b2UpdateBroadPhaseContacts(world);b2UpdateContacts(world);
