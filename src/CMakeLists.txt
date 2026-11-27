@@ -94,3 +94,63 @@ include(CMakePackageConfigHelpers)
 write_basic_package_version_file("${PROJECT_BINARY_DIR}/box2dConfigVersion.cmake"
  VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion)
 install(FILES "${PROJECT_BINARY_DIR}/box2dConfigVersion.cmake" DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/box2d")
+
+# 所有路径相对 .pc 文件自身，安装树可通过 cmake --install --prefix
+# 或事后搬迁仍能使用
+file(RELATIVE_PATH PKGCONFIG_PREFIX_REL "${CMAKE_INSTALL_FULL_LIBDIR}/pkgconfig" "${CMAKE_INSTALL_PREFIX}")
+string(REGEX REPLACE "/$" "" PKGCONFIG_PREFIX_REL "${PKGCONFIG_PREFIX_REL}")
+file(RELATIVE_PATH PKGCONFIG_LIBDIR_REL "${CMAKE_INSTALL_PREFIX}" "${CMAKE_INSTALL_FULL_LIBDIR}")
+file(RELATIVE_PATH PKGCONFIG_INCLUDEDIR_REL "${CMAKE_INSTALL_PREFIX}" "${CMAKE_INSTALL_FULL_INCLUDEDIR}")
+
+# .pc 必须带上导出目标的全部 PUBLIC 宏，否则引用方按不同头文件语义编译。
+# 需与上面的宏保持同步。
+set(PKGCONFIG_CFLAGS "")
+if (BOX2D_DOUBLE_PRECISION)
+	string(APPEND PKGCONFIG_CFLAGS " -DBOX2D_DOUBLE_PRECISION")
+endif()
+if (WIN32 AND BUILD_SHARED_LIBS)
+	# base.h 用 _WIN32 决定 dllimport，MinGW 和 MSVC 都需要此宏
+	string(APPEND PKGCONFIG_CFLAGS " -DBOX2D_DLL")
+endif()
+
+
+set(PKGCONFIG_LIBNAME "box2d$<$<CONFIG:Debug>:${CMAKE_DEBUG_POSTFIX}>")
+
+# 普通 pkg-config --libs 会跳过 Libs.private；Box2D 默认静态库，
+# 因此公共链接依赖应写在主行，除非正在构建共享库
+set(PKGCONFIG_LIBS "")
+set(PKGCONFIG_LIBS_PRIVATE "")
+if(UNIX AND NOT APPLE AND NOT EMSCRIPTEN)
+	if(BUILD_SHARED_LIBS)
+		string(APPEND PKGCONFIG_LIBS_PRIVATE " -lm")
+	else()
+		string(APPEND PKGCONFIG_LIBS " -lm")
+	endif()
+endif()
+
+# C consumers of the static C++ implementation also link its runtime.
+if(APPLE)
+    set(BOX2D_CXX_RUNTIME " -lc++")
+elseif(UNIX OR MINGW)
+    set(BOX2D_CXX_RUNTIME " -lstdc++")
+else()
+    set(BOX2D_CXX_RUNTIME "")
+endif()
+if(BUILD_SHARED_LIBS)
+    string(APPEND PKGCONFIG_LIBS_PRIVATE "${BOX2D_CXX_RUNTIME}")
+else()
+    string(APPEND PKGCONFIG_LIBS "${BOX2D_CXX_RUNTIME}")
+endif()
+
+configure_file(box2d.pc.in box2d.pc.gen @ONLY)
+
+# 库名和断言宏随配置变化，按配置完成替换，而不是只在 configure 时替换一次
+file(GENERATE
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/$<CONFIG>/box2d.pc"
+  INPUT "${CMAKE_CURRENT_BINARY_DIR}/box2d.pc.gen"
+)
+
+install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/pkgconfig/$<CONFIG>/box2d.pc"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
+)

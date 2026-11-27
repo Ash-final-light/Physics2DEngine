@@ -260,3 +260,5 @@ C 消费者包含 `box2d/box2d.h`，通过 `box2d::box2d` 链接 C++20 内核。
 Windows 可运行 `build_vs2022.bat` 或 `build_vs2022.bat Debug`；脚本固定工作目录到仓库并使用 VS2022/x64。也可依次使用 `cmake --preset windows`、`cmake --build --preset windows-relwithdebinfo` 和 `ctest --preset windows-relwithdebinfo`。
 
 使用 `cmake --install <build> --config RelWithDebInfo --prefix <prefix>` 安装。消费者可用 `find_package(box2d 3.2 CONFIG REQUIRED)`，链接 `box2d::box2d`；也支持 `add_subdirectory` 嵌入，嵌入时仅创建内核目标。
+
+安装也包含 `lib/pkgconfig/box2d.pc`。元数据相对 `.pc` 自身定位安装根目录；精度和 Windows 动态库导入宏与当前构建一致。静态库将 C++ 运行库列为普通链接依赖，共享库将其列为私有依赖。
